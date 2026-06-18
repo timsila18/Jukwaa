@@ -12,7 +12,7 @@ export default function LegalPage() {
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900">
       <section className="mx-auto max-w-4xl">
-        <Link className="text-sm font-bold text-teal-700" href="/">Back to dashboard</Link>
+        <Link className="text-sm font-bold text-sky-700" href="/">Back to dashboard</Link>
         <h1 className="mt-6 text-3xl font-bold text-slate-950">Legal and Data Policies</h1>
         <div className="mt-6 grid gap-4">
           {docs.map(([title, body]) => (

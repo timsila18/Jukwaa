@@ -81,40 +81,40 @@ export default function UserSignupPage() {
     <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900">
       <section className="mx-auto grid max-w-6xl gap-5 lg:grid-cols-[1fr_1fr]">
       <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-        <Link className="text-sm font-bold text-teal-700" href="/">Back to dashboard</Link>
+        <Link className="text-sm font-bold text-sky-700" href="/">Back to dashboard</Link>
         <div className="mt-6">
-          <div className="grid h-11 w-11 place-items-center rounded-lg bg-teal-50 text-teal-700">
+          <div className="grid h-11 w-11 place-items-center rounded-lg bg-sky-50 text-sky-700">
             <UserCheck size={20} />
           </div>
           <h1 className="mt-4 text-2xl font-bold text-slate-950">Create or Invite Campaign User</h1>
           <p className="mt-2 text-sm leading-6 text-slate-600">Generate a one-time joining code and give it to the user. They create their password once and login normally after that.</p>
         </div>
         <form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={(event) => { event.preventDefault(); void createInvitation(); }}>
-          <label className="block text-sm font-semibold text-slate-700">Full name<input autoComplete="name" className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-teal-500" onChange={(event) => update("fullName", event.target.value)} value={form.fullName} /></label>
-          <label className="block text-sm font-semibold text-slate-700">Phone number<input autoComplete="tel" className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-teal-500" onChange={(event) => update("phoneNumber", event.target.value)} value={form.phoneNumber} /></label>
-          <label className="block text-sm font-semibold text-slate-700">Email address<input autoComplete="email" className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-teal-500" onChange={(event) => update("email", event.target.value)} value={form.email} /></label>
+          <label className="block text-sm font-semibold text-slate-700">Full name<input autoComplete="name" className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => update("fullName", event.target.value)} value={form.fullName} /></label>
+          <label className="block text-sm font-semibold text-slate-700">Phone number<input autoComplete="tel" className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => update("phoneNumber", event.target.value)} value={form.phoneNumber} /></label>
+          <label className="block text-sm font-semibold text-slate-700">Email address<input autoComplete="email" className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => update("email", event.target.value)} value={form.email} /></label>
           <label className="block text-sm font-semibold text-slate-700">
             Role
-            <select className="mt-1 h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-teal-500" onChange={(event) => update("role", event.target.value)} value={form.role}>
+            <select className="mt-1 h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => update("role", event.target.value)} value={form.role}>
               {roles.map((role) => <option key={role}>{role}</option>)}
             </select>
           </label>
           <label className="block text-sm font-semibold text-slate-700">
             Geography assignment
-            <input className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-teal-500" onChange={(event) => update("geography", event.target.value)} placeholder="All campaign, constituency, ward, village, station" value={form.geography} />
+            <input className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => update("geography", event.target.value)} placeholder="All campaign, constituency, ward, village, station" value={form.geography} />
           </label>
-          <button className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-teal-700 px-4 text-sm font-bold text-white hover:bg-teal-800 md:col-span-2" type="submit">
+          <button className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-bold text-white hover:bg-slate-900 md:col-span-2" type="submit">
             <KeyRound size={16} />
             Create User Invitation
           </button>
         </form>
         {status ? <div className="mt-4 rounded-md bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">{status}</div> : null}
         {inviteCode ? (
-          <div className="mt-4 rounded-md border border-teal-100 bg-teal-50 p-4">
-            <div className="text-xs font-bold uppercase tracking-wide text-teal-800">Joining code</div>
+          <div className="mt-4 rounded-md border border-sky-100 bg-sky-50 p-4">
+            <div className="text-xs font-bold uppercase tracking-wide text-sky-800">Joining code</div>
             <div className="mt-2 text-2xl font-black text-slate-950">{inviteCode}</div>
             <div className="mt-2 break-all text-sm font-semibold text-slate-700">{joinUrl}</div>
-            <button className="mt-3 inline-flex h-10 items-center gap-2 rounded-md bg-white px-3 text-sm font-bold text-teal-800 ring-1 ring-teal-200 hover:bg-teal-100" onClick={() => void navigator.clipboard.writeText(`${inviteCode}\n${joinUrl}`)} type="button">
+            <button className="mt-3 inline-flex h-10 items-center gap-2 rounded-md bg-white px-3 text-sm font-bold text-sky-800 ring-1 ring-sky-200 hover:bg-sky-100" onClick={() => void navigator.clipboard.writeText(`${inviteCode}\n${joinUrl}`)} type="button">
               <Copy size={15} />
               Copy code
             </button>
@@ -132,19 +132,19 @@ export default function UserSignupPage() {
         <form className="mt-6 space-y-4" onSubmit={(event) => { event.preventDefault(); void joinWorkspace(); }}>
           <label className="block text-sm font-semibold text-slate-700">
             Joining code
-            <input autoComplete="one-time-code" className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm uppercase outline-none focus:border-teal-500" onChange={(event) => updateJoin("joinCode", event.target.value.toUpperCase())} placeholder="JUK-ABC123" value={joinForm.joinCode} />
+            <input autoComplete="one-time-code" className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm uppercase outline-none focus:border-sky-500" onChange={(event) => updateJoin("joinCode", event.target.value.toUpperCase())} placeholder="JUK-ABC123" value={joinForm.joinCode} />
           </label>
           <label className="block text-sm font-semibold text-slate-700">
             Phone or email from invitation
-            <input autoComplete="username" className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-teal-500" onChange={(event) => updateJoin("login", event.target.value)} placeholder="+254700111222 or user@example.com" value={joinForm.login} />
+            <input autoComplete="username" className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => updateJoin("login", event.target.value)} placeholder="+254700111222 or user@example.com" value={joinForm.login} />
           </label>
           <label className="block text-sm font-semibold text-slate-700">
             Create password
-            <input autoComplete="new-password" className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-teal-500" onChange={(event) => updateJoin("password", event.target.value)} placeholder="At least 8 characters" type="password" value={joinForm.password} />
+            <input autoComplete="new-password" className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => updateJoin("password", event.target.value)} placeholder="At least 8 characters" type="password" value={joinForm.password} />
           </label>
           <label className="block text-sm font-semibold text-slate-700">
             Confirm password
-            <input autoComplete="new-password" className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-teal-500" onChange={(event) => updateJoin("confirmPassword", event.target.value)} placeholder="Repeat password" type="password" value={joinForm.confirmPassword} />
+            <input autoComplete="new-password" className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => updateJoin("confirmPassword", event.target.value)} placeholder="Repeat password" type="password" value={joinForm.confirmPassword} />
           </label>
           <button className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-bold text-white hover:bg-slate-800" type="submit">
             <KeyRound size={16} />
@@ -153,7 +153,7 @@ export default function UserSignupPage() {
         </form>
         {joinStatus ? <div className="mt-4 rounded-md bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">{joinStatus}</div> : null}
         {joinError ? <div className="mt-4 rounded-md bg-red-50 p-3 text-sm font-semibold text-red-700">{joinError}</div> : null}
-        <Link className="mt-4 block rounded-md bg-slate-50 p-3 text-sm font-bold text-slate-700 hover:bg-teal-50 hover:text-teal-800" href="/login">Go to login</Link>
+        <Link className="mt-4 block rounded-md bg-slate-50 p-3 text-sm font-bold text-slate-700 hover:bg-sky-50 hover:text-sky-800" href="/login">Go to login</Link>
       </div>
       </section>
     </main>

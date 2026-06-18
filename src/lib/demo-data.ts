@@ -696,7 +696,7 @@ export const campaign = {
   constituency: "Central Constituency",
   electionYear: 2027,
   slogan: "Service, dignity, delivery",
-  primaryColor: "#0f766e",
+  primaryColor: "#0ea5e9",
   secondaryColor: "#0f172a",
 };
 
@@ -941,7 +941,7 @@ export const electionCycles: ElectionCycle[] = [
 
 export const candidateBranding: CandidateBranding = {
   logo: "JD",
-  campaignColors: [campaign.primaryColor, campaign.secondaryColor, "#f59e0b"],
+  campaignColors: [campaign.primaryColor, campaign.secondaryColor, "#475569"],
   candidatePhoto: "/candidate/john-doe.jpg",
   slogan: campaign.slogan,
   campaignBanner: "/campaign/banner-john-doe.jpg",

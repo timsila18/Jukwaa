@@ -208,7 +208,7 @@ const sectionTargets: Record<string, string> = {
 };
 
 const supportColors: Record<SupportLevel, string> = {
-  "Strong Supporter": "#0f766e",
+  "Strong Supporter": "#0ea5e9",
   "Leaning Supporter": "#38bdf8",
   Undecided: "#f59e0b",
   Opponent: "#dc2626",
@@ -222,7 +222,7 @@ const getServerSnapshot = () => false;
 function Logo() {
   return (
     <div className="flex items-center gap-3">
-      <div className="grid h-10 w-10 place-items-center rounded-lg bg-teal-700 text-white shadow-sm">
+      <div className="grid h-10 w-10 place-items-center rounded-lg bg-slate-950 text-white shadow-sm">
         <Flag size={22} />
       </div>
       <div>
@@ -241,7 +241,7 @@ function StatCard({ label, value, helper, icon: Icon }: { label: string; value: 
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
           <p className="mt-2 text-2xl font-bold text-slate-950">{value}</p>
         </div>
-        <div className="grid h-9 w-9 place-items-center rounded-lg bg-teal-50 text-teal-700">
+        <div className="grid h-9 w-9 place-items-center rounded-lg bg-sky-50 text-sky-700">
           <Icon size={18} />
         </div>
       </div>
@@ -275,7 +275,7 @@ function ExportButton({ type, label }: { type: "csv" | "xlsx" | "pdf"; label: st
   return (
     <a
       href={`/api/reports/export?format=${type}&report=supporters-by-ward`}
-      className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800"
+      className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-800"
     >
       <Download size={15} />
       {label}
@@ -300,7 +300,7 @@ function ReportLink({ report, label }: { report: string; label: string }) {
       <span className="text-sm font-semibold text-slate-700">{label}</span>
       <div className="flex gap-1">
         {(["csv", "xlsx", "pdf"] as const).map((format) => (
-          <a key={format} href={`/api/reports/export?format=${format}&report=${report}`} className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-bold uppercase text-slate-600 hover:border-teal-200 hover:text-teal-700">
+          <a key={format} href={`/api/reports/export?format=${format}&report=${report}`} className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-bold uppercase text-slate-600 hover:border-sky-200 hover:text-sky-700">
             {format}
           </a>
         ))}
@@ -457,7 +457,7 @@ export default function Home() {
             <button
               key={item.label}
               onClick={() => scrollToSection(item.label)}
-              className={`flex h-10 w-full items-center gap-3 rounded-md px-3 text-sm font-semibold transition ${activeSection === item.label ? "bg-teal-50 text-teal-800" : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"}`}
+              className={`flex h-10 w-full items-center gap-3 rounded-md px-3 text-sm font-semibold transition ${activeSection === item.label ? "bg-sky-50 text-sky-800" : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"}`}
             >
               <item.icon size={18} />
               {item.label}
@@ -494,19 +494,19 @@ export default function Home() {
                 <Search size={16} />
                 <input className="w-full bg-transparent outline-none" placeholder="Search supporters, stations, users" />
               </label>
-              <Link className="hidden h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800 sm:inline-flex" href="/login">
+              <Link className="hidden h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-800 sm:inline-flex" href="/login">
                 <KeyRound size={16} />
                 Login
               </Link>
-              <Link className="hidden h-10 items-center gap-2 rounded-md border border-teal-200 bg-teal-50 px-3 text-sm font-bold text-teal-800 transition hover:bg-teal-100 sm:inline-flex" href="/signup/candidate">
+              <Link className="hidden h-10 items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-3 text-sm font-bold text-sky-800 transition hover:bg-sky-100 sm:inline-flex" href="/signup/candidate">
                 <UserCog size={16} />
                 New Candidate
               </Link>
-              <Link className="hidden h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800 xl:inline-flex" href="/pricing">
+              <Link className="hidden h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-800 xl:inline-flex" href="/pricing">
                 <WalletCards size={16} />
                 Pricing
               </Link>
-              <Link className="hidden h-10 items-center gap-2 rounded-md bg-teal-700 px-3 text-sm font-bold text-white transition hover:bg-teal-800 sm:inline-flex" href="/signup/user">
+              <Link className="hidden h-10 items-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white transition hover:bg-slate-900 sm:inline-flex" href="/signup/user">
                 <Plus size={16} />
                 Add User
               </Link>
@@ -525,7 +525,7 @@ export default function Home() {
           <section id="dashboard" className="scroll-mt-24 mb-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
               <div>
-                <p className="text-sm font-semibold text-teal-700">{campaign.candidateName} for {campaign.positionTargeted}</p>
+                <p className="text-sm font-semibold text-sky-700">{campaign.candidateName} for {campaign.positionTargeted}</p>
                 <h2 className="mt-1 text-2xl font-bold text-slate-950">{campaign.slogan}</h2>
                 <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
                   Multi-tenant campaign operations for supporters, teams, polling stations, reports, and audit-ready political intelligence.
@@ -549,7 +549,7 @@ export default function Home() {
           </section>
 
           {actionMessage ? (
-            <section className="mb-6 rounded-lg border border-teal-200 bg-teal-50 p-3 text-sm font-semibold text-teal-900">
+            <section className="mb-6 rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm font-semibold text-sky-900">
               {actionMessage}
             </section>
           ) : null}
@@ -618,14 +618,14 @@ export default function Home() {
                 <ReportLink report="communication-rooms" label="Rooms" />
               </div>
               <div className="mt-4 grid gap-3 md:grid-cols-3">
-                <div className="rounded-lg border border-teal-200 bg-teal-50 p-3">
-                  <p className="text-xs font-bold uppercase tracking-wide text-teal-700">Bridge Status</p>
-                  <p className="mt-1 text-lg font-bold text-teal-950">{solcoIntegration.status}</p>
-                  <p className="mt-1 text-xs text-teal-800">{solcoIntegration.tokenEndpoint}</p>
+                <div className="rounded-lg border border-sky-200 bg-sky-50 p-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-sky-700">Bridge Status</p>
+                  <p className="mt-1 text-lg font-bold text-sky-950">{solcoIntegration.status}</p>
+                  <p className="mt-1 text-xs text-sky-800">{solcoIntegration.tokenEndpoint}</p>
                 </div>
                 <div className="rounded-lg bg-slate-50 p-3">
                   <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Solco Workspace</p>
-                  <a className="mt-1 block truncate text-sm font-bold text-teal-700" href={solcoIntegration.workspaceUrl}>{solcoIntegration.workspaceUrl}</a>
+                  <a className="mt-1 block truncate text-sm font-bold text-sky-700" href={solcoIntegration.workspaceUrl}>{solcoIntegration.workspaceUrl}</a>
                 </div>
                 <div className="rounded-lg bg-slate-50 p-3">
                   <p className="text-xs font-bold uppercase tracking-wide text-slate-500">LiveKit Source</p>
@@ -639,11 +639,11 @@ export default function Home() {
                     id="meeting-identity"
                     value={meetingIdentity}
                     onChange={(event) => setMeetingIdentity(event.target.value)}
-                    className="h-11 min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-teal-500"
+                    className="h-11 min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-sky-500"
                     placeholder="campaign-manager"
                   />
                   <button
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-teal-700 px-4 text-sm font-bold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-bold text-white transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-400"
                     disabled={meetingTokenLoading}
                     onClick={() => void issueMeetingToken(communicationRooms[0].livekitRoomName)}
                     type="button"
@@ -668,7 +668,7 @@ export default function Home() {
                     <p className="mt-2 text-sm leading-6 text-slate-600">{room.audience}</p>
                     <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
                       <span className="font-mono">{room.livekitRoomName}</span>
-                      <button className="rounded-md border border-slate-200 bg-white px-2 py-1 font-bold text-teal-700 hover:bg-teal-50" onClick={() => void issueMeetingToken(room.livekitRoomName)} type="button">
+                      <button className="rounded-md border border-slate-200 bg-white px-2 py-1 font-bold text-sky-700 hover:bg-sky-50" onClick={() => void issueMeetingToken(room.livekitRoomName)} type="button">
                         Request token
                       </button>
                     </div>
@@ -715,10 +715,10 @@ export default function Home() {
                     id="ai-question"
                     value={aiQuestion}
                     onChange={(event) => setAiQuestion(event.target.value)}
-                    className="h-11 min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-teal-500"
+                    className="h-11 min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-sky-500"
                     placeholder="Which polling stations need attention?"
                   />
-                  <button disabled={aiLoading} className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-teal-700 px-4 text-sm font-bold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+                  <button disabled={aiLoading} className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-bold text-white transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-400">
                     <Brain size={16} />
                     {aiLoading ? "Thinking" : "Ask"}
                   </button>
@@ -734,7 +734,7 @@ export default function Home() {
                         <p className="text-sm font-bold text-slate-950">{recommendation.title}</p>
                         <p className="text-xs text-slate-500">{recommendation.category} - {recommendation.source}</p>
                       </div>
-                      <span className="rounded-md bg-teal-50 px-2 py-1 text-xs font-bold text-teal-700">{recommendation.impactScore}</span>
+                      <span className="rounded-md bg-sky-50 px-2 py-1 text-xs font-bold text-sky-700">{recommendation.impactScore}</span>
                     </div>
                     <p className="mt-2 text-sm leading-6 text-slate-600">{recommendation.description}</p>
                   </div>
@@ -774,7 +774,7 @@ export default function Home() {
                         <p className="text-sm font-bold text-slate-950">{donation.donorName}</p>
                         <p className="text-xs text-slate-500">{donation.donorType} - {donation.paymentMethod}</p>
                       </div>
-                      <span className="text-sm font-bold text-teal-700">KES {donation.amountKes.toLocaleString()}</span>
+                      <span className="text-sm font-bold text-sky-700">KES {donation.amountKes.toLocaleString()}</span>
                     </div>
                     <p className="mt-2 text-xs text-slate-500">{donation.phone} - {donation.date}</p>
                   </div>
@@ -816,7 +816,7 @@ export default function Home() {
                       <span className="text-xs font-bold text-slate-500">{row.usedPercent}% used</span>
                     </div>
                     <div className="mt-3 h-2 rounded-full bg-slate-100">
-                      <div className="h-2 rounded-full bg-teal-600" style={{ width: `${Math.min(100, row.usedPercent)}%` }} />
+                      <div className="h-2 rounded-full bg-sky-500" style={{ width: `${Math.min(100, row.usedPercent)}%` }} />
                     </div>
                     <p className="mt-2 text-xs text-slate-500">Remaining KES {row.remaining.toLocaleString()}</p>
                   </div>
@@ -837,7 +837,7 @@ export default function Home() {
                 <p className="mt-1 text-xs text-amber-700">Set the live Paybill in Supabase/Vercel env before processing real payments.</p>
               </div>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                <Link className="inline-flex h-10 items-center justify-center rounded-md bg-teal-700 px-3 text-sm font-bold text-white hover:bg-teal-800" href="/payment/confirm">Confirm Payment</Link>
+                <Link className="inline-flex h-10 items-center justify-center rounded-md bg-slate-950 px-3 text-sm font-bold text-white hover:bg-slate-900" href="/payment/confirm">Confirm Payment</Link>
                 <Link className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 hover:bg-slate-50" href="/admin/activation">Activate Workspace</Link>
               </div>
               <div className="mt-4 grid gap-2 text-sm">
@@ -884,7 +884,7 @@ export default function Home() {
                         <StatusPill label={item.status} />
                       </div>
                       <div className="mt-3 h-2 rounded-full bg-slate-100">
-                        <div className="h-2 rounded-full bg-teal-600" style={{ width: `${progress}%` }} />
+                        <div className="h-2 rounded-full bg-sky-500" style={{ width: `${progress}%` }} />
                       </div>
                       <p className="mt-2 text-xs text-slate-500">KES {item.raisedKes.toLocaleString()} of {item.goalAmountKes.toLocaleString()}</p>
                     </div>
@@ -905,7 +905,7 @@ export default function Home() {
                   <div key={insight.id} className="rounded-lg border border-slate-200 p-3">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-sm font-bold text-slate-950">{insight.metric}</p>
-                      <span className="text-lg font-bold text-teal-700">{insight.estimate}/100</span>
+                      <span className="text-lg font-bold text-sky-700">{insight.estimate}/100</span>
                     </div>
                     <p className="mt-1 text-sm text-slate-600">{insight.label}</p>
                     <p className="mt-2 text-xs text-slate-500">{insight.caveat}</p>
@@ -937,7 +937,7 @@ export default function Home() {
                   ["Offline mobile prep", "Queue-based sync architecture", Smartphone],
                 ].map(([label, value, Icon]) => (
                   <div key={String(label)} className="flex items-center gap-3 rounded-lg bg-slate-50 p-3">
-                    <span className="grid h-9 w-9 place-items-center rounded-lg bg-white text-teal-700 shadow-sm"><Icon size={18} /></span>
+                    <span className="grid h-9 w-9 place-items-center rounded-lg bg-white text-sky-700 shadow-sm"><Icon size={18} /></span>
                     <div>
                       <p className="text-sm font-bold text-slate-950">{String(label)}</p>
                       <p className="text-xs text-slate-500">{String(value)}</p>
@@ -982,7 +982,7 @@ export default function Home() {
                 <div className="rounded-md bg-slate-50 p-3">Scheduled backups prepared through Supabase project backups and export jobs.</div>
                 <div className="rounded-md bg-slate-50 p-3">Audit retention enforced with immutable workspace logs.</div>
                 <div className="rounded-md bg-slate-50 p-3">CSV/XLSX/PDF exports available from every report center.</div>
-                <Link className="block rounded-md bg-teal-50 p-3 font-bold text-teal-800 hover:bg-teal-100" href="/legal">Privacy, consent, ownership, and backup policies</Link>
+                <Link className="block rounded-md bg-sky-50 p-3 font-bold text-sky-800 hover:bg-sky-100" href="/legal">Privacy, consent, ownership, and backup policies</Link>
               </div>
             </div>
           </section>
@@ -995,7 +995,7 @@ export default function Home() {
                   <p className="text-sm text-slate-500">Candidate-owned workspace, campaign lifecycle, verification, and multi-election readiness.</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Link className="inline-flex h-9 items-center gap-2 rounded-md bg-teal-700 px-3 text-sm font-bold text-white hover:bg-teal-800" href="/signup/candidate">
+                  <Link className="inline-flex h-9 items-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white hover:bg-slate-900" href="/signup/candidate">
                     <UserCog size={15} />
                     New Candidate
                   </Link>
@@ -1036,7 +1036,7 @@ export default function Home() {
                 <div className="rounded-lg border border-slate-200 p-4">
                   <h2 className="text-sm font-bold text-slate-950">Candidate Branding Center</h2>
                   <div className="mt-4 flex items-center gap-3">
-                    <div className="grid h-14 w-14 place-items-center rounded-lg bg-teal-700 text-xl font-bold text-white">{candidateBranding.logo}</div>
+                    <div className="grid h-14 w-14 place-items-center rounded-lg bg-slate-950 text-xl font-bold text-white">{candidateBranding.logo}</div>
                     <div>
                       <p className="text-sm font-bold text-slate-950">{candidateBranding.slogan}</p>
                       <p className="text-xs text-slate-500">Logo, candidate photo, campaign banner, colors, and social links flow across the workspace.</p>
@@ -1075,9 +1075,9 @@ export default function Home() {
                   <p className="mt-1 text-sm font-bold text-slate-950">{workspaceOwnership.campaignManager}</p>
                   <p className="mt-1 text-xs text-slate-500">{workspaceOwnership.managerReplacePolicy}</p>
                 </div>
-                <div className="rounded-lg border border-teal-200 bg-teal-50 p-3">
-                  <p className="text-sm font-bold text-teal-900">No Self Registration</p>
-                  <p className="mt-1 text-sm text-teal-800">Access is restricted to invitation links, email invites, phone invites, or join codes.</p>
+                <div className="rounded-lg border border-sky-200 bg-sky-50 p-3">
+                  <p className="text-sm font-bold text-sky-900">No Self Registration</p>
+                  <p className="mt-1 text-sm text-sky-800">Access is restricted to invitation links, email invites, phone invites, or join codes.</p>
                 </div>
               </div>
             </div>
@@ -1088,7 +1088,7 @@ export default function Home() {
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-sm font-bold text-slate-950">Invitation System</h2>
                 <div className="flex flex-wrap gap-2">
-                  <Link className="inline-flex h-9 items-center gap-2 rounded-md bg-teal-700 px-3 text-sm font-bold text-white hover:bg-teal-800" href="/signup/user">
+                  <Link className="inline-flex h-9 items-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white hover:bg-slate-900" href="/signup/user">
                     <Plus size={15} />
                     Add User
                   </Link>
@@ -1135,7 +1135,7 @@ export default function Home() {
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <h2 className="text-sm font-bold text-slate-950">Phone-First Authentication</h2>
               <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                <Link className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-teal-700 px-3 text-sm font-bold text-white hover:bg-teal-800" href="/login">
+                <Link className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white hover:bg-slate-900" href="/login">
                   <KeyRound size={15} />
                   Login
                 </Link>
@@ -1151,7 +1151,7 @@ export default function Home() {
                   ["Future-ready", "OTP authentication", ShieldCheck],
                 ].map(([label, value, Icon]) => (
                   <div key={String(label)} className="flex items-center gap-3 rounded-lg bg-slate-50 p-3">
-                    <span className="grid h-9 w-9 place-items-center rounded-lg bg-white text-teal-700 shadow-sm">
+                    <span className="grid h-9 w-9 place-items-center rounded-lg bg-white text-sky-700 shadow-sm">
                       <Icon size={18} />
                     </span>
                     <div>
@@ -1177,7 +1177,7 @@ export default function Home() {
                 {hierarchyRows.map((node) => (
                   <div key={node.level} className="rounded-lg border border-slate-200 p-3">
                     <div className="flex items-start justify-between gap-3">
-                      <span className="rounded-md bg-teal-50 px-2 py-1 text-xs font-bold text-teal-700">{node.level}</span>
+                      <span className="rounded-md bg-sky-50 px-2 py-1 text-xs font-bold text-sky-700">{node.level}</span>
                       <StatusPill label={node.status} />
                     </div>
                     <p className="mt-3 text-sm font-bold text-slate-950">{node.role}</p>
@@ -1193,7 +1193,7 @@ export default function Home() {
               <h2 className="text-sm font-bold text-slate-950">User Approval Workflow</h2>
               <div className="mt-4 grid gap-3">
                 {["Approve User", "Suspend User", "Deactivate User", "Reactivate User"].map((action) => (
-                  <button key={action} className="flex h-11 items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800" onClick={() => void persistWorkflow("userStatus", { invitationId: invitations.find((invite) => invite.status === "Pending")?.id, status: action.includes("Approve") ? "Accepted" : action.includes("Reactivate") ? "Pending" : "Revoked" }, `${action} workflow saved to Supabase audit trail.`, "Users")} type="button">
+                  <button key={action} className="flex h-11 items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700 hover:border-sky-200 hover:bg-sky-50 hover:text-sky-800" onClick={() => void persistWorkflow("userStatus", { invitationId: invitations.find((invite) => invite.status === "Pending")?.id, status: action.includes("Approve") ? "Accepted" : action.includes("Reactivate") ? "Pending" : "Revoked" }, `${action} workflow saved to Supabase audit trail.`, "Users")} type="button">
                     {action}
                     <UserCheck size={16} />
                   </button>
@@ -1235,7 +1235,7 @@ export default function Home() {
                 ].map(([label, value]) => (
                   <div key={String(label)} className="flex items-center justify-between rounded-md bg-slate-50 p-3">
                     <span className="text-sm font-semibold text-slate-700">{String(label)}</span>
-                    <span className="text-xs font-bold text-teal-700">{String(value)}</span>
+                    <span className="text-xs font-bold text-sky-700">{String(value)}</span>
                   </div>
                 ))}
               </div>
@@ -1295,7 +1295,7 @@ export default function Home() {
                 <ReportLink report="governance-summary" label="Governance" />
               </div>
               <div className="mt-4 grid gap-2 sm:grid-cols-3">
-                <Link className="inline-flex h-10 items-center justify-center rounded-md bg-teal-700 px-3 text-sm font-bold text-white hover:bg-teal-800" href="/admin/activation">Manual Activation</Link>
+                <Link className="inline-flex h-10 items-center justify-center rounded-md bg-slate-950 px-3 text-sm font-bold text-white hover:bg-slate-900" href="/admin/activation">Manual Activation</Link>
                 <Link className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 hover:bg-slate-50" href="/support">Support Contacts</Link>
                 <Link className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 hover:bg-slate-50" href="/legal">Legal Policies</Link>
               </div>
@@ -1348,7 +1348,7 @@ export default function Home() {
                         </td>
                         <td className="px-4 py-3 text-slate-600">{row.agent}</td>
                         <td className="px-4 py-3"><StatusPill label={row.status} /></td>
-                        <td className="px-4 py-3 font-bold text-teal-700">{row.turnout}%</td>
+                        <td className="px-4 py-3 font-bold text-sky-700">{row.turnout}%</td>
                         <td className="px-4 py-3">
                           <span className={`rounded-md px-2 py-1 text-xs font-bold ${row.health === "Green" ? "bg-emerald-50 text-emerald-700" : row.health === "Amber" ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-700"}`}>{row.health}</span>
                         </td>
@@ -1390,7 +1390,7 @@ export default function Home() {
                   <XAxis dataKey="interval" tickLine={false} axisLine={false} />
                   <YAxis tickLine={false} axisLine={false} />
                   <Tooltip />
-                  <Line type="monotone" dataKey="percentage" stroke="#0f766e" strokeWidth={3} />
+                  <Line type="monotone" dataKey="percentage" stroke="#0ea5e9" strokeWidth={3} />
                 </LineChart>
               </ResponsiveContainer>
             </ChartCard>
@@ -1425,8 +1425,8 @@ export default function Home() {
                   ["Upload Form", UploadCloud],
                   ["Enter Result", BadgeCheck],
                 ].map(([label, Icon]) => (
-                  <button key={String(label)} className="flex min-h-14 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-left text-sm font-bold text-slate-800 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800" onClick={() => void persistWorkflow(String(label) === "Enter Result" ? "result" : String(label) === "Submit Turnout" ? "result" : "supportTicket", String(label) === "Enter Result" || String(label) === "Submit Turnout" ? { candidateName: campaign.candidateName, votes: 0, totalVotes: 0, rejectedVotes: 0 } : { title: String(label), description: "Election operation action from mobile agent panel.", priority: String(label).includes("Incident") ? "Critical" : "Medium" }, `${String(label)} workflow saved.`, "Election Operations")} type="button">
-                    <span className="grid h-9 w-9 place-items-center rounded-lg bg-white text-teal-700 shadow-sm">
+                  <button key={String(label)} className="flex min-h-14 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-left text-sm font-bold text-slate-800 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-800" onClick={() => void persistWorkflow(String(label) === "Enter Result" ? "result" : String(label) === "Submit Turnout" ? "result" : "supportTicket", String(label) === "Enter Result" || String(label) === "Submit Turnout" ? { candidateName: campaign.candidateName, votes: 0, totalVotes: 0, rejectedVotes: 0 } : { title: String(label), description: "Election operation action from mobile agent panel.", priority: String(label).includes("Incident") ? "Critical" : "Medium" }, `${String(label)} workflow saved.`, "Election Operations")} type="button">
+                    <span className="grid h-9 w-9 place-items-center rounded-lg bg-white text-sky-700 shadow-sm">
                       <Icon size={18} />
                     </span>
                     {String(label)}
@@ -1535,7 +1535,7 @@ export default function Home() {
                         <p className="text-sm font-bold text-slate-950">{row.station}</p>
                         <p className="text-xs text-slate-500">{row.ward} - {row.strongSupporters} strong supporters</p>
                       </div>
-                      <span className="rounded-md bg-white px-2 py-1 text-xs font-bold text-teal-700">{row.turnoutPercentage}%</span>
+                      <span className="rounded-md bg-white px-2 py-1 text-xs font-bold text-sky-700">{row.turnoutPercentage}%</span>
                     </div>
                     <p className="mt-2 text-sm text-slate-600">{row.recommendation}</p>
                   </div>
@@ -1552,7 +1552,7 @@ export default function Home() {
                   <XAxis type="number" hide />
                   <YAxis dataKey="name" type="category" width={106} tickLine={false} axisLine={false} />
                   <Tooltip />
-                  <Bar dataKey="score" fill="#0f766e" radius={[0, 6, 6, 0]} />
+                  <Bar dataKey="score" fill="#0ea5e9" radius={[0, 6, 6, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>
@@ -1574,7 +1574,7 @@ export default function Home() {
                   <YAxis tickLine={false} axisLine={false} />
                   <Tooltip />
                   <Line type="monotone" dataKey="expected" stroke="#94a3b8" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="actual" stroke="#0f766e" strokeWidth={3} />
+                  <Line type="monotone" dataKey="actual" stroke="#0ea5e9" strokeWidth={3} />
                 </LineChart>
               </ResponsiveContainer>
             </ChartCard>
@@ -1583,7 +1583,7 @@ export default function Home() {
                 <PieChart>
                   <Pie data={issueBreakdown} dataKey="value" nameKey="name" innerRadius={50} outerRadius={86} paddingAngle={2}>
                     {issueBreakdown.map((entry, index) => (
-                      <Cell key={entry.name} fill={["#0f766e", "#0284c7", "#f59e0b", "#dc2626", "#64748b"][index % 5]} />
+                      <Cell key={entry.name} fill={["#0ea5e9", "#475569", "#94a3b8", "#cbd5e1", "#64748b"][index % 5]} />
                     ))}
                   </Pie>
                   <Tooltip />
@@ -1600,7 +1600,7 @@ export default function Home() {
                   <XAxis dataKey="name" tickLine={false} axisLine={false} />
                   <YAxis tickLine={false} axisLine={false} />
                   <Tooltip />
-                  <Bar dataKey="value" fill="#0f766e" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="value" fill="#0ea5e9" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>
@@ -1636,7 +1636,7 @@ export default function Home() {
                   <XAxis dataKey="name" tickLine={false} axisLine={false} />
                   <YAxis tickLine={false} axisLine={false} />
                   <Tooltip />
-                  <Bar dataKey="value" fill="#0f766e" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="value" fill="#0ea5e9" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>
@@ -1704,15 +1704,15 @@ export default function Home() {
               <div className="mt-4 space-y-3">
                 <label className="block text-sm font-semibold text-slate-700">
                   Full name
-                  <input value={name} onChange={(event) => setName(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-teal-500" />
+                  <input value={name} onChange={(event) => setName(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" />
                 </label>
                 <label className="block text-sm font-semibold text-slate-700">
                   Phone number
-                  <input value={phone} onChange={(event) => setPhone(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-teal-500" />
+                  <input value={phone} onChange={(event) => setPhone(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" />
                 </label>
                 <label className="block text-sm font-semibold text-slate-700">
                   Support level
-                  <select className="mt-1 h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-teal-500">
+                  <select className="mt-1 h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500">
                     {Object.keys(supportColors).map((level) => <option key={level}>{level}</option>)}
                   </select>
                 </label>
@@ -1728,7 +1728,7 @@ export default function Home() {
                     </label>
                   </div>
                 )}
-                <button disabled={duplicate && !overrideDuplicate} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-teal-700 px-3 text-sm font-bold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300" onClick={() => void persistWorkflow("supporter", { fullName: name, phoneNumber: phone, supportLevel: "Unknown", consentToContact: true, notes: overrideDuplicate ? "Duplicate override approved." : "" }, `${name.trim() || "Supporter"} saved to Supabase.`, "Supporters")} type="button">
+                <button disabled={duplicate && !overrideDuplicate} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-300" onClick={() => void persistWorkflow("supporter", { fullName: name, phoneNumber: phone, supportLevel: "Unknown", consentToContact: true, notes: overrideDuplicate ? "Duplicate override approved." : "" }, `${name.trim() || "Supporter"} saved to Supabase.`, "Supporters")} type="button">
                   <Plus size={16} />
                   Save Supporter
                 </button>
@@ -1748,7 +1748,7 @@ export default function Home() {
                     <XAxis dataKey="name" hide />
                     <YAxis hide />
                     <Tooltip />
-                    <Bar dataKey="value" fill="#0f766e" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="value" fill="#0ea5e9" radius={[6, 6, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </ChartCard>
@@ -1819,7 +1819,7 @@ export default function Home() {
                           <td className="px-4 py-3"><StatusPill label={volunteer?.status ?? "Unknown"} /></td>
                           <td className="px-4 py-3 text-slate-600">{row.supportersRegistered}</td>
                           <td className="px-4 py-3 text-slate-600">{row.activitiesCompleted}</td>
-                          <td className="px-4 py-3 font-bold text-teal-700">{row.score}</td>
+                          <td className="px-4 py-3 font-bold text-sky-700">{row.score}</td>
                         </tr>
                       );
                     })}
@@ -1840,8 +1840,8 @@ export default function Home() {
                   ["Complete Task", CheckCircle2],
                   ["Report Intelligence", Radio],
                 ].map(([label, Icon]) => (
-                  <button key={String(label)} className="flex min-h-20 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-left text-sm font-bold text-slate-800 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800" onClick={() => void persistWorkflow(String(label) === "Register Supporter" ? "supporter" : String(label) === "Submit Issue" ? "issue" : String(label) === "Submit Field Visit" ? "fieldVisit" : String(label) === "Complete Task" ? "task" : String(label) === "Report Intelligence" ? "supportTicket" : "supportTicket", String(label) === "Register Supporter" ? { fullName: "New supporter", phoneNumber: `+2547${Math.floor(10000000 + Math.random() * 89999999)}`, supportLevel: "Unknown", consentToContact: true } : String(label) === "Submit Issue" ? { title: "New community issue", category: "Other", priority: "Medium" } : String(label) === "Submit Field Visit" ? { visitPurpose: "Field activity", supportersEngaged: 0 } : String(label) === "Complete Task" ? { title: "Follow-up task", dueDate: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10) } : { title: String(label), description: "Submitted from field action panel.", priority: "Medium" }, `${String(label)} saved to Supabase.`, "Field Operations")} type="button">
-                    <span className="grid h-10 w-10 place-items-center rounded-lg bg-white text-teal-700 shadow-sm">
+                  <button key={String(label)} className="flex min-h-20 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-left text-sm font-bold text-slate-800 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-800" onClick={() => void persistWorkflow(String(label) === "Register Supporter" ? "supporter" : String(label) === "Submit Issue" ? "issue" : String(label) === "Submit Field Visit" ? "fieldVisit" : String(label) === "Complete Task" ? "task" : String(label) === "Report Intelligence" ? "supportTicket" : "supportTicket", String(label) === "Register Supporter" ? { fullName: "New supporter", phoneNumber: `+2547${Math.floor(10000000 + Math.random() * 89999999)}`, supportLevel: "Unknown", consentToContact: true } : String(label) === "Submit Issue" ? { title: "New community issue", category: "Other", priority: "Medium" } : String(label) === "Submit Field Visit" ? { visitPurpose: "Field activity", supportersEngaged: 0 } : String(label) === "Complete Task" ? { title: "Follow-up task", dueDate: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10) } : { title: String(label), description: "Submitted from field action panel.", priority: "Medium" }, `${String(label)} saved to Supabase.`, "Field Operations")} type="button">
+                    <span className="grid h-10 w-10 place-items-center rounded-lg bg-white text-sky-700 shadow-sm">
                       <Icon size={20} />
                     </span>
                     {String(label)}
@@ -1910,14 +1910,14 @@ export default function Home() {
               <div className="mt-4 space-y-3">
                 {volunteerRows.slice(0, 5).map((row, index) => (
                   <div key={row.name} className="flex items-center gap-3 rounded-md bg-slate-50 p-3">
-                    <div className="grid h-9 w-9 place-items-center rounded-lg bg-teal-700 text-sm font-bold text-white">
+                    <div className="grid h-9 w-9 place-items-center rounded-lg bg-slate-950 text-sm font-bold text-white">
                       {index === 0 ? <Trophy size={18} /> : index + 1}
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-bold text-slate-950">{row.name}</p>
                       <p className="text-xs text-slate-500">{row.supportersRegistered} supporters - {row.issuesSubmitted} issues - {row.eventsAttended} events</p>
                     </div>
-                    <span className="text-sm font-bold text-teal-700">{row.score}</span>
+                    <span className="text-sm font-bold text-sky-700">{row.score}</span>
                   </div>
                 ))}
               </div>
@@ -2023,14 +2023,14 @@ export default function Home() {
               <div className="mt-4 space-y-3">
                 {["Create Campaign", "Candidate Information", "Branding", "Create Admin User", "Launch Workspace"].map((step, index) => (
                   <div key={step} className="flex items-center gap-3">
-                    <div className={`grid h-7 w-7 place-items-center rounded-full text-xs font-bold ${index < 4 ? "bg-teal-700 text-white" : "bg-slate-100 text-slate-500"}`}>{index + 1}</div>
+                    <div className={`grid h-7 w-7 place-items-center rounded-full text-xs font-bold ${index < 4 ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-500"}`}>{index + 1}</div>
                     <span className="text-sm font-semibold text-slate-700">{step}</span>
                   </div>
                 ))}
               </div>
               <label className="mt-5 block text-sm font-semibold text-slate-700">
                 Party affiliation at signup
-                <select value={selectedParty} onChange={(event) => setSelectedParty(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-teal-500">
+                <select value={selectedParty} onChange={(event) => setSelectedParty(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-sky-500">
                   {partyAffiliationOptions.map((option) => (
                     <option key={option.id} value={option.displayName}>
                       {option.displayName}
@@ -2051,7 +2051,7 @@ export default function Home() {
                       <p className="text-sm font-bold text-slate-950">{user.name}</p>
                       <p className="text-xs text-slate-500">{user.role} - {user.geography}</p>
                     </div>
-                    <span className="text-xs font-bold text-teal-700">{user.status}</span>
+                    <span className="text-xs font-bold text-sky-700">{user.status}</span>
                   </div>
                 ))}
               </div>
@@ -2060,7 +2060,7 @@ export default function Home() {
               <h2 className="text-sm font-bold text-slate-950">Audit Trail</h2>
               <div className="mt-4 space-y-3">
                 {auditTrail.map((event) => (
-                  <div key={`${event.user}-${event.timestamp}`} className="border-l-2 border-teal-600 pl-3">
+                  <div key={`${event.user}-${event.timestamp}`} className="border-l-2 border-sky-500 pl-3">
                     <p className="text-sm font-bold text-slate-950">{event.action} - {event.module}</p>
                     <p className="text-xs text-slate-500">{event.user} at {event.timestamp}</p>
                   </div>
@@ -2085,11 +2085,11 @@ export default function Home() {
                 <h2 className="text-sm font-bold text-slate-950">Kenya Political Party Register</h2>
                 <p className="text-sm text-slate-500">ORPP fully registered parties, May 2026. Signup also includes Independent Candidate above the party list.</p>
               </div>
-              <span className="rounded-md bg-teal-50 px-3 py-1 text-sm font-bold text-teal-700">{politicalParties.length} registered parties</span>
+              <span className="rounded-md bg-sky-50 px-3 py-1 text-sm font-bold text-sky-700">{politicalParties.length} registered parties</span>
             </div>
             <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
               {partyAffiliationOptions.slice(0, 17).map((option) => (
-                <div key={option.id} className={`rounded-md border p-3 text-sm ${option.affiliationType === "Independent" || option.party?.featuredRank ? "border-teal-200 bg-teal-50 text-teal-900" : "border-slate-200 bg-slate-50 text-slate-700"}`}>
+                <div key={option.id} className={`rounded-md border p-3 text-sm ${option.affiliationType === "Independent" || option.party?.featuredRank ? "border-sky-200 bg-sky-50 text-sky-900" : "border-slate-200 bg-slate-50 text-slate-700"}`}>
                   <p className="font-bold">{option.displayName}</p>
                   <p className="mt-1 text-xs text-slate-500">
                     {option.affiliationType === "Independent" ? "Signup option" : `Register #${option.party?.registerSerial}${option.party?.featuredRank ? ` - Featured ${option.party.featuredRank}` : ""}`}
@@ -2116,7 +2116,7 @@ export default function Home() {
                 <div key={scope.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <div className="flex items-start justify-between gap-3">
                     <p className="text-sm font-bold text-slate-950">{scope.displayName}</p>
-                    <span className="rounded-md bg-white px-2 py-1 text-xs font-bold text-teal-700">{scope.geographyLevel}</span>
+                    <span className="rounded-md bg-white px-2 py-1 text-xs font-bold text-sky-700">{scope.geographyLevel}</span>
                   </div>
                   <p className="mt-2 text-sm text-slate-600">{scope.description}</p>
                 </div>
