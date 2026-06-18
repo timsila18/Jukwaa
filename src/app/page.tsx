@@ -373,6 +373,23 @@ export default function Home() {
     scrollToSection(sectionLabel);
   }
 
+  async function persistWorkflow(workflow: string, payload: Record<string, unknown>, successMessage: string, sectionLabel: string) {
+    try {
+      const response = await fetch(`/api/workflows/${workflow}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error ?? "Workflow could not be saved.");
+      }
+      runAction(successMessage, sectionLabel);
+    } catch (error) {
+      runAction(error instanceof Error ? error.message : "Workflow could not be saved.", sectionLabel);
+    }
+  }
+
   async function askJukwaaAi(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setAiLoading(true);
@@ -484,6 +501,10 @@ export default function Home() {
               <Link className="hidden h-10 items-center gap-2 rounded-md border border-teal-200 bg-teal-50 px-3 text-sm font-bold text-teal-800 transition hover:bg-teal-100 sm:inline-flex" href="/signup/candidate">
                 <UserCog size={16} />
                 New Candidate
+              </Link>
+              <Link className="hidden h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800 xl:inline-flex" href="/pricing">
+                <WalletCards size={16} />
+                Pricing
               </Link>
               <Link className="hidden h-10 items-center gap-2 rounded-md bg-teal-700 px-3 text-sm font-bold text-white transition hover:bg-teal-800 sm:inline-flex" href="/signup/user">
                 <Plus size={16} />
@@ -815,6 +836,10 @@ export default function Home() {
                 <p className="mt-1 text-sm text-amber-800">Business number: {mpesaPaymentSetting.paybillNumber}</p>
                 <p className="mt-1 text-xs text-amber-700">Set the live Paybill in Supabase/Vercel env before processing real payments.</p>
               </div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <Link className="inline-flex h-10 items-center justify-center rounded-md bg-teal-700 px-3 text-sm font-bold text-white hover:bg-teal-800" href="/payment/confirm">Confirm Payment</Link>
+                <Link className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 hover:bg-slate-50" href="/admin/activation">Activate Workspace</Link>
+              </div>
               <div className="mt-4 grid gap-2 text-sm">
                 <div className="rounded-md bg-slate-50 p-3">Account reference: <b>{mpesaPaymentSetting.accountReferenceFormat}</b></div>
                 <div className="rounded-md bg-slate-50 p-3">STK Push: <b>{mpesaPaymentSetting.stkPushReady ? "Ready" : "Pending"}</b></div>
@@ -957,6 +982,7 @@ export default function Home() {
                 <div className="rounded-md bg-slate-50 p-3">Scheduled backups prepared through Supabase project backups and export jobs.</div>
                 <div className="rounded-md bg-slate-50 p-3">Audit retention enforced with immutable workspace logs.</div>
                 <div className="rounded-md bg-slate-50 p-3">CSV/XLSX/PDF exports available from every report center.</div>
+                <Link className="block rounded-md bg-teal-50 p-3 font-bold text-teal-800 hover:bg-teal-100" href="/legal">Privacy, consent, ownership, and backup policies</Link>
               </div>
             </div>
           </section>
@@ -1167,7 +1193,7 @@ export default function Home() {
               <h2 className="text-sm font-bold text-slate-950">User Approval Workflow</h2>
               <div className="mt-4 grid gap-3">
                 {["Approve User", "Suspend User", "Deactivate User", "Reactivate User"].map((action) => (
-                  <button key={action} className="flex h-11 items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800" onClick={() => runAction(`${action} selected. Review the user record in Users and Roles before confirming.`, "Users")} type="button">
+                  <button key={action} className="flex h-11 items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800" onClick={() => void persistWorkflow("userStatus", { invitationId: invitations.find((invite) => invite.status === "Pending")?.id, status: action.includes("Approve") ? "Accepted" : action.includes("Reactivate") ? "Pending" : "Revoked" }, `${action} workflow saved to Supabase audit trail.`, "Users")} type="button">
                     {action}
                     <UserCheck size={16} />
                   </button>
@@ -1267,6 +1293,11 @@ export default function Home() {
                   <p className="text-sm text-slate-500">Owner dashboard for candidates, workspaces, subscriptions, support tickets, and usage statistics.</p>
                 </div>
                 <ReportLink report="governance-summary" label="Governance" />
+              </div>
+              <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                <Link className="inline-flex h-10 items-center justify-center rounded-md bg-teal-700 px-3 text-sm font-bold text-white hover:bg-teal-800" href="/admin/activation">Manual Activation</Link>
+                <Link className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 hover:bg-slate-50" href="/support">Support Contacts</Link>
+                <Link className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 hover:bg-slate-50" href="/legal">Legal Policies</Link>
               </div>
               <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                 {[
@@ -1394,7 +1425,7 @@ export default function Home() {
                   ["Upload Form", UploadCloud],
                   ["Enter Result", BadgeCheck],
                 ].map(([label, Icon]) => (
-                  <button key={String(label)} className="flex min-h-14 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-left text-sm font-bold text-slate-800 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800" onClick={() => runAction(`${String(label)} action opened. Continue from the Election Operations module.`, "Election Operations")} type="button">
+                  <button key={String(label)} className="flex min-h-14 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-left text-sm font-bold text-slate-800 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800" onClick={() => void persistWorkflow(String(label) === "Enter Result" ? "result" : String(label) === "Submit Turnout" ? "result" : "supportTicket", String(label) === "Enter Result" || String(label) === "Submit Turnout" ? { candidateName: campaign.candidateName, votes: 0, totalVotes: 0, rejectedVotes: 0 } : { title: String(label), description: "Election operation action from mobile agent panel.", priority: String(label).includes("Incident") ? "Critical" : "Medium" }, `${String(label)} workflow saved.`, "Election Operations")} type="button">
                     <span className="grid h-9 w-9 place-items-center rounded-lg bg-white text-teal-700 shadow-sm">
                       <Icon size={18} />
                     </span>
@@ -1697,7 +1728,7 @@ export default function Home() {
                     </label>
                   </div>
                 )}
-                <button disabled={duplicate && !overrideDuplicate} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-teal-700 px-3 text-sm font-bold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300" onClick={() => runAction(`${name.trim() || "Supporter"} has been queued for supporter registration review.`, "Supporters")} type="button">
+                <button disabled={duplicate && !overrideDuplicate} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-teal-700 px-3 text-sm font-bold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300" onClick={() => void persistWorkflow("supporter", { fullName: name, phoneNumber: phone, supportLevel: "Unknown", consentToContact: true, notes: overrideDuplicate ? "Duplicate override approved." : "" }, `${name.trim() || "Supporter"} saved to Supabase.`, "Supporters")} type="button">
                   <Plus size={16} />
                   Save Supporter
                 </button>
@@ -1809,7 +1840,7 @@ export default function Home() {
                   ["Complete Task", CheckCircle2],
                   ["Report Intelligence", Radio],
                 ].map(([label, Icon]) => (
-                  <button key={String(label)} className="flex min-h-20 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-left text-sm font-bold text-slate-800 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800" onClick={() => runAction(`${String(label)} workflow opened. Continue in the Field Operations module.`, "Field Operations")} type="button">
+                  <button key={String(label)} className="flex min-h-20 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-left text-sm font-bold text-slate-800 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800" onClick={() => void persistWorkflow(String(label) === "Register Supporter" ? "supporter" : String(label) === "Submit Issue" ? "issue" : String(label) === "Submit Field Visit" ? "fieldVisit" : String(label) === "Complete Task" ? "task" : String(label) === "Report Intelligence" ? "supportTicket" : "supportTicket", String(label) === "Register Supporter" ? { fullName: "New supporter", phoneNumber: `+2547${Math.floor(10000000 + Math.random() * 89999999)}`, supportLevel: "Unknown", consentToContact: true } : String(label) === "Submit Issue" ? { title: "New community issue", category: "Other", priority: "Medium" } : String(label) === "Submit Field Visit" ? { visitPurpose: "Field activity", supportersEngaged: 0 } : String(label) === "Complete Task" ? { title: "Follow-up task", dueDate: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10) } : { title: String(label), description: "Submitted from field action panel.", priority: "Medium" }, `${String(label)} saved to Supabase.`, "Field Operations")} type="button">
                     <span className="grid h-10 w-10 place-items-center rounded-lg bg-white text-teal-700 shadow-sm">
                       <Icon size={20} />
                     </span>

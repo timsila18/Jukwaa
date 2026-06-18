@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { getLooseSupabaseAdmin } from "@/lib/supabase";
+import { rateLimit, requestKey } from "@/lib/rate-limit";
 import {
   aiStrategyQueue,
   budgetVarianceRows,
@@ -52,6 +54,11 @@ function outputText(response: unknown) {
 }
 
 export async function POST(request: Request) {
+  const limited = rateLimit(requestKey(request, "ai-assistant"), 20, 60_000);
+  if (!limited.allowed) {
+    return NextResponse.json({ error: "Too many AI requests. Try again shortly." }, { status: 429 });
+  }
+
   const parsed = requestSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: "Ask a campaign question between 3 and 800 characters." }, { status: 400 });
@@ -111,6 +118,21 @@ export async function POST(request: Request) {
       { error: "JUKWAA AI could not generate a response right now.", detail: typeof payload === "object" && payload !== null ? (payload as { error?: { message?: string } }).error?.message : undefined },
       { status: 502 },
     );
+  }
+
+  const usage = typeof payload === "object" && payload !== null ? (payload as { usage?: { input_tokens?: number; output_tokens?: number } }).usage : undefined;
+  const admin = getLooseSupabaseAdmin();
+  const { data: candidate } = await admin.from("candidates").select("id, tenant_id").order("created_at", { ascending: true }).limit(1).maybeSingle();
+  if (candidate) {
+    await admin.from("ai_usage_events").insert({
+      tenant_id: candidate.tenant_id,
+      candidate_id: candidate.id,
+      feature: "Campaign Assistant",
+      prompt_tokens: usage?.input_tokens ?? 0,
+      output_tokens: usage?.output_tokens ?? 0,
+      model,
+      status: "Completed",
+    });
   }
 
   return NextResponse.json({
