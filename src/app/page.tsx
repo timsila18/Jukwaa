@@ -18,7 +18,6 @@ import {
   FileArchive,
   FileCheck2,
   FileSpreadsheet,
-  Flag,
   Gauge,
   Globe2,
   HandCoins,
@@ -53,6 +52,7 @@ import {
 } from "lucide-react";
 import { type FormEvent, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   Bar,
   BarChart,
@@ -221,14 +221,15 @@ const getServerSnapshot = () => false;
 
 function Logo() {
   return (
-    <div className="flex items-center gap-3">
-      <div className="grid h-10 w-10 place-items-center rounded-lg bg-slate-950 text-white shadow-sm">
-        <Flag size={22} />
-      </div>
-      <div>
-        <p className="text-lg font-bold tracking-[0.12em] text-slate-950">JUKWAA</p>
-        <p className="text-[11px] font-medium text-slate-500">Where Leadership Meets the People</p>
-      </div>
+    <div className="flex items-center">
+      <Image
+        src="/jukwaa-logo.png"
+        alt="JUKWAA - Where Leadership Meets the People"
+        width={360}
+        height={96}
+        priority
+        className="h-14 w-auto max-w-[220px] object-contain"
+      />
     </div>
   );
 }

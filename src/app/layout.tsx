@@ -13,9 +13,19 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://jukwaakenya.co.ke"),
   title: "JUKWAA | Where Leadership Meets the People",
   description: "A multi-tenant political campaign management and intelligence platform.",
   manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/icon.svg",
+    apple: "/icon.svg",
+  },
+  openGraph: {
+    title: "JUKWAA",
+    description: "Where Leadership Meets the People",
+    images: ["/jukwaa-logo.png"],
+  },
 };
 
 export const viewport: Viewport = {

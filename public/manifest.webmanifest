@@ -5,8 +5,13 @@
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f8fafc",
-  "theme_color": "#0f766e",
+  "theme_color": "#0f172a",
   "icons": [
+    {
+      "src": "/jukwaa-logo.png",
+      "sizes": "1800x900",
+      "type": "image/png"
+    },
     {
       "src": "/icon.svg",
       "sizes": "any",

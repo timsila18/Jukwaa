@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="JUKWAA logo">
-  <rect width="128" height="128" rx="24" fill="#0f766e"/>
-  <path d="M37 90V32h12v58H37Zm13-42h39l-8 13 8 13H50V48Z" fill="#fff"/>
-  <path d="M58 87h34v10H58V87Z" fill="#99f6e4"/>
+  <rect width="128" height="128" rx="24" fill="#0f172a"/>
+  <path d="M37 90V32h12v58H37Zm13-42h39l-8 13 8 13H50V48Z" fill="#f8fafc"/>
+  <path d="M58 87h34v10H58V87Z" fill="#0ea5e9"/>
 </svg>
