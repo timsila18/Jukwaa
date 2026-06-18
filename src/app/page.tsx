@@ -56,6 +56,7 @@ import {
   intelligenceReports,
   notifications,
   pollingAnalytics,
+  partyAffiliationOptions,
   politicalParties,
   reportRows,
   roles,
@@ -196,7 +197,7 @@ export default function Home() {
   const [name, setName] = useState("Amina Wanjiru");
   const [phone, setPhone] = useState("+254710000000");
   const [overrideDuplicate, setOverrideDuplicate] = useState(false);
-  const [selectedParty, setSelectedParty] = useState(politicalParties[0].displayName);
+  const [selectedParty, setSelectedParty] = useState(campaign.politicalParty);
   const summary = summarizeCampaign();
   const phaseTwoSummary = summarizePhaseTwo();
 
@@ -302,7 +303,7 @@ export default function Home() {
                   <p className="text-lg font-bold text-slate-950">Isolated</p>
                 </div>
                 <div className="col-span-2 rounded-md bg-slate-50 p-3">
-                  <p className="font-semibold text-slate-500">Political Party</p>
+                  <p className="font-semibold text-slate-500">Party Affiliation</p>
                   <p className="mt-1 text-sm font-bold text-slate-950">{selectedParty}</p>
                 </div>
               </div>
@@ -812,15 +813,18 @@ export default function Home() {
                 ))}
               </div>
               <label className="mt-5 block text-sm font-semibold text-slate-700">
-                Political party
+                Party affiliation at signup
                 <select value={selectedParty} onChange={(event) => setSelectedParty(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-teal-500">
-                  {politicalParties.map((party) => (
-                    <option key={`${party.registerSerial}-${party.abbreviation}`} value={party.displayName}>
-                      {party.displayName}
+                  {partyAffiliationOptions.map((option) => (
+                    <option key={option.id} value={option.displayName}>
+                      {option.displayName}
                     </option>
                   ))}
                 </select>
               </label>
+              <p className="mt-2 text-xs leading-5 text-slate-500">
+                Candidates can register under a political party or continue as an independent candidate.
+              </p>
             </div>
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <h2 className="text-sm font-bold text-slate-950">Users and Roles</h2>
@@ -863,15 +867,17 @@ export default function Home() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-bold text-slate-950">Kenya Political Party Register</h2>
-                <p className="text-sm text-slate-500">ORPP fully registered parties, May 2026. Featured parties are ordered first for faster campaign setup.</p>
+                <p className="text-sm text-slate-500">ORPP fully registered parties, May 2026. Signup also includes Independent Candidate above the party list.</p>
               </div>
-              <span className="rounded-md bg-teal-50 px-3 py-1 text-sm font-bold text-teal-700">{politicalParties.length} parties</span>
+              <span className="rounded-md bg-teal-50 px-3 py-1 text-sm font-bold text-teal-700">{politicalParties.length} registered parties</span>
             </div>
             <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-              {politicalParties.slice(0, 16).map((party) => (
-                <div key={party.displayName} className={`rounded-md border p-3 text-sm ${party.featuredRank ? "border-teal-200 bg-teal-50 text-teal-900" : "border-slate-200 bg-slate-50 text-slate-700"}`}>
-                  <p className="font-bold">{party.displayName}</p>
-                  <p className="mt-1 text-xs text-slate-500">Register #{party.registerSerial}{party.featuredRank ? ` - Featured ${party.featuredRank}` : ""}</p>
+              {partyAffiliationOptions.slice(0, 17).map((option) => (
+                <div key={option.id} className={`rounded-md border p-3 text-sm ${option.affiliationType === "Independent" || option.party?.featuredRank ? "border-teal-200 bg-teal-50 text-teal-900" : "border-slate-200 bg-slate-50 text-slate-700"}`}>
+                  <p className="font-bold">{option.displayName}</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {option.affiliationType === "Independent" ? "Signup option" : `Register #${option.party?.registerSerial}${option.party?.featuredRank ? ` - Featured ${option.party.featuredRank}` : ""}`}
+                  </p>
                 </div>
               ))}
             </div>

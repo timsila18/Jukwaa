@@ -153,6 +153,13 @@ export type PoliticalParty = {
   featuredRank?: number;
 };
 
+export type PartyAffiliationOption = {
+  id: string;
+  displayName: string;
+  affiliationType: "Independent" | "Registered Party";
+  party?: PoliticalParty;
+};
+
 export const politicalParties: PoliticalParty[] = [
   { registerSerial: 13, name: "United Democratic Alliance", abbreviation: "UDA", featuredRank: 1 },
   { registerSerial: 16, name: "Orange Democratic Movement", abbreviation: "ODM", featuredRank: 2 },
@@ -255,12 +262,26 @@ export const politicalParties: PoliticalParty[] = [
   displayName: `${party.name} (${party.abbreviation})`,
 }));
 
+export const partyAffiliationOptions: PartyAffiliationOption[] = [
+  {
+    id: "independent-candidate",
+    displayName: "Independent Candidate",
+    affiliationType: "Independent",
+  },
+  ...politicalParties.map((party) => ({
+    id: `party-${party.registerSerial}`,
+    displayName: party.displayName,
+    affiliationType: "Registered Party" as const,
+    party,
+  })),
+];
+
 export const campaign = {
   tenantId: "demo-tenant",
   campaignName: "Demo Campaign",
   candidateName: "John Doe",
   positionTargeted: "MP",
-  politicalParty: "United Democratic Alliance (UDA)",
+  politicalParty: "Independent Candidate",
   county: "Configurable County",
   constituency: "Central Constituency",
   electionYear: 2027,
