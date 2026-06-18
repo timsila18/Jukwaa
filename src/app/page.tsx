@@ -172,6 +172,40 @@ const navItems = [
 
 const futureItems = ["AI Intelligence"];
 
+const sectionTargets: Record<string, string> = {
+  Dashboard: "dashboard",
+  Supporters: "supporters",
+  Volunteers: "volunteers",
+  "Field Operations": "field-operations",
+  "Community Issues": "community-issues",
+  "Events & Rallies": "events-rallies",
+  "Territory Coverage": "territory-coverage",
+  "Ground Intelligence": "ground-intelligence",
+  "Election Operations": "election-operations",
+  "Polling Agents": "election-operations",
+  "Turnout Monitoring": "turnout-monitoring",
+  "Incident Reporting": "election-operations",
+  "Results Center": "results-center",
+  "Situation Room": "super-admin",
+  "Candidate Management": "candidate-management",
+  "Workspace Governance": "workspace-governance",
+  Invitations: "invitations",
+  Subscriptions: "subscriptions",
+  "Super Admin": "super-admin",
+  Communications: "communications",
+  "AI Campaign Assistant": "ai-assistant",
+  "Campaign Finance": "campaign-finance",
+  "M-Pesa Payments": "mpesa-payments",
+  "Predictive Analytics": "predictive-analytics",
+  "Document Center": "document-center",
+  "Knowledge Center": "knowledge-center",
+  Locations: "locations",
+  "Polling Stations": "polling-stations",
+  Users: "users",
+  Reports: "reports",
+  "Audit Trail": "audit-trail",
+};
+
 const supportColors: Record<SupportLevel, string> = {
   "Strong Supporter": "#0f766e",
   "Leaning Supporter": "#38bdf8",
@@ -215,16 +249,16 @@ function StatCard({ label, value, helper, icon: Icon }: { label: string; value: 
   );
 }
 
-function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
+function ChartCard({ title, children, report = "supporters-by-ward" }: { title: string; children: React.ReactNode; report?: string }) {
   const mounted = useSyncExternalStore(subscribeToClient, getClientSnapshot, getServerSnapshot);
 
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-sm font-bold text-slate-950">{title}</h2>
-        <button className="rounded-md p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" aria-label={`More options for ${title}`}>
+        <a href={`/api/reports/export?format=csv&report=${report}`} className="rounded-md p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" aria-label={`Download data for ${title}`}>
           <ChevronDown size={16} />
-        </button>
+        </a>
       </div>
       <div className="h-64 min-w-0">{mounted ? children : <div className="h-full rounded-md bg-slate-50" />}</div>
     </section>
@@ -289,6 +323,7 @@ export default function Home() {
   const [meetingTokenStatus, setMeetingTokenStatus] = useState("");
   const [meetingTokenError, setMeetingTokenError] = useState("");
   const [meetingTokenLoading, setMeetingTokenLoading] = useState(false);
+  const [actionMessage, setActionMessage] = useState("");
   const summary = summarizeCampaign();
   const phaseTwoSummary = summarizePhaseTwo();
   const electionSummary = summarizeElectionOps();
@@ -322,6 +357,20 @@ export default function Home() {
   const hierarchyRows = teamHierarchyRows();
   const aiRows = aiStrategyQueue();
   const budgetRows = budgetVarianceRows();
+
+  function scrollToSection(label: string) {
+    const sectionId = sectionTargets[label] ?? sectionTargets.Dashboard;
+    setActiveSection(label);
+    setSidebarOpen(false);
+    window.requestAnimationFrame(() => {
+      document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
+  function runAction(message: string, sectionLabel: string) {
+    setActionMessage(message);
+    scrollToSection(sectionLabel);
+  }
 
   async function askJukwaaAi(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -389,10 +438,7 @@ export default function Home() {
           {navItems.map((item) => (
             <button
               key={item.label}
-              onClick={() => {
-                setActiveSection(item.label);
-                setSidebarOpen(false);
-              }}
+              onClick={() => scrollToSection(item.label)}
               className={`flex h-10 w-full items-center gap-3 rounded-md px-3 text-sm font-semibold transition ${activeSection === item.label ? "bg-teal-50 text-teal-800" : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"}`}
             >
               <item.icon size={18} />
@@ -404,7 +450,7 @@ export default function Home() {
           <p className="px-3 text-xs font-bold uppercase tracking-wide text-slate-400">Future Modules</p>
           <div className="mt-2 space-y-1">
             {futureItems.map((item) => (
-              <button key={item} className="flex h-9 w-full items-center gap-3 rounded-md px-3 text-sm font-medium text-slate-400" disabled>
+              <button key={item} className="flex h-9 w-full items-center gap-3 rounded-md px-3 text-sm font-medium text-slate-400 transition hover:bg-slate-100" onClick={() => runAction(`${item} is represented in the current AI Campaign Assistant module.`, "AI Campaign Assistant")} type="button">
                 <LockKeyhole size={15} />
                 {item}
               </button>
@@ -430,11 +476,11 @@ export default function Home() {
                 <Search size={16} />
                 <input className="w-full bg-transparent outline-none" placeholder="Search supporters, stations, users" />
               </label>
-              <button className="hidden h-10 items-center gap-2 rounded-md bg-teal-700 px-3 text-sm font-bold text-white transition hover:bg-teal-800 sm:inline-flex">
+              <button className="hidden h-10 items-center gap-2 rounded-md bg-teal-700 px-3 text-sm font-bold text-white transition hover:bg-teal-800 sm:inline-flex" onClick={() => runAction("Opening invitation workflow. Use the Invitations module to add a user by phone, email, or invite code.", "Invitations")} type="button">
                 <Plus size={16} />
                 Invite User
               </button>
-              <button className="grid h-10 w-10 place-items-center rounded-md border border-slate-200 text-slate-500" aria-label="Notifications">
+              <button className="grid h-10 w-10 place-items-center rounded-md border border-slate-200 text-slate-500" aria-label="Notifications" onClick={() => runAction("Opening internal notifications and audit trail.", "Audit Trail")} type="button">
                 <Bell size={18} />
               </button>
             </div>
@@ -442,7 +488,7 @@ export default function Home() {
         </header>
 
         <div className="p-4 lg:p-6">
-          <section className="mb-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <section id="dashboard" className="scroll-mt-24 mb-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
               <div>
                 <p className="text-sm font-semibold text-teal-700">{campaign.candidateName} for {campaign.positionTargeted}</p>
@@ -467,6 +513,12 @@ export default function Home() {
               </div>
             </div>
           </section>
+
+          {actionMessage ? (
+            <section className="mb-6 rounded-lg border border-teal-200 bg-teal-50 p-3 text-sm font-semibold text-teal-900">
+              {actionMessage}
+            </section>
+          ) : null}
 
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
             <StatCard label="Total Supporters" value={String(summary.totalSupporters)} helper="Captured in demo workspace" icon={Users} />
@@ -522,7 +574,7 @@ export default function Home() {
             <StatCard label="Low Data Mode" value="On" helper="Solco-compatible mobile meetings" icon={Smartphone} />
           </section>
 
-          <section className="mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="communications" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -613,7 +665,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="ai-assistant" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -674,7 +726,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="campaign-finance" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-sm font-bold text-slate-950">Campaign Finance</h2>
@@ -739,7 +791,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="mpesa-payments" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-sm font-bold text-slate-950">M-Pesa Payment Infrastructure</h2>
@@ -804,7 +856,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="predictive-analytics" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-sm font-bold text-slate-950">Predictive Analytics</h2>
@@ -858,7 +910,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="document-center" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-sm font-bold text-slate-950">Document Center</h2>
@@ -896,7 +948,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="candidate-management" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -986,7 +1038,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="invitations" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-sm font-bold text-slate-950">Invitation System</h2>
@@ -1051,7 +1103,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="workspace-governance" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -1080,7 +1132,7 @@ export default function Home() {
               <h2 className="text-sm font-bold text-slate-950">User Approval Workflow</h2>
               <div className="mt-4 grid gap-3">
                 {["Approve User", "Suspend User", "Deactivate User", "Reactivate User"].map((action) => (
-                  <button key={action} className="flex h-11 items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800">
+                  <button key={action} className="flex h-11 items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800" onClick={() => runAction(`${action} selected. Review the user record in Users and Roles before confirming.`, "Users")} type="button">
                     {action}
                     <UserCheck size={16} />
                   </button>
@@ -1090,7 +1142,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="subscriptions" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-sm font-bold text-slate-950">Subscription Management</h2>
@@ -1151,7 +1203,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="audit-trail" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-sm font-bold text-slate-950">Security Hardening</h2>
@@ -1201,7 +1253,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="super-admin" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -1264,7 +1316,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="mt-6 grid gap-4 xl:grid-cols-4">
+          <section id="turnout-monitoring" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-4">
             <ChartCard title="Turnout Monitoring">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={turnoutRows}>
@@ -1307,7 +1359,7 @@ export default function Home() {
                   ["Upload Form", UploadCloud],
                   ["Enter Result", BadgeCheck],
                 ].map(([label, Icon]) => (
-                  <button key={String(label)} className="flex min-h-14 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-left text-sm font-bold text-slate-800 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800">
+                  <button key={String(label)} className="flex min-h-14 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-left text-sm font-bold text-slate-800 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800" onClick={() => runAction(`${String(label)} action opened. Continue from the Election Operations module.`, "Election Operations")} type="button">
                     <span className="grid h-9 w-9 place-items-center rounded-lg bg-white text-teal-700 shadow-sm">
                       <Icon size={18} />
                     </span>
@@ -1318,7 +1370,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="election-operations" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-sm font-bold text-slate-950">Incident Command Center</h2>
@@ -1385,7 +1437,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="results-center" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -1474,7 +1526,7 @@ export default function Home() {
             </ChartCard>
           </section>
 
-          <section className="mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="territory-coverage" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
             <ChartCard title="Supporters by Ward">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={wardData}>
@@ -1534,7 +1586,7 @@ export default function Home() {
             </ChartCard>
           </section>
 
-          <section className="mt-6 grid gap-4 2xl:grid-cols-[1.5fr_0.8fr]">
+          <section id="supporters" className="scroll-mt-24 mt-6 grid gap-4 2xl:grid-cols-[1.5fr_0.8fr]">
             <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4">
                 <div>
@@ -1610,7 +1662,7 @@ export default function Home() {
                     </label>
                   </div>
                 )}
-                <button disabled={duplicate && !overrideDuplicate} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-teal-700 px-3 text-sm font-bold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300">
+                <button disabled={duplicate && !overrideDuplicate} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-teal-700 px-3 text-sm font-bold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300" onClick={() => runAction(`${name.trim() || "Supporter"} has been queued for supporter registration review.`, "Supporters")} type="button">
                   <Plus size={16} />
                   Save Supporter
                 </button>
@@ -1618,7 +1670,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="mt-6 rounded-lg border border-slate-200 bg-white shadow-sm">
+          <section id="polling-stations" className="scroll-mt-24 mt-6 rounded-lg border border-slate-200 bg-white shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4">
               <div>
                 <h2 className="text-sm font-bold text-slate-950">Polling Station Analytics</h2>
@@ -1665,7 +1717,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="mt-6 grid gap-4 2xl:grid-cols-[1.2fr_0.9fr]">
+          <section id="volunteers" className="scroll-mt-24 mt-6 grid gap-4 2xl:grid-cols-[1.2fr_0.9fr]">
             <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4">
                 <div>
@@ -1710,7 +1762,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <div id="field-operations" className="scroll-mt-24 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <h2 className="text-sm font-bold text-slate-950">60-Second Field Actions</h2>
               <p className="mt-1 text-sm text-slate-500">Large mobile-first controls for common field submissions.</p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -1722,7 +1774,7 @@ export default function Home() {
                   ["Complete Task", CheckCircle2],
                   ["Report Intelligence", Radio],
                 ].map(([label, Icon]) => (
-                  <button key={String(label)} className="flex min-h-20 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-left text-sm font-bold text-slate-800 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800">
+                  <button key={String(label)} className="flex min-h-20 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-left text-sm font-bold text-slate-800 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800" onClick={() => runAction(`${String(label)} workflow opened. Continue in the Field Operations module.`, "Field Operations")} type="button">
                     <span className="grid h-10 w-10 place-items-center rounded-lg bg-white text-teal-700 shadow-sm">
                       <Icon size={20} />
                     </span>
@@ -1747,7 +1799,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="community-issues" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -1787,7 +1839,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <div id="events-rallies" className="scroll-mt-24 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <h2 className="text-sm font-bold text-slate-950">Volunteer Leaderboard</h2>
               <div className="mt-4 space-y-3">
                 {volunteerRows.slice(0, 5).map((row, index) => (
@@ -1807,7 +1859,7 @@ export default function Home() {
           </section>
 
           <section className="mt-6 grid gap-4 xl:grid-cols-3">
-            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <div id="ground-intelligence" className="scroll-mt-24 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-sm font-bold text-slate-950">Community Issues</h2>
                 <ReportLink report="community-issues" label="Issues" />
@@ -1874,7 +1926,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="reports" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <h2 className="text-sm font-bold text-slate-950">Internal Notifications</h2>
               <div className="mt-4 space-y-3">
@@ -1899,7 +1951,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="users" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <h2 className="text-sm font-bold text-slate-950">Campaign Setup Wizard</h2>
               <div className="mt-4 space-y-3">
@@ -1951,7 +2003,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <section id="locations" className="scroll-mt-24 mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
             <h2 className="text-sm font-bold text-slate-950">Reusable Location Hierarchy and Report Catalog</h2>
             <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-md bg-slate-50 p-3 text-sm text-slate-600">Country {"->"} County {"->"} Constituency {"->"} Ward {"->"} Village {"->"} Polling Station</div>
@@ -1961,7 +2013,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <section id="knowledge-center" className="scroll-mt-24 mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-bold text-slate-950">Kenya Political Party Register</h2>
@@ -1981,7 +2033,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <section id="candidate-geography" className="scroll-mt-24 mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-bold text-slate-950">Kenya Candidate Geography Setup</h2>
