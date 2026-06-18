@@ -56,6 +56,7 @@ import {
   intelligenceReports,
   notifications,
   pollingAnalytics,
+  politicalParties,
   reportRows,
   roles,
   supporters,
@@ -195,6 +196,7 @@ export default function Home() {
   const [name, setName] = useState("Amina Wanjiru");
   const [phone, setPhone] = useState("+254710000000");
   const [overrideDuplicate, setOverrideDuplicate] = useState(false);
+  const [selectedParty, setSelectedParty] = useState(politicalParties[0].displayName);
   const summary = summarizeCampaign();
   const phaseTwoSummary = summarizePhaseTwo();
 
@@ -298,6 +300,10 @@ export default function Home() {
                 <div className="rounded-md bg-slate-50 p-3">
                   <p className="font-semibold text-slate-500">Tenant</p>
                   <p className="text-lg font-bold text-slate-950">Isolated</p>
+                </div>
+                <div className="col-span-2 rounded-md bg-slate-50 p-3">
+                  <p className="font-semibold text-slate-500">Political Party</p>
+                  <p className="mt-1 text-sm font-bold text-slate-950">{selectedParty}</p>
                 </div>
               </div>
             </div>
@@ -805,6 +811,16 @@ export default function Home() {
                   </div>
                 ))}
               </div>
+              <label className="mt-5 block text-sm font-semibold text-slate-700">
+                Political party
+                <select value={selectedParty} onChange={(event) => setSelectedParty(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-teal-500">
+                  {politicalParties.map((party) => (
+                    <option key={`${party.registerSerial}-${party.abbreviation}`} value={party.displayName}>
+                      {party.displayName}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <h2 className="text-sm font-bold text-slate-950">Users and Roles</h2>
@@ -840,6 +856,24 @@ export default function Home() {
               <div className="rounded-md bg-slate-50 p-3 text-sm text-slate-600">Role geography assignment supports constituency, ward, village, and station scoping.</div>
               <div className="rounded-md bg-slate-50 p-3 text-sm text-slate-600">{roles.length} built-in roles mapped for campaign operations.</div>
               <div className="rounded-md bg-slate-50 p-3 text-sm text-slate-600">{reportRows("key-issues-analysis").length} report groups available for export.</div>
+            </div>
+          </section>
+
+          <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-bold text-slate-950">Kenya Political Party Register</h2>
+                <p className="text-sm text-slate-500">ORPP fully registered parties, May 2026. Featured parties are ordered first for faster campaign setup.</p>
+              </div>
+              <span className="rounded-md bg-teal-50 px-3 py-1 text-sm font-bold text-teal-700">{politicalParties.length} parties</span>
+            </div>
+            <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+              {politicalParties.slice(0, 16).map((party) => (
+                <div key={party.displayName} className={`rounded-md border p-3 text-sm ${party.featuredRank ? "border-teal-200 bg-teal-50 text-teal-900" : "border-slate-200 bg-slate-50 text-slate-700"}`}>
+                  <p className="font-bold">{party.displayName}</p>
+                  <p className="mt-1 text-xs text-slate-500">Register #{party.registerSerial}{party.featuredRank ? ` - Featured ${party.featuredRank}` : ""}</p>
+                </div>
+              ))}
             </div>
           </section>
         </div>
