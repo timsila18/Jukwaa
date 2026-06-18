@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (!url || !key) {
-    return NextResponse.json({ error: "Supabase auth is not configured." }, { status: 503 });
+    return NextResponse.json({ error: "JUKWAA login is not configured yet." }, { status: 503 });
   }
 
   const email = parsed.data.login.includes("@") ? parsed.data.login : `${parsed.data.login.replace(/\D/g, "")}@phone.jukwaa.local`;

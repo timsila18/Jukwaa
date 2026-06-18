@@ -5,7 +5,7 @@ const docs = [
   ["Terms of Service", "Candidates are responsible for lawful campaign use, truthful records, authorized team access, and subscription payment."],
   ["Data Consent", "Campaign teams must collect consent before contacting supporters, volunteers, agents, or community members."],
   ["Candidate Data Ownership", "Candidate workspaces remain tenant-isolated. Data export is available through reports and admin support."],
-  ["Backup Policy", "Workspace data should be backed up through Supabase backups and CSV/XLSX/PDF exports."],
+  ["Backup Policy", "Workspace data should be backed up through managed database backups and CSV/XLSX/PDF exports."],
 ];
 
 export default function LegalPage() {

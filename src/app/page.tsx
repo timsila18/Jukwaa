@@ -834,7 +834,7 @@ export default function Home() {
               <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
                 <p className="text-sm font-bold text-amber-900">Paybill configuration</p>
                 <p className="mt-1 text-sm text-amber-800">Business number: {mpesaPaymentSetting.paybillNumber}</p>
-                <p className="mt-1 text-xs text-amber-700">Set the live Paybill in Supabase/Vercel env before processing real payments.</p>
+                <p className="mt-1 text-xs text-amber-700">Set the live Paybill in secure production settings before processing real payments.</p>
               </div>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 <Link className="inline-flex h-10 items-center justify-center rounded-md bg-slate-950 px-3 text-sm font-bold text-white hover:bg-slate-900" href="/payment/confirm">Confirm Payment</Link>
@@ -979,7 +979,7 @@ export default function Home() {
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <h2 className="text-sm font-bold text-slate-950">Backup and Disaster Recovery</h2>
               <div className="mt-4 space-y-3 text-sm text-slate-600">
-                <div className="rounded-md bg-slate-50 p-3">Scheduled backups prepared through Supabase project backups and export jobs.</div>
+                <div className="rounded-md bg-slate-50 p-3">Scheduled backups prepared through managed database backups and export jobs.</div>
                 <div className="rounded-md bg-slate-50 p-3">Audit retention enforced with immutable workspace logs.</div>
                 <div className="rounded-md bg-slate-50 p-3">CSV/XLSX/PDF exports available from every report center.</div>
                 <Link className="block rounded-md bg-sky-50 p-3 font-bold text-sky-800 hover:bg-sky-100" href="/legal">Privacy, consent, ownership, and backup policies</Link>
@@ -1193,7 +1193,7 @@ export default function Home() {
               <h2 className="text-sm font-bold text-slate-950">User Approval Workflow</h2>
               <div className="mt-4 grid gap-3">
                 {["Approve User", "Suspend User", "Deactivate User", "Reactivate User"].map((action) => (
-                  <button key={action} className="flex h-11 items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700 hover:border-sky-200 hover:bg-sky-50 hover:text-sky-800" onClick={() => void persistWorkflow("userStatus", { invitationId: invitations.find((invite) => invite.status === "Pending")?.id, status: action.includes("Approve") ? "Accepted" : action.includes("Reactivate") ? "Pending" : "Revoked" }, `${action} workflow saved to Supabase audit trail.`, "Users")} type="button">
+                  <button key={action} className="flex h-11 items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700 hover:border-sky-200 hover:bg-sky-50 hover:text-sky-800" onClick={() => void persistWorkflow("userStatus", { invitationId: invitations.find((invite) => invite.status === "Pending")?.id, status: action.includes("Approve") ? "Accepted" : action.includes("Reactivate") ? "Pending" : "Revoked" }, `${action} workflow saved to the audit trail.`, "Users")} type="button">
                     {action}
                     <UserCheck size={16} />
                   </button>
@@ -1728,7 +1728,7 @@ export default function Home() {
                     </label>
                   </div>
                 )}
-                <button disabled={duplicate && !overrideDuplicate} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-300" onClick={() => void persistWorkflow("supporter", { fullName: name, phoneNumber: phone, supportLevel: "Unknown", consentToContact: true, notes: overrideDuplicate ? "Duplicate override approved." : "" }, `${name.trim() || "Supporter"} saved to Supabase.`, "Supporters")} type="button">
+                <button disabled={duplicate && !overrideDuplicate} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-300" onClick={() => void persistWorkflow("supporter", { fullName: name, phoneNumber: phone, supportLevel: "Unknown", consentToContact: true, notes: overrideDuplicate ? "Duplicate override approved." : "" }, `${name.trim() || "Supporter"} saved.`, "Supporters")} type="button">
                   <Plus size={16} />
                   Save Supporter
                 </button>
@@ -1840,7 +1840,7 @@ export default function Home() {
                   ["Complete Task", CheckCircle2],
                   ["Report Intelligence", Radio],
                 ].map(([label, Icon]) => (
-                  <button key={String(label)} className="flex min-h-20 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-left text-sm font-bold text-slate-800 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-800" onClick={() => void persistWorkflow(String(label) === "Register Supporter" ? "supporter" : String(label) === "Submit Issue" ? "issue" : String(label) === "Submit Field Visit" ? "fieldVisit" : String(label) === "Complete Task" ? "task" : String(label) === "Report Intelligence" ? "supportTicket" : "supportTicket", String(label) === "Register Supporter" ? { fullName: "New supporter", phoneNumber: `+2547${Math.floor(10000000 + Math.random() * 89999999)}`, supportLevel: "Unknown", consentToContact: true } : String(label) === "Submit Issue" ? { title: "New community issue", category: "Other", priority: "Medium" } : String(label) === "Submit Field Visit" ? { visitPurpose: "Field activity", supportersEngaged: 0 } : String(label) === "Complete Task" ? { title: "Follow-up task", dueDate: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10) } : { title: String(label), description: "Submitted from field action panel.", priority: "Medium" }, `${String(label)} saved to Supabase.`, "Field Operations")} type="button">
+                  <button key={String(label)} className="flex min-h-20 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-left text-sm font-bold text-slate-800 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-800" onClick={() => void persistWorkflow(String(label) === "Register Supporter" ? "supporter" : String(label) === "Submit Issue" ? "issue" : String(label) === "Submit Field Visit" ? "fieldVisit" : String(label) === "Complete Task" ? "task" : String(label) === "Report Intelligence" ? "supportTicket" : "supportTicket", String(label) === "Register Supporter" ? { fullName: "New supporter", phoneNumber: `+2547${Math.floor(10000000 + Math.random() * 89999999)}`, supportLevel: "Unknown", consentToContact: true } : String(label) === "Submit Issue" ? { title: "New community issue", category: "Other", priority: "Medium" } : String(label) === "Submit Field Visit" ? { visitPurpose: "Field activity", supportersEngaged: 0 } : String(label) === "Complete Task" ? { title: "Follow-up task", dueDate: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10) } : { title: String(label), description: "Submitted from field action panel.", priority: "Medium" }, `${String(label)} saved.`, "Field Operations")} type="button">
                     <span className="grid h-10 w-10 place-items-center rounded-lg bg-white text-sky-700 shadow-sm">
                       <Icon size={20} />
                     </span>
@@ -2122,7 +2122,7 @@ export default function Home() {
                 </div>
               ))}
             </div>
-            <p className="mt-3 text-xs leading-5 text-slate-500">Source: {kenyaGeographySummary.source}. The raw constituency area text is preserved in Supabase for auditability.</p>
+            <p className="mt-3 text-xs leading-5 text-slate-500">Source: {kenyaGeographySummary.source}. The raw constituency area text is preserved in the JUKWAA data platform for auditability.</p>
           </section>
         </div>
       </div>
