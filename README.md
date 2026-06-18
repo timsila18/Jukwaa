@@ -1,36 +1,118 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# JUKWAA
 
-## Getting Started
+**Where Leadership Meets the People**
 
-First, run the development server:
+JUKWAA is a production-grade, mobile-first political campaign management platform for candidates, parties, agencies, and civic operations teams. This phase establishes the scalable multi-tenant foundation: campaign workspaces, tenant-isolated schema, role-aware operations, supporter CRM, polling station analytics, reports, audit trail, and PWA-ready UI.
+
+## Stack
+
+- Next.js 16 App Router, React 19, TypeScript, Tailwind CSS
+- Supabase Auth, PostgreSQL, Storage-ready schema, Row Level Security
+- Recharts for analytics
+- CSV, Excel, and PDF report exports
+- Vercel deployment target
+
+## Local Development
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Create `.env.local` from `.env.example`.
 
-## Learn More
+```bash
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+```
 
-To learn more about Next.js, take a look at the following resources:
+The current UI ships with typed demo data so the product is usable before a Supabase project is connected. Server-side Supabase clients are lazy initialized to keep builds safe when environment variables are absent.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Supabase Setup
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Create a Supabase project.
+2. Add the environment variables above.
+3. Install and authenticate the Supabase CLI.
+4. Link the project:
 
-## Deploy on Vercel
+```bash
+supabase link --project-ref your-project-ref
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+5. Apply migrations:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+supabase db push
+```
+
+The migrations create:
+
+- `tenants`
+- `campaign_settings`
+- `campaign_members`
+- reusable location hierarchy tables
+- `supporters`
+- `supporter_interactions`
+- `polling_stations`
+- `audit_logs`
+- private RLS helper functions
+- strict tenant-scoped RLS policies
+
+Demo data can be removed with:
+
+```sql
+delete from public.tenants where slug = 'demo-campaign' and is_demo = true;
+```
+
+## Security Model
+
+Every operational table includes `tenant_id`. RLS policies only allow authenticated users to access rows for tenants where they are active campaign members. Role checks use `campaign_members` via private `security definer` helper functions, not user-editable metadata.
+
+Role coverage:
+
+- Candidate
+- Campaign Manager
+- Constituency Coordinator
+- Ward Coordinator
+- Village Coordinator
+- Volunteer
+- Polling Agent
+- Media Team
+- Data Clerk
+- Admin
+
+## Reports
+
+Export endpoint:
+
+```text
+/api/reports/export?report=supporters-by-ward&format=csv
+/api/reports/export?report=supporters-by-ward&format=xlsx
+/api/reports/export?report=supporters-by-ward&format=pdf
+```
+
+Supported report names:
+
+- `supporters-by-ward`
+- `supporters-by-polling-station`
+- `support-levels-summary`
+- `gender-analysis`
+- `age-analysis`
+- `key-issues-analysis`
+
+## Deployment
+
+1. Push the repository to GitHub.
+2. Import it into Vercel.
+3. Set the Supabase environment variables in Vercel.
+4. Deploy.
+5. Run `supabase db push` against production before enabling real users.
+
+## Roadmap-Ready Modules
+
+The sidebar includes placeholders for Field Operations, Communications, Election Day, Campaign Finance, and AI Intelligence. The schema is designed so these modules can extend the existing tenant, user, location, audit, and supporter foundations without redesigning the database.
