@@ -5,6 +5,8 @@ import {
   AlertTriangle,
   BadgeCheck,
   Bell,
+  BookOpen,
+  Brain,
   Building2,
   CalendarDays,
   Camera,
@@ -13,10 +15,13 @@ import {
   ClipboardCheck,
   ClipboardList,
   Download,
+  FileArchive,
   FileCheck2,
   FileSpreadsheet,
   Flag,
   Gauge,
+  Globe2,
+  HandCoins,
   KeyRound,
   LandPlot,
   LockKeyhole,
@@ -34,12 +39,14 @@ import {
   Siren,
   Smartphone,
   Target,
+  TrendingUp,
   Trophy,
   UserCheck,
   UserCog,
   Users,
   UploadCloud,
   Vote,
+  WalletCards,
   X,
 } from "lucide-react";
 import { useMemo, useState, useSyncExternalStore } from "react";
@@ -69,6 +76,10 @@ import {
   electionIncidents,
   fieldVisits,
   agentDeploymentRows,
+  aiContentAssets,
+  aiStrategyQueue,
+  budgetVarianceRows,
+  campaignDocuments,
   campaignHealthScore,
   groupCount,
   intelligenceReports,
@@ -76,6 +87,7 @@ import {
   candidateProfiles,
   electionCycles,
   featureEntitlements,
+  fundraisingCampaigns,
   invitations,
   kenyaGeographySummary,
   notifications,
@@ -107,6 +119,14 @@ import {
   invoices,
   payments,
   platformWorkspaceMetrics,
+  donations,
+  expenses,
+  knowledgeArticles,
+  mpesaPaymentSetting,
+  mpesaTransactions,
+  predictiveInsights,
+  scenarioPlans,
+  summarizePhaseFive,
   type SupportLevel,
 } from "@/lib/demo-data";
 
@@ -130,6 +150,12 @@ const navItems = [
   { label: "Invitations", icon: KeyRound },
   { label: "Subscriptions", icon: ReceiptText },
   { label: "Super Admin", icon: ShieldCheck },
+  { label: "AI Campaign Assistant", icon: Brain },
+  { label: "Campaign Finance", icon: WalletCards },
+  { label: "M-Pesa Payments", icon: Smartphone },
+  { label: "Predictive Analytics", icon: TrendingUp },
+  { label: "Document Center", icon: FileArchive },
+  { label: "Knowledge Center", icon: BookOpen },
   { label: "Locations", icon: MapPin },
   { label: "Polling Stations", icon: Vote },
   { label: "Users", icon: ShieldCheck },
@@ -252,6 +278,7 @@ export default function Home() {
   const phaseTwoSummary = summarizePhaseTwo();
   const electionSummary = summarizeElectionOps();
   const governanceSummary = summarizeGovernance();
+  const phaseFiveSummary = summarizePhaseFive();
   const platformMetrics = platformWorkspaceMetrics();
   const healthScore = campaignHealthScore();
 
@@ -277,6 +304,8 @@ export default function Home() {
   const pvtRows = pvtTotals();
   const qualityQueue = pvtQualityQueue();
   const hierarchyRows = teamHierarchyRows();
+  const aiRows = aiStrategyQueue();
+  const budgetRows = budgetVarianceRows();
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
@@ -404,6 +433,280 @@ export default function Home() {
             <StatCard label="Subscription" value={workspaceSubscription.status} helper={`${workspaceSubscription.plan} plan active`} icon={ReceiptText} />
             <StatCard label="Failed Logins" value={String(governanceSummary.failedLogins)} helper="Security monitoring enabled" icon={ShieldCheck} />
             <StatCard label="Paid Revenue" value={`KES ${governanceSummary.paidRevenue.toLocaleString()}`} helper="Commercial framework ready" icon={Building2} />
+          </section>
+
+          <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+            <StatCard label="AI Actions" value={String(phaseFiveSummary.aiRecommendations)} helper="Ranked strategy recommendations" icon={Brain} />
+            <StatCard label="Donations" value={`KES ${phaseFiveSummary.donationTotal.toLocaleString()}`} helper="Recorded campaign income" icon={HandCoins} />
+            <StatCard label="Expenses" value={`KES ${phaseFiveSummary.expenseTotal.toLocaleString()}`} helper="Approved and pending spend" icon={WalletCards} />
+            <StatCard label="Cash Balance" value={`KES ${phaseFiveSummary.cashBalance.toLocaleString()}`} helper="Demo finance position" icon={ReceiptText} />
+            <StatCard label="Fundraising" value={`${phaseFiveSummary.fundraisingProgress}%`} helper="Progress toward active goals" icon={TrendingUp} />
+            <StatCard label="Competitiveness" value={`${phaseFiveSummary.competitiveness}/100`} helper="Strategic estimate, not certainty" icon={Gauge} />
+          </section>
+
+          <section className="mt-6 grid gap-4 xl:grid-cols-3">
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-950">JUKWAA AI Campaign Assistant</h2>
+                  <p className="text-sm text-slate-500">Natural-language intelligence, strategy ranking, reports, content drafts, risks, and opportunities.</p>
+                </div>
+                <ReportLink report="ai-recommendations" label="AI Actions" />
+              </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                {aiRows.map((recommendation) => (
+                  <div key={recommendation.id} className="rounded-lg border border-slate-200 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-slate-950">{recommendation.title}</p>
+                        <p className="text-xs text-slate-500">{recommendation.category} - {recommendation.source}</p>
+                      </div>
+                      <span className="rounded-md bg-teal-50 px-2 py-1 text-xs font-bold text-teal-700">{recommendation.impactScore}</span>
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-slate-600">{recommendation.description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <h2 className="text-sm font-bold text-slate-950">AI Content Assistant</h2>
+              <div className="mt-4 space-y-3">
+                {aiContentAssets.map((asset) => (
+                  <div key={asset.id} className="rounded-lg bg-slate-50 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-slate-950">{asset.title}</p>
+                        <p className="text-xs text-slate-500">{asset.type} - {asset.audience}</p>
+                      </div>
+                      <StatusPill label={asset.status} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section className="mt-6 grid gap-4 xl:grid-cols-3">
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-bold text-slate-950">Campaign Finance</h2>
+                <ReportLink report="donations" label="Donations" />
+              </div>
+              <div className="mt-4 space-y-3">
+                {donations.map((donation) => (
+                  <div key={donation.id} className="rounded-lg border border-slate-200 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-slate-950">{donation.donorName}</p>
+                        <p className="text-xs text-slate-500">{donation.donorType} - {donation.paymentMethod}</p>
+                      </div>
+                      <span className="text-sm font-bold text-teal-700">KES {donation.amountKes.toLocaleString()}</span>
+                    </div>
+                    <p className="mt-2 text-xs text-slate-500">{donation.phone} - {donation.date}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-bold text-slate-950">Expenses and Approvals</h2>
+                <ReportLink report="expenses" label="Expenses" />
+              </div>
+              <div className="mt-4 space-y-3">
+                {expenses.map((expense) => (
+                  <div key={expense.id} className="rounded-lg bg-slate-50 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-slate-950">{expense.vendor}</p>
+                        <p className="text-xs text-slate-500">{expense.category} - {expense.approvedBy}</p>
+                      </div>
+                      <StatusPill label={expense.status} />
+                    </div>
+                    <p className="mt-2 text-sm font-bold text-slate-950">KES {expense.amountKes.toLocaleString()}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-bold text-slate-950">Budget Control</h2>
+                <ReportLink report="budgets" label="Budgets" />
+              </div>
+              <div className="mt-4 space-y-3">
+                {budgetRows.map((row) => (
+                  <div key={row.category} className="rounded-lg border border-slate-200 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-bold text-slate-950">{row.category}</p>
+                      <span className="text-xs font-bold text-slate-500">{row.usedPercent}% used</span>
+                    </div>
+                    <div className="mt-3 h-2 rounded-full bg-slate-100">
+                      <div className="h-2 rounded-full bg-teal-600" style={{ width: `${Math.min(100, row.usedPercent)}%` }} />
+                    </div>
+                    <p className="mt-2 text-xs text-slate-500">Remaining KES {row.remaining.toLocaleString()}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section className="mt-6 grid gap-4 xl:grid-cols-3">
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-bold text-slate-950">M-Pesa Payment Infrastructure</h2>
+                <ReportLink report="mpesa-transactions" label="Logs" />
+              </div>
+              <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <p className="text-sm font-bold text-amber-900">Paybill configuration</p>
+                <p className="mt-1 text-sm text-amber-800">Business number: {mpesaPaymentSetting.paybillNumber}</p>
+                <p className="mt-1 text-xs text-amber-700">Set the live Paybill in Supabase/Vercel env before processing real payments.</p>
+              </div>
+              <div className="mt-4 grid gap-2 text-sm">
+                <div className="rounded-md bg-slate-50 p-3">Account reference: <b>{mpesaPaymentSetting.accountReferenceFormat}</b></div>
+                <div className="rounded-md bg-slate-50 p-3">STK Push: <b>{mpesaPaymentSetting.stkPushReady ? "Ready" : "Pending"}</b></div>
+                <div className="rounded-md bg-slate-50 p-3">Paybill: <b>{mpesaPaymentSetting.paybillReady ? "Ready" : "Pending"}</b></div>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <h2 className="text-sm font-bold text-slate-950">Transaction Logs</h2>
+              <div className="mt-4 space-y-3">
+                {mpesaTransactions.map((transaction) => (
+                  <div key={transaction.id} className="rounded-lg bg-slate-50 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-slate-950">{transaction.purpose}</p>
+                        <p className="text-xs text-slate-500">{transaction.method} - {transaction.phone}</p>
+                      </div>
+                      <StatusPill label={transaction.status} />
+                    </div>
+                    <p className="mt-2 text-sm font-bold text-slate-950">KES {transaction.amountKes.toLocaleString()}</p>
+                    <p className="mt-1 font-mono text-xs text-slate-500">{transaction.accountReference}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-bold text-slate-950">Fundraising Campaigns</h2>
+                <ReportLink report="fundraising" label="Fundraising" />
+              </div>
+              <div className="mt-4 space-y-3">
+                {fundraisingCampaigns.map((item) => {
+                  const progress = Math.round((item.raisedKes / item.goalAmountKes) * 100);
+                  return (
+                    <div key={item.id} className="rounded-lg border border-slate-200 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-bold text-slate-950">{item.title}</p>
+                          <p className="text-xs text-slate-500">{item.targetDate}</p>
+                        </div>
+                        <StatusPill label={item.status} />
+                      </div>
+                      <div className="mt-3 h-2 rounded-full bg-slate-100">
+                        <div className="h-2 rounded-full bg-teal-600" style={{ width: `${progress}%` }} />
+                      </div>
+                      <p className="mt-2 text-xs text-slate-500">KES {item.raisedKes.toLocaleString()} of {item.goalAmountKes.toLocaleString()}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+
+          <section className="mt-6 grid gap-4 xl:grid-cols-3">
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-bold text-slate-950">Predictive Analytics</h2>
+                <ReportLink report="predictive-analytics" label="Forecasts" />
+              </div>
+              <div className="mt-4 space-y-3">
+                {predictiveInsights.map((insight) => (
+                  <div key={insight.id} className="rounded-lg border border-slate-200 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-bold text-slate-950">{insight.metric}</p>
+                      <span className="text-lg font-bold text-teal-700">{insight.estimate}/100</span>
+                    </div>
+                    <p className="mt-1 text-sm text-slate-600">{insight.label}</p>
+                    <p className="mt-2 text-xs text-slate-500">{insight.caveat}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <h2 className="text-sm font-bold text-slate-950">Scenario Planning</h2>
+              <div className="mt-4 space-y-3">
+                {scenarioPlans.map((scenario) => (
+                  <div key={scenario.id} className="rounded-lg bg-slate-50 p-3">
+                    <p className="text-sm font-bold text-slate-950">{scenario.title}</p>
+                    <p className="mt-1 text-xs text-slate-500">Turnout {scenario.turnoutShift > 0 ? "+" : ""}{scenario.turnoutShift}% - Volunteers +{scenario.volunteerIncrease}% - KES {scenario.additionalSpendKes.toLocaleString()}</p>
+                    <p className="mt-2 text-sm text-slate-600">{scenario.projectedImpact}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <h2 className="text-sm font-bold text-slate-950">Multi-Country and White Label</h2>
+              <div className="mt-4 grid gap-3">
+                {[
+                  ["Custom domains", "jukwaakenya.co.ke active", Globe2],
+                  ["Country configuration", "Election structures configurable", LandPlot],
+                  ["White label", "Custom logo, colors, and domains", Building2],
+                  ["Offline mobile prep", "Queue-based sync architecture", Smartphone],
+                ].map(([label, value, Icon]) => (
+                  <div key={String(label)} className="flex items-center gap-3 rounded-lg bg-slate-50 p-3">
+                    <span className="grid h-9 w-9 place-items-center rounded-lg bg-white text-teal-700 shadow-sm"><Icon size={18} /></span>
+                    <div>
+                      <p className="text-sm font-bold text-slate-950">{String(label)}</p>
+                      <p className="text-xs text-slate-500">{String(value)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section className="mt-6 grid gap-4 xl:grid-cols-3">
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-bold text-slate-950">Document Center</h2>
+                <ReportLink report="documents" label="Documents" />
+              </div>
+              <div className="mt-4 space-y-3">
+                {campaignDocuments.map((document) => (
+                  <div key={document.id} className="rounded-lg border border-slate-200 p-3">
+                    <p className="text-sm font-bold text-slate-950">{document.title}</p>
+                    <p className="mt-1 text-xs text-slate-500">{document.category} - {document.version} - {document.permission}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <h2 className="text-sm font-bold text-slate-950">Knowledge Center</h2>
+              <div className="mt-4 space-y-3">
+                {knowledgeArticles.map((article) => (
+                  <div key={article.id} className="rounded-lg bg-slate-50 p-3">
+                    <p className="text-sm font-bold text-slate-950">{article.title}</p>
+                    <p className="mt-1 text-xs text-slate-500">{article.category} - {article.audience}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <h2 className="text-sm font-bold text-slate-950">Backup and Disaster Recovery</h2>
+              <div className="mt-4 space-y-3 text-sm text-slate-600">
+                <div className="rounded-md bg-slate-50 p-3">Scheduled backups prepared through Supabase project backups and export jobs.</div>
+                <div className="rounded-md bg-slate-50 p-3">Audit retention enforced with immutable workspace logs.</div>
+                <div className="rounded-md bg-slate-50 p-3">CSV/XLSX/PDF exports available from every report center.</div>
+              </div>
+            </div>
           </section>
 
           <section className="mt-6 grid gap-4 xl:grid-cols-3">

@@ -71,6 +71,10 @@ export type ElectionType = "Presidential" | "Governor" | "Senator" | "Women Repr
 export type SubscriptionPlan = "Starter" | "Professional" | "Advanced" | "Enterprise";
 export type SubscriptionStatus = "Trial" | "Active" | "Past Due" | "Expired" | "Cancelled";
 export type PaymentMethod = "M-Pesa STK Push" | "Paybill" | "Card Payment" | "Bank Transfer";
+export type FinanceCategory = "Fuel" | "Events" | "Salaries" | "Marketing" | "Printing" | "Logistics" | "Accommodation" | "Security" | "Media" | "Miscellaneous";
+export type DonorType = "Individual" | "Corporate" | "Event Contribution";
+export type FundraisingStatus = "Draft" | "Active" | "Paused" | "Closed";
+export type DocumentCategory = "Campaign Document" | "Contract" | "Budget" | "Training Material" | "Result Form" | "Regulation";
 
 export type Volunteer = {
   id: string;
@@ -354,6 +358,118 @@ export type SecurityEvent = {
   device: string;
   ipAddress: string;
   createdAt: string;
+};
+
+export type AiRecommendation = {
+  id: string;
+  title: string;
+  description: string;
+  impactScore: number;
+  category: "Risk" | "Opportunity" | "Action" | "Report";
+  source: string;
+};
+
+export type AiContentAsset = {
+  id: string;
+  type: "Rally Speech" | "Social Caption" | "Campaign Message" | "Press Statement" | "Volunteer Message" | "Event Invitation";
+  title: string;
+  audience: string;
+  status: "Draft" | "Approved" | "Published";
+};
+
+export type Donation = {
+  id: string;
+  donorName: string;
+  donorType: DonorType;
+  phone: string;
+  email: string;
+  amountKes: number;
+  date: string;
+  paymentMethod: PaymentMethod;
+  notes: string;
+};
+
+export type Expense = {
+  id: string;
+  vendor: string;
+  category: FinanceCategory;
+  amountKes: number;
+  date: string;
+  status: "Pending Approval" | "Approved" | "Paid";
+  receiptUrl: string;
+  approvedBy: string;
+};
+
+export type BudgetLine = {
+  id: string;
+  category: FinanceCategory;
+  budgetedKes: number;
+  actualKes: number;
+};
+
+export type FundraisingCampaign = {
+  id: string;
+  title: string;
+  goalAmountKes: number;
+  raisedKes: number;
+  targetDate: string;
+  description: string;
+  status: FundraisingStatus;
+};
+
+export type MpesaPaymentSetting = {
+  paybillNumber: string;
+  accountReferenceFormat: string;
+  callbackUrl: string;
+  stkPushReady: boolean;
+  paybillReady: boolean;
+  tillReady: boolean;
+};
+
+export type MpesaTransactionLog = {
+  id: string;
+  purpose: "Donation" | "Subscription" | "Fundraising";
+  phone: string;
+  amountKes: number;
+  method: "STK Push" | "Paybill" | "Till Number";
+  accountReference: string;
+  checkoutRequestId: string;
+  status: "Pending" | "Confirmed" | "Failed";
+  createdAt: string;
+};
+
+export type PredictiveInsight = {
+  id: string;
+  metric: string;
+  estimate: number;
+  label: string;
+  caveat: string;
+};
+
+export type ScenarioPlan = {
+  id: string;
+  title: string;
+  turnoutShift: number;
+  volunteerIncrease: number;
+  additionalSpendKes: number;
+  projectedImpact: string;
+};
+
+export type CampaignDocument = {
+  id: string;
+  title: string;
+  category: DocumentCategory;
+  version: string;
+  permission: "Candidate Only" | "Managers" | "All Team";
+  updatedAt: string;
+};
+
+export type KnowledgeArticle = {
+  id: string;
+  title: string;
+  category: "Training Guide" | "SOP" | "Campaign Manual" | "Election Regulation" | "FAQ";
+  audience: string;
+  updatedAt: string;
 };
 
 export type PoliticalParty = {
@@ -854,6 +970,82 @@ export const securityEvents: SecurityEvent[] = [
   { id: "sec-004", user: "Rose Volunteer", event: "Session Revoked", device: "Android App", ipAddress: "196.201.14.17", createdAt: "2026-06-16 17:22" },
 ];
 
+export const aiRecommendations: AiRecommendation[] = [
+  { id: "ai-001", title: "Increase volunteer activity in Mto", description: "River Road Center has low coverage and an unresolved election-day incident.", impactScore: 92, category: "Action", source: "Coverage + incident trends" },
+  { id: "ai-002", title: "Run a youth jobs meeting near Green Primary", description: "Youth employment is a top concern and the station has persuadable voters.", impactScore: 86, category: "Opportunity", source: "Supporter issues + polling station data" },
+  { id: "ai-003", title: "Target undecided voters before next rally", description: "Undecided voters are concentrated in stations with upcoming event activity.", impactScore: 78, category: "Action", source: "Supporter CRM + events" },
+  { id: "ai-004", title: "Audit River Road form workflow", description: "Rejected form and offline agent activity increase results risk.", impactScore: 74, category: "Risk", source: "PVT quality queue" },
+];
+
+export const aiContentAssets: AiContentAsset[] = [
+  { id: "content-001", type: "Rally Speech", title: "Service delivery rally speech", audience: "Ward rally", status: "Draft" },
+  { id: "content-002", type: "Social Caption", title: "Youth jobs carousel caption", audience: "18-34 voters", status: "Approved" },
+  { id: "content-003", type: "Volunteer Message", title: "Door-to-door reminder", audience: "Volunteer network", status: "Published" },
+];
+
+export const donations: Donation[] = [
+  { id: "don-001", donorName: "Amina Wanjiru", donorType: "Individual", phone: "+254710000000", email: "amina@example.com", amountKes: 2500, date: "2026-06-15", paymentMethod: "Paybill", notes: "Monthly supporter contribution." },
+  { id: "don-002", donorName: "Central Traders Sacco", donorType: "Corporate", phone: "+254720222333", email: "treasurer@traders.example", amountKes: 50000, date: "2026-06-16", paymentMethod: "M-Pesa STK Push", notes: "Fundraising breakfast pledge." },
+  { id: "don-003", donorName: "Kijiji Town Hall Guests", donorType: "Event Contribution", phone: "+254733444555", email: "events@jukwaa.app", amountKes: 18700, date: "2026-06-19", paymentMethod: "Paybill", notes: "Event collection." },
+];
+
+export const expenses: Expense[] = [
+  { id: "exp-001", vendor: "Bridge Fuel Station", category: "Fuel", amountKes: 8400, date: "2026-06-17", status: "Paid", receiptUrl: "/receipts/fuel-001.pdf", approvedBy: "Mary Field" },
+  { id: "exp-002", vendor: "Mlimani Printers", category: "Printing", amountKes: 32000, date: "2026-06-18", status: "Approved", receiptUrl: "/receipts/printing-002.pdf", approvedBy: "John Doe" },
+  { id: "exp-003", vendor: "Community Grounds PA", category: "Events", amountKes: 45000, date: "2026-06-22", status: "Pending Approval", receiptUrl: "/receipts/events-003.pdf", approvedBy: "Mary Field" },
+];
+
+export const budgets: BudgetLine[] = [
+  { id: "bud-001", category: "Fuel", budgetedKes: 120000, actualKes: 38400 },
+  { id: "bud-002", category: "Events", budgetedKes: 450000, actualKes: 184000 },
+  { id: "bud-003", category: "Printing", budgetedKes: 180000, actualKes: 92000 },
+  { id: "bud-004", category: "Marketing", budgetedKes: 250000, actualKes: 76000 },
+];
+
+export const fundraisingCampaigns: FundraisingCampaign[] = [
+  { id: "fund-001", title: "Ward Mobilization Fund", goalAmountKes: 300000, raisedKes: 158700, targetDate: "2026-07-15", description: "Transport, volunteer meals, and rally logistics.", status: "Active" },
+  { id: "fund-002", title: "Polling Agent Training", goalAmountKes: 180000, raisedKes: 72000, targetDate: "2026-08-01", description: "Training material, venue, and agent support.", status: "Active" },
+];
+
+export const mpesaPaymentSetting: MpesaPaymentSetting = {
+  paybillNumber: "CONFIGURE_PAYBILL",
+  accountReferenceFormat: "JUKWAA-{workspace}-{invoice}",
+  callbackUrl: "https://jukwaakenya.co.ke/api/payments/mpesa/callback",
+  stkPushReady: true,
+  paybillReady: true,
+  tillReady: false,
+};
+
+export const mpesaTransactions: MpesaTransactionLog[] = [
+  { id: "mpesa-001", purpose: "Subscription", phone: "+254700111222", amountKes: 45000, method: "Paybill", accountReference: "JUKWAA-JOHNDOE-JUK-2026-0001", checkoutRequestId: "manual-paybill-QBJ7X9KD2", status: "Confirmed", createdAt: "2026-01-15 10:40" },
+  { id: "mpesa-002", purpose: "Donation", phone: "+254720222333", amountKes: 50000, method: "STK Push", accountReference: "JUKWAA-JOHNDOE-DON-002", checkoutRequestId: "ws_CO_160620261004", status: "Confirmed", createdAt: "2026-06-16 10:04" },
+  { id: "mpesa-003", purpose: "Fundraising", phone: "+254733444555", amountKes: 18700, method: "Paybill", accountReference: "JUKWAA-JOHNDOE-FUND-001", checkoutRequestId: "manual-paybill-FUND001", status: "Pending", createdAt: "2026-06-19 19:44" },
+];
+
+export const predictiveInsights: PredictiveInsight[] = [
+  { id: "pred-001", metric: "Competitiveness", estimate: 64, label: "Leaning competitive", caveat: "Strategic estimate based on available campaign data." },
+  { id: "pred-002", metric: "Volunteer growth", estimate: 72, label: "Healthy growth", caveat: "Projection assumes current recruitment pace continues." },
+  { id: "pred-003", metric: "Mobilization gap", estimate: 38, label: "Needs attention", caveat: "Lower score means wider gap in weaker polling stations." },
+];
+
+export const scenarioPlans: ScenarioPlan[] = [
+  { id: "scenario-001", title: "Higher turnout push", turnoutShift: 8, volunteerIncrease: 12, additionalSpendKes: 85000, projectedImpact: "Improves turnout estimate in Umoja and Kijiji wards." },
+  { id: "scenario-002", title: "Volunteer surge", turnoutShift: 3, volunteerIncrease: 25, additionalSpendKes: 45000, projectedImpact: "Improves coverage and undecided voter follow-up." },
+  { id: "scenario-003", title: "Low spend hold", turnoutShift: -2, volunteerIncrease: 5, additionalSpendKes: 15000, projectedImpact: "Maintains current base but leaves Mto risk unresolved." },
+];
+
+export const campaignDocuments: CampaignDocument[] = [
+  { id: "doc-001", title: "Volunteer Training Manual", category: "Training Material", version: "v1.2", permission: "All Team", updatedAt: "2026-06-18" },
+  { id: "doc-002", title: "Campaign Budget Master", category: "Budget", version: "v2.0", permission: "Managers", updatedAt: "2026-06-17" },
+  { id: "doc-003", title: "Polling Agent SOP", category: "Result Form", version: "v1.1", permission: "All Team", updatedAt: "2026-06-16" },
+];
+
+export const knowledgeArticles: KnowledgeArticle[] = [
+  { id: "know-001", title: "How to register supporters offline", category: "SOP", audience: "Volunteers", updatedAt: "2026-06-18" },
+  { id: "know-002", title: "Election day incident escalation", category: "Campaign Manual", audience: "Polling Agents", updatedAt: "2026-06-17" },
+  { id: "know-003", title: "Finance approval policy", category: "FAQ", audience: "Managers", updatedAt: "2026-06-15" },
+];
+
 export function summarizeCampaign() {
   const strong = supporters.filter((supporter) => supporter.supportLevel === "Strong Supporter").length;
   const undecided = supporters.filter((supporter) => supporter.supportLevel === "Undecided").length;
@@ -1122,6 +1314,44 @@ export function platformWorkspaceMetrics() {
   };
 }
 
+export function summarizePhaseFive() {
+  const donationTotal = donations.reduce((sum, donation) => sum + donation.amountKes, 0);
+  const expenseTotal = expenses.reduce((sum, expense) => sum + expense.amountKes, 0);
+  const budgetedTotal = budgets.reduce((sum, budget) => sum + budget.budgetedKes, 0);
+  const actualTotal = budgets.reduce((sum, budget) => sum + budget.actualKes, 0);
+  const fundraisingGoal = fundraisingCampaigns.reduce((sum, item) => sum + item.goalAmountKes, 0);
+  const fundraisingRaised = fundraisingCampaigns.reduce((sum, item) => sum + item.raisedKes, 0);
+  const confirmedMpesa = mpesaTransactions.filter((transaction) => transaction.status === "Confirmed").reduce((sum, transaction) => sum + transaction.amountKes, 0);
+  const competitiveness = predictiveInsights.find((insight) => insight.metric === "Competitiveness")?.estimate ?? 0;
+
+  return {
+    aiRecommendations: aiRecommendations.length,
+    donationTotal,
+    expenseTotal,
+    cashBalance: donationTotal - expenseTotal,
+    budgetVariance: budgetedTotal - actualTotal,
+    fundraisingProgress: fundraisingGoal ? Math.round((fundraisingRaised / fundraisingGoal) * 100) : 0,
+    confirmedMpesa,
+    competitiveness,
+    documents: campaignDocuments.length,
+    knowledgeArticles: knowledgeArticles.length,
+  };
+}
+
+export function budgetVarianceRows() {
+  return budgets.map((budget) => ({
+    category: budget.category,
+    budgeted: budget.budgetedKes,
+    actual: budget.actualKes,
+    remaining: budget.budgetedKes - budget.actualKes,
+    usedPercent: Math.round((budget.actualKes / budget.budgetedKes) * 100),
+  }));
+}
+
+export function aiStrategyQueue() {
+  return aiRecommendations.slice().sort((a, b) => b.impactScore - a.impactScore);
+}
+
 export function reportRows(reportType: string) {
   const byWard = groupCount(supporters, "ward");
   const byStation = groupCount(supporters, "pollingStation");
@@ -1259,6 +1489,46 @@ export function reportRows(reportType: string) {
     createdAt: payment.createdAt,
   }));
   const governanceSummary = summarizeGovernance();
+  const phaseFiveSummary = summarizePhaseFive();
+  const donationRows = donations.map((donation) => ({
+    donor: donation.donorName,
+    donorType: donation.donorType,
+    phone: donation.phone,
+    amountKes: donation.amountKes,
+    date: donation.date,
+    paymentMethod: donation.paymentMethod,
+  }));
+  const expenseRows = expenses.map((expense) => ({
+    vendor: expense.vendor,
+    category: expense.category,
+    amountKes: expense.amountKes,
+    date: expense.date,
+    status: expense.status,
+    approvedBy: expense.approvedBy,
+  }));
+  const fundraisingRows = fundraisingCampaigns.map((campaign) => ({
+    title: campaign.title,
+    goalAmountKes: campaign.goalAmountKes,
+    raisedKes: campaign.raisedKes,
+    progress: Math.round((campaign.raisedKes / campaign.goalAmountKes) * 100),
+    targetDate: campaign.targetDate,
+    status: campaign.status,
+  }));
+  const mpesaRows = mpesaTransactions.map((transaction) => ({
+    purpose: transaction.purpose,
+    phone: transaction.phone,
+    amountKes: transaction.amountKes,
+    method: transaction.method,
+    accountReference: transaction.accountReference,
+    status: transaction.status,
+    createdAt: transaction.createdAt,
+  }));
+  const aiRows = aiStrategyQueue().map((recommendation) => ({
+    title: recommendation.title,
+    category: recommendation.category,
+    impactScore: recommendation.impactScore,
+    source: recommendation.source,
+  }));
 
   const reports: Record<string, Array<Record<string, string | number>>> = {
     "supporters-by-ward": byWard,
@@ -1306,6 +1576,33 @@ export function reportRows(reportType: string) {
       { metric: "Campaign health score", value: governanceSummary.healthScore },
       { metric: "Failed logins", value: governanceSummary.failedLogins },
       { metric: "Paid revenue KES", value: governanceSummary.paidRevenue },
+    ],
+    "ai-recommendations": aiRows,
+    donations: donationRows,
+    expenses: expenseRows,
+    budgets: budgetVarianceRows(),
+    fundraising: fundraisingRows,
+    "mpesa-transactions": mpesaRows,
+    "predictive-analytics": predictiveInsights.map((insight) => ({
+      metric: insight.metric,
+      estimate: insight.estimate,
+      label: insight.label,
+      caveat: insight.caveat,
+    })),
+    documents: campaignDocuments.map((document) => ({
+      title: document.title,
+      category: document.category,
+      version: document.version,
+      permission: document.permission,
+      updatedAt: document.updatedAt,
+    })),
+    "phase-five-summary": [
+      { metric: "AI recommendations", value: phaseFiveSummary.aiRecommendations },
+      { metric: "Donation total KES", value: phaseFiveSummary.donationTotal },
+      { metric: "Expense total KES", value: phaseFiveSummary.expenseTotal },
+      { metric: "Cash balance KES", value: phaseFiveSummary.cashBalance },
+      { metric: "Fundraising progress", value: phaseFiveSummary.fundraisingProgress },
+      { metric: "Competitiveness", value: phaseFiveSummary.competitiveness },
     ],
   };
 
