@@ -3,6 +3,7 @@
 import {
   Activity,
   AlertTriangle,
+  BadgeCheck,
   Bell,
   CalendarDays,
   Camera,
@@ -11,22 +12,28 @@ import {
   ClipboardCheck,
   ClipboardList,
   Download,
+  FileCheck2,
   FileSpreadsheet,
   Flag,
   Gauge,
   LandPlot,
   LockKeyhole,
+  MapPinned,
   MapPin,
   Menu,
+  MonitorDot,
   Navigation,
   Plus,
   Radio,
+  RadioTower,
   Search,
   ShieldCheck,
+  Siren,
   Target,
   Trophy,
   UserCheck,
   Users,
+  UploadCloud,
   Vote,
   X,
 } from "lucide-react";
@@ -52,20 +59,31 @@ import {
   candidatePositionScopes,
   communityIssues,
   eventAttendanceTrend,
+  electionAlerts,
+  electionForms,
+  electionIncidents,
   fieldVisits,
+  agentDeploymentRows,
   groupCount,
   intelligenceReports,
   kenyaGeographySummary,
   notifications,
+  pollingAgents,
   pollingAnalytics,
+  pollingResults,
   partyAffiliationOptions,
+  pvtQualityQueue,
+  pvtTotals,
   politicalParties,
   reportRows,
   roles,
   supporters,
   summarizeCampaign,
+  summarizeElectionOps,
   summarizePhaseTwo,
+  supporterMobilizationAnalytics,
   territoryCoverage,
+  turnoutTrend,
   users,
   volunteerPerformance,
   volunteerTasks,
@@ -82,6 +100,12 @@ const navItems = [
   { label: "Events & Rallies", icon: CalendarDays },
   { label: "Territory Coverage", icon: Target },
   { label: "Ground Intelligence", icon: Radio },
+  { label: "Election Operations", icon: MonitorDot },
+  { label: "Polling Agents", icon: RadioTower },
+  { label: "Turnout Monitoring", icon: Activity },
+  { label: "Incident Reporting", icon: Siren },
+  { label: "Results Center", icon: BadgeCheck },
+  { label: "Situation Room", icon: MapPinned },
   { label: "Locations", icon: MapPin },
   { label: "Polling Stations", icon: Vote },
   { label: "Users", icon: ShieldCheck },
@@ -89,7 +113,7 @@ const navItems = [
   { label: "Audit Trail", icon: ClipboardList },
 ];
 
-const futureItems = ["Communications", "Election Day", "Campaign Finance", "AI Intelligence"];
+const futureItems = ["Communications", "Campaign Finance", "AI Intelligence"];
 
 const supportColors: Record<SupportLevel, string> = {
   "Strong Supporter": "#0f766e",
@@ -202,6 +226,7 @@ export default function Home() {
   const [selectedParty, setSelectedParty] = useState(campaign.politicalParty);
   const summary = summarizeCampaign();
   const phaseTwoSummary = summarizePhaseTwo();
+  const electionSummary = summarizeElectionOps();
 
   const duplicate = useMemo(() => {
     const normalizedPhone = phone.replace(/\D/g, "");
@@ -219,6 +244,11 @@ export default function Home() {
   const coverageRows = territoryCoverage();
   const issueBreakdown = groupCount(communityIssues, "category");
   const eventTrend = eventAttendanceTrend();
+  const agentRows = agentDeploymentRows();
+  const turnoutRows = turnoutTrend();
+  const mobilizationRows = supporterMobilizationAnalytics();
+  const pvtRows = pvtTotals();
+  const qualityQueue = pvtQualityQueue();
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
@@ -328,6 +358,240 @@ export default function Home() {
             <StatCard label="Open Issues" value={String(phaseTwoSummary.openIssues)} helper="Citizen concerns to resolve" icon={AlertTriangle} />
             <StatCard label="Upcoming Events" value={String(phaseTwoSummary.upcomingEvents)} helper="Rallies and meetings ahead" icon={CalendarDays} />
             <StatCard label="Intel Reports" value={String(phaseTwoSummary.intelligenceReports)} helper="Ground reports received" icon={Radio} />
+          </section>
+
+          <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+            <StatCard label="Stations Reporting" value={`${electionSummary.stationCoverage}%`} helper={`${electionSummary.resultsStations} stations with results`} icon={MonitorDot} />
+            <StatCard label="Turnout" value={`${electionSummary.turnoutPercentage}%`} helper={`${electionSummary.totalTurnout.toLocaleString()} voters reported`} icon={Activity} />
+            <StatCard label="Agent Coverage" value={`${electionSummary.agentCoverage}%`} helper={`${pollingAgents.length} assigned agents`} icon={RadioTower} />
+            <StatCard label="Open Incidents" value={String(electionSummary.openIncidents)} helper="Unresolved election-day cases" icon={Siren} />
+            <StatCard label="Verified Forms" value={`${electionSummary.formCoverage}%`} helper={`${electionSummary.verifiedForms} forms cleared`} icon={FileCheck2} />
+            <StatCard label="Critical Alerts" value={String(electionSummary.criticalAlerts)} helper="Situation room escalations" icon={AlertTriangle} />
+          </section>
+
+          <section className="mt-6 grid gap-4 xl:grid-cols-3">
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-950">Election Operations Command Center</h2>
+                  <p className="text-sm text-slate-500">Live agent status, turnout, incident escalation, form quality, and PVT coverage.</p>
+                </div>
+                <ReportLink report="situation-room-summary" label="Summary" />
+              </div>
+              <div className="mt-4 overflow-x-auto rounded-lg border border-slate-200">
+                <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3">Station</th>
+                      <th className="px-4 py-3">Agent</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">Turnout</th>
+                      <th className="px-4 py-3">Health</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {agentRows.map((row) => (
+                      <tr key={row.station}>
+                        <td className="px-4 py-3">
+                          <p className="font-bold text-slate-950">{row.station}</p>
+                          <p className="text-xs text-slate-500">{row.ward}</p>
+                        </td>
+                        <td className="px-4 py-3 text-slate-600">{row.agent}</td>
+                        <td className="px-4 py-3"><StatusPill label={row.status} /></td>
+                        <td className="px-4 py-3 font-bold text-teal-700">{row.turnout}%</td>
+                        <td className="px-4 py-3">
+                          <span className={`rounded-md px-2 py-1 text-xs font-bold ${row.health === "Green" ? "bg-emerald-50 text-emerald-700" : row.health === "Amber" ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-700"}`}>{row.health}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-bold text-slate-950">Situation Room Alerts</h2>
+                <ReportLink report="incident" label="Incidents" />
+              </div>
+              <div className="mt-4 space-y-3">
+                {electionAlerts.map((alert) => (
+                  <div key={alert.id} className="rounded-lg border border-slate-200 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-slate-950">{alert.title}</p>
+                        <p className="text-xs text-slate-500">{alert.alertType} - {alert.pollingStation}</p>
+                      </div>
+                      <StatusPill label={alert.severity} />
+                    </div>
+                    <p className="mt-2 text-sm text-slate-600">{alert.body}</p>
+                    <p className="mt-2 text-xs font-semibold text-slate-500">{alert.createdAt} - {alert.status}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section className="mt-6 grid gap-4 xl:grid-cols-4">
+            <ChartCard title="Turnout Monitoring">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={turnoutRows}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="interval" tickLine={false} axisLine={false} />
+                  <YAxis tickLine={false} axisLine={false} />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="percentage" stroke="#0f766e" strokeWidth={3} />
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartCard>
+            <ChartCard title="PVT Running Totals">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={pvtRows}>
+                  <XAxis dataKey="candidate" tickLine={false} axisLine={false} />
+                  <YAxis tickLine={false} axisLine={false} />
+                  <Tooltip />
+                  <Bar dataKey="votes" fill="#0284c7" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+            <ChartCard title="Mobilization Signal">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={mobilizationRows} layout="vertical" margin={{ left: 34 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                  <XAxis type="number" hide />
+                  <YAxis dataKey="station" type="category" width={108} tickLine={false} axisLine={false} />
+                  <Tooltip />
+                  <Bar dataKey="conversionSignal" fill="#f59e0b" radius={[0, 6, 6, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <h2 className="text-sm font-bold text-slate-950">Mobile Agent Actions</h2>
+              <div className="mt-4 grid gap-3">
+                {[
+                  ["Check In", RadioTower],
+                  ["Submit Turnout", Activity],
+                  ["Report Incident", Siren],
+                  ["Upload Form", UploadCloud],
+                  ["Enter Result", BadgeCheck],
+                ].map(([label, Icon]) => (
+                  <button key={String(label)} className="flex min-h-14 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-left text-sm font-bold text-slate-800 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800">
+                    <span className="grid h-9 w-9 place-items-center rounded-lg bg-white text-teal-700 shadow-sm">
+                      <Icon size={18} />
+                    </span>
+                    {String(label)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section className="mt-6 grid gap-4 xl:grid-cols-3">
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-bold text-slate-950">Incident Command Center</h2>
+                <ReportLink report="incident" label="Incident Report" />
+              </div>
+              <div className="mt-4 space-y-3">
+                {electionIncidents.map((incident) => (
+                  <div key={incident.id} className="rounded-lg border border-slate-200 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-slate-950">{incident.title}</p>
+                        <p className="text-xs text-slate-500">{incident.category} - {incident.pollingStation}</p>
+                      </div>
+                      <StatusPill label={incident.urgency} />
+                    </div>
+                    <p className="mt-2 text-sm text-slate-600">{incident.description}</p>
+                    <p className="mt-2 text-xs font-semibold text-slate-500">{incident.status} - {incident.assignedTo} - {incident.photos} photos / {incident.videos} videos</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-bold text-slate-950">Forms and Validation</h2>
+                <ReportLink report="results" label="Results" />
+              </div>
+              <div className="mt-4 space-y-3">
+                {electionForms.map((form) => (
+                  <div key={form.id} className="rounded-lg bg-slate-50 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-slate-950">{form.pollingStation}</p>
+                        <p className="text-xs text-slate-500">{form.formType} - {form.uploadedBy}</p>
+                      </div>
+                      <StatusPill label={form.qualityStatus} />
+                    </div>
+                    <p className="mt-2 text-xs font-semibold text-slate-500">{form.duplicateCheck} - {form.missingFields.length ? form.missingFields.join(", ") : "All required fields present"}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-bold text-slate-950">PVT Quality Queue</h2>
+                <ReportLink report="pvt" label="PVT" />
+              </div>
+              <div className="mt-4 space-y-3">
+                {qualityQueue.map((item) => (
+                  <div key={`${item.station}-${item.formType}`} className="rounded-lg border border-slate-200 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-slate-950">{item.station}</p>
+                        <p className="text-xs text-slate-500">{item.formType} - {item.uploadedBy}</p>
+                      </div>
+                      <StatusPill label={item.status} />
+                    </div>
+                    <p className="mt-2 text-sm text-slate-600">{item.flags}</p>
+                  </div>
+                ))}
+                {qualityQueue.length === 0 ? <div className="rounded-md bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">All submitted forms are verified.</div> : null}
+              </div>
+            </div>
+          </section>
+
+          <section className="mt-6 grid gap-4 xl:grid-cols-3">
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-950">Results Center</h2>
+                  <p className="text-sm text-slate-500">Parallel Vote Tabulation by polling station with verification state.</p>
+                </div>
+                <ReportLink report="election-day-performance" label="Performance" />
+              </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                {pollingResults.map((result) => (
+                  <div key={result.id} className="rounded-lg border border-slate-200 p-3">
+                    <p className="text-sm font-bold text-slate-950">{result.candidate}</p>
+                    <p className="text-xs text-slate-500">{result.pollingStation}</p>
+                    <p className="mt-3 text-2xl font-bold text-slate-950">{result.votes.toLocaleString()}</p>
+                    <p className="mt-1 text-xs font-semibold text-slate-500">{result.totalVotes.toLocaleString()} total votes - {result.rejectedVotes} rejected</p>
+                    <div className="mt-3"><StatusPill label={result.verificationStatus} /></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <h2 className="text-sm font-bold text-slate-950">Campaign Intelligence Center</h2>
+              <div className="mt-4 space-y-3">
+                {mobilizationRows.slice(0, 5).map((row) => (
+                  <div key={row.station} className="rounded-lg bg-slate-50 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-slate-950">{row.station}</p>
+                        <p className="text-xs text-slate-500">{row.ward} - {row.strongSupporters} strong supporters</p>
+                      </div>
+                      <span className="rounded-md bg-white px-2 py-1 text-xs font-bold text-teal-700">{row.turnoutPercentage}%</span>
+                    </div>
+                    <p className="mt-2 text-sm text-slate-600">{row.recommendation}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
           </section>
 
           <section className="mt-6 grid gap-4 xl:grid-cols-4">

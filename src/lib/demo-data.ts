@@ -60,6 +60,11 @@ export type CampaignUser = {
 export type VolunteerStatus = "Active" | "Inactive" | "Suspended" | "Pending Approval";
 export type TaskStatus = "Pending" | "In Progress" | "Completed" | "Overdue";
 export type PriorityLevel = "Low" | "Medium" | "High" | "Critical";
+export type AgentStatus = "Assigned" | "Confirmed" | "Checked In" | "Active" | "Offline" | "Completed";
+export type IncidentCategory = "Violence" | "Intimidation" | "Voter Suppression" | "Missing Materials" | "Delayed Opening" | "Agent Access Issues" | "Technology Failure" | "Security Incident" | "Other";
+export type IncidentStatus = "Open" | "In Progress" | "Resolved";
+export type FormType = "Form 35" | "Form 36" | "Form 37" | "Form 38" | "Country-specific Equivalent";
+export type VerificationStatus = "Pending" | "Verified" | "Rejected";
 
 export type Volunteer = {
   id: string;
@@ -143,6 +148,82 @@ export type CampaignEvent = {
   description: string;
   actualAttendance: number;
   newSupporters: number;
+};
+
+export type PollingAgent = {
+  id: string;
+  fullName: string;
+  phoneNumber: string;
+  nationalId: string;
+  pollingStation: string;
+  ward: string;
+  manager: string;
+  status: AgentStatus;
+  lastSeen: string;
+  latitude: number;
+  longitude: number;
+};
+
+export type TurnoutUpdate = {
+  id: string;
+  pollingStation: string;
+  interval: string;
+  maleVoters: number;
+  femaleVoters: number;
+  totalTurnout: number;
+  turnoutPercentage: number;
+  submittedBy: string;
+};
+
+export type ElectionIncident = {
+  id: string;
+  title: string;
+  category: IncidentCategory;
+  description: string;
+  pollingStation: string;
+  urgency: PriorityLevel;
+  status: IncidentStatus;
+  submittedBy: string;
+  assignedTo: string;
+  photos: number;
+  videos: number;
+  latitude: number;
+  longitude: number;
+  createdAt: string;
+};
+
+export type ElectionForm = {
+  id: string;
+  formType: FormType;
+  pollingStation: string;
+  uploadedBy: string;
+  uploadedAt: string;
+  qualityStatus: VerificationStatus;
+  duplicateCheck: "Clear" | "Possible Duplicate";
+  missingFields: string[];
+  suspicious: boolean;
+};
+
+export type PollingResult = {
+  id: string;
+  pollingStation: string;
+  candidate: string;
+  votes: number;
+  rejectedVotes: number;
+  totalVotes: number;
+  verificationStatus: VerificationStatus;
+  uploadedBy: string;
+};
+
+export type ElectionAlert = {
+  id: string;
+  title: string;
+  body: string;
+  alertType: "Agent" | "Turnout" | "Incident" | "Results" | "PVT";
+  severity: PriorityLevel;
+  pollingStation: string;
+  status: "Unread" | "Read" | "Archived";
+  createdAt: string;
 };
 
 export type PoliticalParty = {
@@ -471,6 +552,66 @@ export const notifications = [
   { title: "Intelligence submitted", detail: "Security concern reported in Mto Bridge.", tone: "danger" },
 ];
 
+export const pollingAgents: PollingAgent[] = [
+  { id: "agent-01", fullName: "Sam Polling", phoneNumber: "+254722300001", nationalId: "ID-2001", pollingStation: "Town Hall A", ward: "Kijiji", manager: "Mary Field", status: "Active", lastSeen: "2027-08-09 15:05", latitude: -1.2864, longitude: 36.8172 },
+  { id: "agent-02", fullName: "Mercy Adhiambo", phoneNumber: "+254722300002", nationalId: "ID-2002", pollingStation: "Town Hall B", ward: "Kijiji", manager: "Mary Field", status: "Checked In", lastSeen: "2027-08-09 14:50", latitude: -1.2867, longitude: 36.8175 },
+  { id: "agent-03", fullName: "Daniel Kipruto", phoneNumber: "+254722300003", nationalId: "ID-2003", pollingStation: "Green Primary", ward: "Mlimani", manager: "Peter Data", status: "Active", lastSeen: "2027-08-09 15:11", latitude: -1.2921, longitude: 36.8219 },
+  { id: "agent-04", fullName: "Njeri Kamau", phoneNumber: "+254722300004", nationalId: "ID-2004", pollingStation: "River Road Center", ward: "Mto", manager: "Mary Field", status: "Offline", lastSeen: "2027-08-09 12:30", latitude: -1.2767, longitude: 36.8076 },
+  { id: "agent-05", fullName: "Victor Ouma", phoneNumber: "+254722300005", nationalId: "ID-2005", pollingStation: "Community Grounds", ward: "Umoja", manager: "Peter Data", status: "Completed", lastSeen: "2027-08-09 17:12", latitude: -1.3012, longitude: 36.8293 },
+  { id: "agent-06", fullName: "Faith Chebet", phoneNumber: "+254722300006", nationalId: "ID-2006", pollingStation: "Faith Hall", ward: "Umoja", manager: "Mary Field", status: "Confirmed", lastSeen: "2027-08-09 08:02", latitude: -1.2984, longitude: 36.8261 },
+];
+
+export const turnoutUpdates: TurnoutUpdate[] = [
+  ["07:00", 58, 61], ["09:00", 168, 174], ["11:00", 304, 326], ["13:00", 448, 463], ["15:00", 590, 612], ["17:00", 702, 719],
+].flatMap(([interval, maleBase, femaleBase], intervalIndex) =>
+  pollingStations.map((station, stationIndex) => {
+    const maleVoters = Number(maleBase) + stationIndex * 19;
+    const femaleVoters = Number(femaleBase) + stationIndex * 21;
+    const totalTurnout = maleVoters + femaleVoters;
+    return {
+      id: `turnout-${intervalIndex + 1}-${station.id}`,
+      pollingStation: station.name,
+      interval: String(interval),
+      maleVoters,
+      femaleVoters,
+      totalTurnout,
+      turnoutPercentage: Math.min(100, Math.round((totalTurnout / station.registeredVoters) * 1000) / 10),
+      submittedBy: pollingAgents[stationIndex % pollingAgents.length].fullName,
+    };
+  })
+);
+
+export const electionIncidents: ElectionIncident[] = [
+  { id: "inc-01", title: "Agent denied desk access", category: "Agent Access Issues", description: "Presiding officer requested intervention before allowing party desk setup.", pollingStation: "Town Hall B", urgency: "High", status: "Resolved", submittedBy: "Mercy Adhiambo", assignedTo: "Mary Field", photos: 2, videos: 0, latitude: -1.2867, longitude: 36.8175, createdAt: "2027-08-09 07:42" },
+  { id: "inc-02", title: "Missing KIEMS backup battery", category: "Technology Failure", description: "Queue slowed after device power issue. Agent requested technical follow-up.", pollingStation: "River Road Center", urgency: "Critical", status: "In Progress", submittedBy: "Njeri Kamau", assignedTo: "Peter Data", photos: 1, videos: 1, latitude: -1.2767, longitude: 36.8076, createdAt: "2027-08-09 11:20" },
+  { id: "inc-03", title: "Low turnout pocket", category: "Voter Suppression", description: "Elderly voters reported transport intimidation on bridge route.", pollingStation: "Faith Hall", urgency: "Medium", status: "Open", submittedBy: "Faith Chebet", assignedTo: "Mary Field", photos: 0, videos: 0, latitude: -1.2984, longitude: 36.8261, createdAt: "2027-08-09 14:15" },
+];
+
+export const electionForms: ElectionForm[] = [
+  { id: "form-01", formType: "Form 35", pollingStation: "Town Hall A", uploadedBy: "Sam Polling", uploadedAt: "2027-08-09 17:31", qualityStatus: "Verified", duplicateCheck: "Clear", missingFields: [], suspicious: false },
+  { id: "form-02", formType: "Form 35", pollingStation: "Town Hall B", uploadedBy: "Mercy Adhiambo", uploadedAt: "2027-08-09 17:44", qualityStatus: "Pending", duplicateCheck: "Clear", missingFields: ["Deputy presiding officer signature"], suspicious: false },
+  { id: "form-03", formType: "Form 35", pollingStation: "Green Primary", uploadedBy: "Daniel Kipruto", uploadedAt: "2027-08-09 17:52", qualityStatus: "Verified", duplicateCheck: "Clear", missingFields: [], suspicious: false },
+  { id: "form-04", formType: "Form 35", pollingStation: "River Road Center", uploadedBy: "Njeri Kamau", uploadedAt: "2027-08-09 18:02", qualityStatus: "Rejected", duplicateCheck: "Possible Duplicate", missingFields: ["Stamped page"], suspicious: true },
+  { id: "form-05", formType: "Form 35", pollingStation: "Community Grounds", uploadedBy: "Victor Ouma", uploadedAt: "2027-08-09 17:58", qualityStatus: "Verified", duplicateCheck: "Clear", missingFields: [], suspicious: false },
+];
+
+export const pollingResults: PollingResult[] = [
+  { id: "res-01", pollingStation: "Town Hall A", candidate: "John Doe", votes: 768, rejectedVotes: 18, totalVotes: 1421, verificationStatus: "Verified", uploadedBy: "Sam Polling" },
+  { id: "res-02", pollingStation: "Town Hall A", candidate: "Main Opponent", votes: 615, rejectedVotes: 18, totalVotes: 1421, verificationStatus: "Verified", uploadedBy: "Sam Polling" },
+  { id: "res-03", pollingStation: "Town Hall B", candidate: "John Doe", votes: 704, rejectedVotes: 16, totalVotes: 1338, verificationStatus: "Pending", uploadedBy: "Mercy Adhiambo" },
+  { id: "res-04", pollingStation: "Town Hall B", candidate: "Main Opponent", votes: 618, rejectedVotes: 16, totalVotes: 1338, verificationStatus: "Pending", uploadedBy: "Mercy Adhiambo" },
+  { id: "res-05", pollingStation: "Green Primary", candidate: "John Doe", votes: 611, rejectedVotes: 12, totalVotes: 1117, verificationStatus: "Verified", uploadedBy: "Daniel Kipruto" },
+  { id: "res-06", pollingStation: "Green Primary", candidate: "Main Opponent", votes: 494, rejectedVotes: 12, totalVotes: 1117, verificationStatus: "Verified", uploadedBy: "Daniel Kipruto" },
+  { id: "res-07", pollingStation: "Community Grounds", candidate: "John Doe", votes: 854, rejectedVotes: 22, totalVotes: 1608, verificationStatus: "Verified", uploadedBy: "Victor Ouma" },
+  { id: "res-08", pollingStation: "Community Grounds", candidate: "Main Opponent", votes: 732, rejectedVotes: 22, totalVotes: 1608, verificationStatus: "Verified", uploadedBy: "Victor Ouma" },
+];
+
+export const electionAlerts: ElectionAlert[] = [
+  { id: "alert-01", title: "Agent offline", body: "River Road Center agent has not synced since 12:30.", alertType: "Agent", severity: "Critical", pollingStation: "River Road Center", status: "Unread", createdAt: "2027-08-09 15:00" },
+  { id: "alert-02", title: "Low turnout", body: "Faith Hall turnout trails supporter base and ward average.", alertType: "Turnout", severity: "Medium", pollingStation: "Faith Hall", status: "Unread", createdAt: "2027-08-09 15:15" },
+  { id: "alert-03", title: "Form needs review", body: "River Road Center form has duplicate and missing stamp flags.", alertType: "Results", severity: "High", pollingStation: "River Road Center", status: "Read", createdAt: "2027-08-09 18:05" },
+];
+
 export function summarizeCampaign() {
   const strong = supporters.filter((supporter) => supporter.supportLevel === "Strong Supporter").length;
   const undecided = supporters.filter((supporter) => supporter.supportLevel === "Undecided").length;
@@ -583,6 +724,106 @@ export function eventAttendanceTrend() {
   }));
 }
 
+export function summarizeElectionOps() {
+  const latestTurnoutByStation = new Map<string, TurnoutUpdate>();
+  turnoutUpdates.forEach((update) => latestTurnoutByStation.set(update.pollingStation, update));
+  const latestTurnout = Array.from(latestTurnoutByStation.values());
+  const reportedStations = new Set(latestTurnout.map((update) => update.pollingStation)).size;
+  const totalRegistered = pollingStations.reduce((sum, station) => sum + station.registeredVoters, 0);
+  const totalTurnout = latestTurnout.reduce((sum, update) => sum + update.totalTurnout, 0);
+  const activeAgents = pollingAgents.filter((agent) => ["Checked In", "Active", "Completed"].includes(agent.status)).length;
+  const verifiedForms = electionForms.filter((form) => form.qualityStatus === "Verified").length;
+  const resultsStations = new Set(pollingResults.map((result) => result.pollingStation)).size;
+
+  return {
+    stationCoverage: Math.round((reportedStations / pollingStations.length) * 100),
+    agentCoverage: Math.round((activeAgents / pollingAgents.length) * 100),
+    turnoutPercentage: Math.round((totalTurnout / totalRegistered) * 1000) / 10,
+    totalTurnout,
+    openIncidents: electionIncidents.filter((incident) => incident.status !== "Resolved").length,
+    verifiedForms,
+    formCoverage: Math.round((verifiedForms / pollingStations.length) * 100),
+    resultsStations,
+    resultsCoverage: Math.round((resultsStations / pollingStations.length) * 100),
+    criticalAlerts: electionAlerts.filter((alert) => alert.severity === "Critical").length,
+  };
+}
+
+export function agentDeploymentRows() {
+  return pollingStations.map((station) => {
+    const agent = pollingAgents.find((item) => item.pollingStation === station.name);
+    const latestTurnout = turnoutUpdates.filter((update) => update.pollingStation === station.name).at(-1);
+    const status = agent?.status ?? "Assigned";
+    const health = status === "Active" || status === "Completed" || status === "Checked In" ? "Green" : status === "Confirmed" ? "Amber" : "Red";
+
+    return {
+      station: station.name,
+      ward: station.ward,
+      agent: agent?.fullName ?? "Unassigned",
+      phone: agent?.phoneNumber ?? "",
+      status,
+      lastSeen: agent?.lastSeen ?? "",
+      turnout: latestTurnout?.turnoutPercentage ?? 0,
+      health,
+    };
+  });
+}
+
+export function turnoutTrend() {
+  return ["07:00", "09:00", "11:00", "13:00", "15:00", "17:00"].map((interval) => {
+    const updates = turnoutUpdates.filter((update) => update.interval === interval);
+    const total = updates.reduce((sum, update) => sum + update.totalTurnout, 0);
+    const registered = pollingStations.reduce((sum, station) => sum + station.registeredVoters, 0);
+    return {
+      interval,
+      turnout: total,
+      percentage: Math.round((total / registered) * 1000) / 10,
+    };
+  });
+}
+
+export function supporterMobilizationAnalytics() {
+  return pollingStations.map((station) => {
+    const stationSupporters = supporters.filter((supporter) => supporter.pollingStation === station.name);
+    const strongSupporters = stationSupporters.filter((supporter) => supporter.supportLevel === "Strong Supporter").length;
+    const latestTurnout = turnoutUpdates.filter((update) => update.pollingStation === station.name).at(-1);
+    const converted = latestTurnout ? Math.round((strongSupporters / Math.max(latestTurnout.totalTurnout, 1)) * 1000) / 10 : 0;
+    return {
+      station: station.name,
+      ward: station.ward,
+      strongSupporters,
+      turnout: latestTurnout?.totalTurnout ?? 0,
+      turnoutPercentage: latestTurnout?.turnoutPercentage ?? 0,
+      conversionSignal: converted,
+      recommendation: converted < 3 ? "Dispatch mobilizers" : converted < 6 ? "Call supporter list" : "Hold and monitor",
+    };
+  });
+}
+
+export function pvtTotals() {
+  const totals = new Map<string, number>();
+  pollingResults.forEach((result) => totals.set(result.candidate, (totals.get(result.candidate) ?? 0) + result.votes));
+  const totalVotes = Array.from(totals.values()).reduce((sum, votes) => sum + votes, 0);
+  return Array.from(totals, ([candidate, votes]) => ({
+    candidate,
+    votes,
+    share: totalVotes ? Math.round((votes / totalVotes) * 1000) / 10 : 0,
+  })).sort((a, b) => b.votes - a.votes);
+}
+
+export function pvtQualityQueue() {
+  return electionForms
+    .filter((form) => form.qualityStatus !== "Verified" || form.suspicious || form.missingFields.length > 0)
+    .map((form) => ({
+      station: form.pollingStation,
+      formType: form.formType,
+      status: form.qualityStatus,
+      flags: [form.duplicateCheck !== "Clear" ? form.duplicateCheck : "", ...form.missingFields, form.suspicious ? "Suspicious totals" : ""].filter(Boolean).join(", ") || "No flags",
+      uploadedBy: form.uploadedBy,
+      uploadedAt: form.uploadedAt,
+    }));
+}
+
 export function reportRows(reportType: string) {
   const byWard = groupCount(supporters, "ward");
   const byStation = groupCount(supporters, "pollingStation");
@@ -638,6 +879,52 @@ export function reportRows(reportType: string) {
     village: row.name,
     fieldVisits: row.value,
   }));
+  const agentRows = agentDeploymentRows().map((row) => ({
+    pollingStation: row.station,
+    ward: row.ward,
+    agent: row.agent,
+    status: row.status,
+    lastSeen: row.lastSeen,
+    turnoutPercent: row.turnout,
+    health: row.health,
+  }));
+  const turnoutRows = turnoutTrend().map((row) => ({
+    interval: row.interval,
+    turnout: row.turnout,
+    turnoutPercent: row.percentage,
+  }));
+  const incidentRows = electionIncidents.map((incident) => ({
+    title: incident.title,
+    category: incident.category,
+    pollingStation: incident.pollingStation,
+    urgency: incident.urgency,
+    status: incident.status,
+    assignedTo: incident.assignedTo,
+    createdAt: incident.createdAt,
+  }));
+  const resultRows = pollingResults.map((result) => ({
+    pollingStation: result.pollingStation,
+    candidate: result.candidate,
+    votes: result.votes,
+    rejectedVotes: result.rejectedVotes,
+    totalVotes: result.totalVotes,
+    verificationStatus: result.verificationStatus,
+  }));
+  const pvtRows = pvtTotals().map((row) => ({
+    candidate: row.candidate,
+    votes: row.votes,
+    share: row.share,
+  }));
+  const electionSummary = summarizeElectionOps();
+  const electionPerformanceRows = supporterMobilizationAnalytics().map((row) => ({
+    pollingStation: row.station,
+    ward: row.ward,
+    strongSupporters: row.strongSupporters,
+    turnout: row.turnout,
+    turnoutPercent: row.turnoutPercentage,
+    conversionSignal: row.conversionSignal,
+    recommendation: row.recommendation,
+  }));
 
   const reports: Record<string, Array<Record<string, string | number>>> = {
     "supporters-by-ward": byWard,
@@ -652,6 +939,20 @@ export function reportRows(reportType: string) {
     "event-attendance": eventRows,
     "ground-intelligence-summary": intelligenceRows,
     "ward-activity": wardActivityRows,
+    "agent-deployment": agentRows,
+    turnout: turnoutRows,
+    incident: incidentRows,
+    results: resultRows,
+    pvt: pvtRows,
+    "situation-room-summary": [
+      { metric: "Station coverage", value: electionSummary.stationCoverage },
+      { metric: "Agent coverage", value: electionSummary.agentCoverage },
+      { metric: "Turnout percentage", value: electionSummary.turnoutPercentage },
+      { metric: "Open incidents", value: electionSummary.openIncidents },
+      { metric: "Verified forms", value: electionSummary.verifiedForms },
+      { metric: "Critical alerts", value: electionSummary.criticalAlerts },
+    ],
+    "election-day-performance": electionPerformanceRows,
   };
 
   return reports[reportType] ?? byWard;
