@@ -28,6 +28,7 @@ import {
   MapPinned,
   MapPin,
   Menu,
+  MessageSquare,
   MonitorDot,
   Navigation,
   Plus,
@@ -44,12 +45,13 @@ import {
   UserCheck,
   UserCog,
   Users,
+  Video,
   UploadCloud,
   Vote,
   WalletCards,
   X,
 } from "lucide-react";
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { type FormEvent, useMemo, useState, useSyncExternalStore } from "react";
 import {
   Bar,
   BarChart,
@@ -68,6 +70,8 @@ import {
   auditTrail,
   campaign,
   campaignEvents,
+  communicationMessages,
+  communicationRooms,
   candidatePositionScopes,
   communityIssues,
   eventAttendanceTrend,
@@ -107,6 +111,8 @@ import {
   summarizeGovernance,
   summarizePhaseTwo,
   supporterMobilizationAnalytics,
+  solcoIntegration,
+  summarizeCommunications,
   teamHierarchyRows,
   territoryCoverage,
   turnoutTrend,
@@ -150,6 +156,7 @@ const navItems = [
   { label: "Invitations", icon: KeyRound },
   { label: "Subscriptions", icon: ReceiptText },
   { label: "Super Admin", icon: ShieldCheck },
+  { label: "Communications", icon: MessageSquare },
   { label: "AI Campaign Assistant", icon: Brain },
   { label: "Campaign Finance", icon: WalletCards },
   { label: "M-Pesa Payments", icon: Smartphone },
@@ -163,7 +170,7 @@ const navItems = [
   { label: "Audit Trail", icon: ClipboardList },
 ];
 
-const futureItems = ["Communications", "Campaign Finance", "AI Intelligence"];
+const futureItems = ["AI Intelligence"];
 
 const supportColors: Record<SupportLevel, string> = {
   "Strong Supporter": "#0f766e",
@@ -274,11 +281,20 @@ export default function Home() {
   const [phone, setPhone] = useState("+254710000000");
   const [overrideDuplicate, setOverrideDuplicate] = useState(false);
   const [selectedParty, setSelectedParty] = useState(campaign.politicalParty);
+  const [aiQuestion, setAiQuestion] = useState("Which wards need attention this week?");
+  const [aiAnswer, setAiAnswer] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
+  const [meetingIdentity, setMeetingIdentity] = useState("campaign-manager");
+  const [meetingTokenStatus, setMeetingTokenStatus] = useState("");
+  const [meetingTokenError, setMeetingTokenError] = useState("");
+  const [meetingTokenLoading, setMeetingTokenLoading] = useState(false);
   const summary = summarizeCampaign();
   const phaseTwoSummary = summarizePhaseTwo();
   const electionSummary = summarizeElectionOps();
   const governanceSummary = summarizeGovernance();
   const phaseFiveSummary = summarizePhaseFive();
+  const communicationsSummary = summarizeCommunications();
   const platformMetrics = platformWorkspaceMetrics();
   const healthScore = campaignHealthScore();
 
@@ -306,6 +322,59 @@ export default function Home() {
   const hierarchyRows = teamHierarchyRows();
   const aiRows = aiStrategyQueue();
   const budgetRows = budgetVarianceRows();
+
+  async function askJukwaaAi(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAiLoading(true);
+    setAiError("");
+    setAiAnswer("");
+
+    try {
+      const response = await fetch("/api/ai/assistant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: aiQuestion }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error ?? "JUKWAA AI could not answer right now.");
+      }
+      setAiAnswer(payload.answer ?? "");
+    } catch (error) {
+      setAiError(error instanceof Error ? error.message : "JUKWAA AI could not answer right now.");
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+  async function issueMeetingToken(roomName: string) {
+    setMeetingTokenLoading(true);
+    setMeetingTokenError("");
+    setMeetingTokenStatus("");
+
+    try {
+      const response = await fetch("/api/communications/livekit-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          roomName,
+          identity: meetingIdentity,
+          displayName: "Campaign Manager",
+          role: "host",
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error ?? "LiveKit token could not be issued.");
+      }
+      const roomPath = solcoIntegration.meetingPath.replace("{roomName}", payload.roomName);
+      setMeetingTokenStatus(`Token issued for ${payload.roomName}. Join through Solco-compatible room URL ${solcoIntegration.workspaceUrl}${roomPath}.`);
+    } catch (error) {
+      setMeetingTokenError(error instanceof Error ? error.message : "LiveKit token could not be issued.");
+    } finally {
+      setMeetingTokenLoading(false);
+    }
+  }
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
@@ -444,6 +513,106 @@ export default function Home() {
             <StatCard label="Competitiveness" value={`${phaseFiveSummary.competitiveness}/100`} helper="Strategic estimate, not certainty" icon={Gauge} />
           </section>
 
+          <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+            <StatCard label="Comms Rooms" value={String(communicationsSummary.rooms)} helper={`${communicationsSummary.liveRooms} live, ${communicationsSummary.scheduledRooms} scheduled`} icon={MessageSquare} />
+            <StatCard label="Participants" value={String(communicationsSummary.participants)} helper="Expected across current rooms" icon={Users} />
+            <StatCard label="Messages Sent" value={String(communicationsSummary.deliveredMessages)} helper="Delivered or sent campaign updates" icon={Radio} />
+            <StatCard label="Solco Bridge" value={communicationsSummary.solcoStatus} helper="LiveKit token endpoint prepared" icon={Video} />
+            <StatCard label="Meeting Auth" value="2h" helper="Short-lived room token TTL" icon={ShieldCheck} />
+            <StatCard label="Low Data Mode" value="On" helper="Solco-compatible mobile meetings" icon={Smartphone} />
+          </section>
+
+          <section className="mt-6 grid gap-4 xl:grid-cols-3">
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-950">Solco Communications Bridge</h2>
+                  <p className="text-sm text-slate-500">LiveKit meetings, campaign rooms, broadcasts, and Solco-compatible coordination for field teams.</p>
+                </div>
+                <ReportLink report="communication-rooms" label="Rooms" />
+              </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
+                <div className="rounded-lg border border-teal-200 bg-teal-50 p-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-teal-700">Bridge Status</p>
+                  <p className="mt-1 text-lg font-bold text-teal-950">{solcoIntegration.status}</p>
+                  <p className="mt-1 text-xs text-teal-800">{solcoIntegration.tokenEndpoint}</p>
+                </div>
+                <div className="rounded-lg bg-slate-50 p-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Solco Workspace</p>
+                  <a className="mt-1 block truncate text-sm font-bold text-teal-700" href={solcoIntegration.workspaceUrl}>{solcoIntegration.workspaceUrl}</a>
+                </div>
+                <div className="rounded-lg bg-slate-50 p-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-500">LiveKit Source</p>
+                  <p className="mt-1 text-sm font-bold text-slate-950">{solcoIntegration.livekitUrl}</p>
+                </div>
+              </div>
+              <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <label className="text-xs font-bold uppercase tracking-wide text-slate-500" htmlFor="meeting-identity">Meeting identity</label>
+                <div className="mt-2 flex flex-col gap-2 md:flex-row">
+                  <input
+                    id="meeting-identity"
+                    value={meetingIdentity}
+                    onChange={(event) => setMeetingIdentity(event.target.value)}
+                    className="h-11 min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-teal-500"
+                    placeholder="campaign-manager"
+                  />
+                  <button
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-teal-700 px-4 text-sm font-bold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                    disabled={meetingTokenLoading}
+                    onClick={() => void issueMeetingToken(communicationRooms[0].livekitRoomName)}
+                    type="button"
+                  >
+                    <Video size={16} />
+                    {meetingTokenLoading ? "Issuing" : "Issue LiveKit Token"}
+                  </button>
+                </div>
+                {meetingTokenStatus ? <div className="mt-3 rounded-md bg-white p-3 text-sm font-semibold text-slate-700">{meetingTokenStatus}</div> : null}
+                {meetingTokenError ? <div className="mt-3 rounded-md bg-red-50 p-3 text-sm font-semibold text-red-700">{meetingTokenError}</div> : null}
+              </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                {communicationRooms.map((room) => (
+                  <div key={room.id} className="rounded-lg border border-slate-200 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-slate-950">{room.title}</p>
+                        <p className="text-xs text-slate-500">{room.purpose} - {room.scheduledAt}</p>
+                      </div>
+                      <StatusPill label={room.status} />
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-slate-600">{room.audience}</p>
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                      <span className="font-mono">{room.livekitRoomName}</span>
+                      <button className="rounded-md border border-slate-200 bg-white px-2 py-1 font-bold text-teal-700 hover:bg-teal-50" onClick={() => void issueMeetingToken(room.livekitRoomName)} type="button">
+                        Request token
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-bold text-slate-950">Message Queue</h2>
+                <ReportLink report="communication-messages" label="Messages" />
+              </div>
+              <div className="mt-4 space-y-3">
+                {communicationMessages.map((message) => (
+                  <div key={message.id} className="rounded-lg bg-slate-50 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-slate-950">{message.subject}</p>
+                        <p className="text-xs text-slate-500">{message.channel} - {message.audience}</p>
+                      </div>
+                      <StatusPill label={message.status} />
+                    </div>
+                    <p className="mt-2 text-xs font-semibold text-slate-500">{message.sender} - {message.sentAt}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
           <section className="mt-6 grid gap-4 xl:grid-cols-3">
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -453,6 +622,24 @@ export default function Home() {
                 </div>
                 <ReportLink report="ai-recommendations" label="AI Actions" />
               </div>
+              <form onSubmit={askJukwaaAi} className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <label className="text-xs font-bold uppercase tracking-wide text-slate-500" htmlFor="ai-question">Ask JUKWAA AI</label>
+                <div className="mt-2 flex flex-col gap-2 md:flex-row">
+                  <input
+                    id="ai-question"
+                    value={aiQuestion}
+                    onChange={(event) => setAiQuestion(event.target.value)}
+                    className="h-11 min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-teal-500"
+                    placeholder="Which polling stations need attention?"
+                  />
+                  <button disabled={aiLoading} className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-teal-700 px-4 text-sm font-bold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400">
+                    <Brain size={16} />
+                    {aiLoading ? "Thinking" : "Ask"}
+                  </button>
+                </div>
+                {aiAnswer ? <div className="mt-3 whitespace-pre-wrap rounded-md bg-white p-3 text-sm leading-6 text-slate-700">{aiAnswer}</div> : null}
+                {aiError ? <div className="mt-3 rounded-md bg-red-50 p-3 text-sm font-semibold text-red-700">{aiError}</div> : null}
+              </form>
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 {aiRows.map((recommendation) => (
                   <div key={recommendation.id} className="rounded-lg border border-slate-200 p-3">

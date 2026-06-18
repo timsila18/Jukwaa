@@ -472,6 +472,36 @@ export type KnowledgeArticle = {
   updatedAt: string;
 };
 
+export type CommunicationRoom = {
+  id: string;
+  title: string;
+  livekitRoomName: string;
+  purpose: "Command Briefing" | "Volunteer Coordination" | "Ward Town Hall" | "Candidate Broadcast";
+  status: "Scheduled" | "Live" | "Ended";
+  audience: string;
+  scheduledAt: string;
+  host: string;
+  participants: number;
+};
+
+export type CommunicationMessage = {
+  id: string;
+  channel: "Solco Meeting" | "Campaign Chat" | "Broadcast SMS" | "WhatsApp";
+  subject: string;
+  sender: string;
+  audience: string;
+  status: "Draft" | "Queued" | "Sent" | "Delivered";
+  sentAt: string;
+};
+
+export type SolcoIntegrationStatus = {
+  workspaceUrl: string;
+  livekitUrl: string;
+  status: "Ready" | "Needs Env";
+  tokenEndpoint: string;
+  meetingPath: string;
+};
+
 export type PoliticalParty = {
   registerSerial: number;
   name: string;
@@ -1046,6 +1076,26 @@ export const knowledgeArticles: KnowledgeArticle[] = [
   { id: "know-003", title: "Finance approval policy", category: "FAQ", audience: "Managers", updatedAt: "2026-06-15" },
 ];
 
+export const solcoIntegration: SolcoIntegrationStatus = {
+  workspaceUrl: "https://www.solco.co.ke",
+  livekitUrl: "Reused from Solco LiveKit environment",
+  status: "Needs Env",
+  tokenEndpoint: "/api/communications/livekit-token",
+  meetingPath: "/meeting/{roomName}",
+};
+
+export const communicationRooms: CommunicationRoom[] = [
+  { id: "room-001", title: "Daily Campaign Command Briefing", livekitRoomName: "jukwaa-command-briefing", purpose: "Command Briefing", status: "Live", audience: "Candidate, campaign manager, coordinators", scheduledAt: "2026-06-18 18:00", host: "John Doe", participants: 18 },
+  { id: "room-002", title: "Umoja Ward Volunteer Coordination", livekitRoomName: "jukwaa-umoja-volunteers", purpose: "Volunteer Coordination", status: "Scheduled", audience: "Ward coordinators and volunteers", scheduledAt: "2026-06-19 07:30", host: "Mary Field", participants: 42 },
+  { id: "room-003", title: "Kijiji Youth Town Hall", livekitRoomName: "jukwaa-kijiji-townhall", purpose: "Ward Town Hall", status: "Scheduled", audience: "Youth leaders and community mobilizers", scheduledAt: "2026-06-20 16:00", host: "James Data", participants: 120 },
+];
+
+export const communicationMessages: CommunicationMessage[] = [
+  { id: "comm-001", channel: "Solco Meeting", subject: "Command briefing link shared", sender: "Campaign Manager", audience: "Core team", status: "Delivered", sentAt: "2026-06-18 17:42" },
+  { id: "comm-002", channel: "Broadcast SMS", subject: "Volunteer reporting reminder", sender: "Field Director", audience: "Active volunteers", status: "Sent", sentAt: "2026-06-18 08:15" },
+  { id: "comm-003", channel: "WhatsApp", subject: "Town hall mobilization kit", sender: "Media Team", audience: "Ward coordinators", status: "Queued", sentAt: "2026-06-18 20:00" },
+];
+
 export function summarizeCampaign() {
   const strong = supporters.filter((supporter) => supporter.supportLevel === "Strong Supporter").length;
   const undecided = supporters.filter((supporter) => supporter.supportLevel === "Undecided").length;
@@ -1338,6 +1388,22 @@ export function summarizePhaseFive() {
   };
 }
 
+export function summarizeCommunications() {
+  const liveRooms = communicationRooms.filter((room) => room.status === "Live").length;
+  const scheduledRooms = communicationRooms.filter((room) => room.status === "Scheduled").length;
+  const deliveredMessages = communicationMessages.filter((message) => message.status === "Delivered" || message.status === "Sent").length;
+  const participants = communicationRooms.reduce((sum, room) => sum + room.participants, 0);
+
+  return {
+    rooms: communicationRooms.length,
+    liveRooms,
+    scheduledRooms,
+    deliveredMessages,
+    participants,
+    solcoStatus: solcoIntegration.status,
+  };
+}
+
 export function budgetVarianceRows() {
   return budgets.map((budget) => ({
     category: budget.category,
@@ -1529,6 +1595,24 @@ export function reportRows(reportType: string) {
     impactScore: recommendation.impactScore,
     source: recommendation.source,
   }));
+  const communicationRoomRows = communicationRooms.map((room) => ({
+    title: room.title,
+    livekitRoomName: room.livekitRoomName,
+    purpose: room.purpose,
+    status: room.status,
+    audience: room.audience,
+    scheduledAt: room.scheduledAt,
+    host: room.host,
+    participants: room.participants,
+  }));
+  const communicationMessageRows = communicationMessages.map((message) => ({
+    channel: message.channel,
+    subject: message.subject,
+    sender: message.sender,
+    audience: message.audience,
+    status: message.status,
+    sentAt: message.sentAt,
+  }));
 
   const reports: Record<string, Array<Record<string, string | number>>> = {
     "supporters-by-ward": byWard,
@@ -1603,6 +1687,16 @@ export function reportRows(reportType: string) {
       { metric: "Cash balance KES", value: phaseFiveSummary.cashBalance },
       { metric: "Fundraising progress", value: phaseFiveSummary.fundraisingProgress },
       { metric: "Competitiveness", value: phaseFiveSummary.competitiveness },
+    ],
+    "communication-rooms": communicationRoomRows,
+    "communication-messages": communicationMessageRows,
+    "communications-summary": [
+      { metric: "Rooms", value: summarizeCommunications().rooms },
+      { metric: "Live rooms", value: summarizeCommunications().liveRooms },
+      { metric: "Scheduled rooms", value: summarizeCommunications().scheduledRooms },
+      { metric: "Delivered messages", value: summarizeCommunications().deliveredMessages },
+      { metric: "Participants", value: summarizeCommunications().participants },
+      { metric: "Solco status", value: summarizeCommunications().solcoStatus },
     ],
   };
 
