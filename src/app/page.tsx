@@ -52,6 +52,7 @@ import {
   X,
 } from "lucide-react";
 import { type FormEvent, useMemo, useState, useSyncExternalStore } from "react";
+import Link from "next/link";
 import {
   Bar,
   BarChart,
@@ -476,12 +477,24 @@ export default function Home() {
                 <Search size={16} />
                 <input className="w-full bg-transparent outline-none" placeholder="Search supporters, stations, users" />
               </label>
-              <button className="hidden h-10 items-center gap-2 rounded-md bg-teal-700 px-3 text-sm font-bold text-white transition hover:bg-teal-800 sm:inline-flex" onClick={() => runAction("Opening invitation workflow. Use the Invitations module to add a user by phone, email, or invite code.", "Invitations")} type="button">
+              <Link className="hidden h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800 sm:inline-flex" href="/login">
+                <KeyRound size={16} />
+                Login
+              </Link>
+              <Link className="hidden h-10 items-center gap-2 rounded-md border border-teal-200 bg-teal-50 px-3 text-sm font-bold text-teal-800 transition hover:bg-teal-100 sm:inline-flex" href="/signup/candidate">
+                <UserCog size={16} />
+                New Candidate
+              </Link>
+              <Link className="hidden h-10 items-center gap-2 rounded-md bg-teal-700 px-3 text-sm font-bold text-white transition hover:bg-teal-800 sm:inline-flex" href="/signup/user">
                 <Plus size={16} />
-                Invite User
-              </button>
+                Add User
+              </Link>
               <button className="grid h-10 w-10 place-items-center rounded-md border border-slate-200 text-slate-500" aria-label="Notifications" onClick={() => runAction("Opening internal notifications and audit trail.", "Audit Trail")} type="button">
                 <Bell size={18} />
+              </button>
+              <button className="hidden h-10 items-center gap-2 rounded-md border border-red-200 bg-white px-3 text-sm font-bold text-red-700 transition hover:bg-red-50 sm:inline-flex" onClick={() => runAction("Logged out of the demo workspace. Use Login to start a real session.", "Dashboard")} type="button">
+                <X size={16} />
+                Logout
               </button>
             </div>
           </div>
@@ -955,7 +968,13 @@ export default function Home() {
                   <h2 className="text-sm font-bold text-slate-950">Candidate Management System</h2>
                   <p className="text-sm text-slate-500">Candidate-owned workspace, campaign lifecycle, verification, and multi-election readiness.</p>
                 </div>
-                <ReportLink report="candidate-management" label="Candidates" />
+                <div className="flex flex-wrap gap-2">
+                  <Link className="inline-flex h-9 items-center gap-2 rounded-md bg-teal-700 px-3 text-sm font-bold text-white hover:bg-teal-800" href="/signup/candidate">
+                    <UserCog size={15} />
+                    New Candidate
+                  </Link>
+                  <ReportLink report="candidate-management" label="Candidates" />
+                </div>
               </div>
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 {candidateProfiles.map((candidate) => (
@@ -1042,7 +1061,13 @@ export default function Home() {
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-sm font-bold text-slate-950">Invitation System</h2>
-                <ReportLink report="invitations" label="Invites" />
+                <div className="flex flex-wrap gap-2">
+                  <Link className="inline-flex h-9 items-center gap-2 rounded-md bg-teal-700 px-3 text-sm font-bold text-white hover:bg-teal-800" href="/signup/user">
+                    <Plus size={15} />
+                    Add User
+                  </Link>
+                  <ReportLink report="invitations" label="Invites" />
+                </div>
               </div>
               <div className="mt-4 space-y-3">
                 {invitations.map((invite) => (
@@ -1083,6 +1108,16 @@ export default function Home() {
 
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <h2 className="text-sm font-bold text-slate-950">Phone-First Authentication</h2>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                <Link className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-teal-700 px-3 text-sm font-bold text-white hover:bg-teal-800" href="/login">
+                  <KeyRound size={15} />
+                  Login
+                </Link>
+                <button className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-red-200 bg-white px-3 text-sm font-bold text-red-700 hover:bg-red-50" onClick={() => runAction("Logged out of the demo workspace. Use Login to start a real session.", "Dashboard")} type="button">
+                  <X size={15} />
+                  Logout
+                </button>
+              </div>
               <div className="mt-4 grid gap-3">
                 {[
                   ["Primary", "Phone number + password", Smartphone],
