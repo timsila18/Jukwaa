@@ -160,6 +160,13 @@ export type PartyAffiliationOption = {
   party?: PoliticalParty;
 };
 
+export type CandidatePositionScope = {
+  id: string;
+  displayName: string;
+  geographyLevel: "National" | "County" | "Constituency" | "Ward";
+  description: string;
+};
+
 export const politicalParties: PoliticalParty[] = [
   { registerSerial: 13, name: "United Democratic Alliance", abbreviation: "UDA", featuredRank: 1 },
   { registerSerial: 16, name: "Orange Democratic Movement", abbreviation: "ODM", featuredRank: 2 },
@@ -274,6 +281,52 @@ export const partyAffiliationOptions: PartyAffiliationOption[] = [
     affiliationType: "Registered Party" as const,
     party,
   })),
+];
+
+export const kenyaGeographySummary = {
+  counties: 47,
+  constituencies: 290,
+  extractedWardEntries: 2506,
+  source: "List of Counties, constituencies and wards in Kenya.pdf, constituency schedule pages 127-163",
+};
+
+export const candidatePositionScopes: CandidatePositionScope[] = [
+  {
+    id: "president",
+    displayName: "President",
+    geographyLevel: "National",
+    description: "National campaign across all counties.",
+  },
+  {
+    id: "governor",
+    displayName: "Governor",
+    geographyLevel: "County",
+    description: "County-level campaign.",
+  },
+  {
+    id: "senator",
+    displayName: "Senator",
+    geographyLevel: "County",
+    description: "County-level campaign.",
+  },
+  {
+    id: "woman-representative",
+    displayName: "Woman Representative",
+    geographyLevel: "County",
+    description: "County-level campaign.",
+  },
+  {
+    id: "mp",
+    displayName: "Member of National Assembly (MP)",
+    geographyLevel: "Constituency",
+    description: "Constituency-level campaign.",
+  },
+  {
+    id: "mca",
+    displayName: "Member of County Assembly (MCA)",
+    geographyLevel: "Ward",
+    description: "Ward-level campaign.",
+  },
 ];
 
 export const campaign = {

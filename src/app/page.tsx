@@ -49,11 +49,13 @@ import {
   auditTrail,
   campaign,
   campaignEvents,
+  candidatePositionScopes,
   communityIssues,
   eventAttendanceTrend,
   fieldVisits,
   groupCount,
   intelligenceReports,
+  kenyaGeographySummary,
   notifications,
   pollingAnalytics,
   partyAffiliationOptions,
@@ -881,6 +883,32 @@ export default function Home() {
                 </div>
               ))}
             </div>
+          </section>
+
+          <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-bold text-slate-950">Kenya Candidate Geography Setup</h2>
+                <p className="text-sm text-slate-500">Geography catalog supports candidates from President down to MCA.</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <span className="rounded-md bg-slate-100 px-3 py-1 text-sm font-bold text-slate-700">{kenyaGeographySummary.counties} counties</span>
+                <span className="rounded-md bg-slate-100 px-3 py-1 text-sm font-bold text-slate-700">{kenyaGeographySummary.constituencies} constituencies</span>
+                <span className="rounded-md bg-slate-100 px-3 py-1 text-sm font-bold text-slate-700">{kenyaGeographySummary.extractedWardEntries} ward entries</span>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {candidatePositionScopes.map((scope) => (
+                <div key={scope.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-sm font-bold text-slate-950">{scope.displayName}</p>
+                    <span className="rounded-md bg-white px-2 py-1 text-xs font-bold text-teal-700">{scope.geographyLevel}</span>
+                  </div>
+                  <p className="mt-2 text-sm text-slate-600">{scope.description}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 text-xs leading-5 text-slate-500">Source: {kenyaGeographySummary.source}. The raw constituency area text is preserved in Supabase for auditability.</p>
           </section>
         </div>
       </div>
