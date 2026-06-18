@@ -7,6 +7,7 @@ import { Smartphone } from "lucide-react";
 export default function PaymentConfirmPage() {
   const [form, setForm] = useState({ applicationId: "", accountReference: "", phoneNumber: "", amountKes: "", mpesaReceiptNumber: "", channel: "Manual Paybill" });
   const [status, setStatus] = useState("");
+  const [stkStatus, setStkStatus] = useState("");
   const [error, setError] = useState("");
 
   function update(key: keyof typeof form, value: string) {
@@ -29,6 +30,27 @@ export default function PaymentConfirmPage() {
     setStatus(`Payment confirmation submitted. Status: ${payload.status}.`);
   }
 
+  async function requestStkPush() {
+    setStkStatus("");
+    setError("");
+    const response = await fetch("/api/payments/mpesa/stk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        applicationId: form.applicationId || undefined,
+        accountReference: form.accountReference,
+        phoneNumber: form.phoneNumber,
+        amountKes: Number(form.amountKes),
+      }),
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      setError(payload.error ?? "Could not send STK Push.");
+      return;
+    }
+    setStkStatus(payload.customerMessage ?? "STK Push sent. Check the phone and enter M-Pesa PIN.");
+  }
+
   return (
     <main className="grid min-h-screen place-items-center bg-slate-50 px-4 py-8 text-slate-900">
       <section className="w-full max-w-2xl rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
@@ -45,8 +67,12 @@ export default function PaymentConfirmPage() {
           <label className="block text-sm font-semibold text-slate-700">Amount KES<input className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-teal-500" onChange={(event) => update("amountKes", event.target.value)} value={form.amountKes} /></label>
           <label className="block text-sm font-semibold text-slate-700">M-Pesa receipt<input className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-teal-500" onChange={(event) => update("mpesaReceiptNumber", event.target.value)} value={form.mpesaReceiptNumber} /></label>
           <label className="block text-sm font-semibold text-slate-700">Channel<select className="mt-1 h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-teal-500" onChange={(event) => update("channel", event.target.value)} value={form.channel}>{["Manual Paybill", "STK Push", "Bank Transfer"].map((item) => <option key={item}>{item}</option>)}</select></label>
-          <button className="h-11 rounded-md bg-teal-700 px-4 text-sm font-bold text-white hover:bg-teal-800 md:col-span-2" type="submit">Submit Payment Confirmation</button>
+          <div className="grid gap-3 md:col-span-2 md:grid-cols-2">
+            <button className="h-11 rounded-md bg-teal-700 px-4 text-sm font-bold text-white hover:bg-teal-800" type="button" onClick={() => void requestStkPush()}>Send STK Push</button>
+            <button className="h-11 rounded-md bg-slate-950 px-4 text-sm font-bold text-white hover:bg-slate-800" type="submit">Submit Manual Confirmation</button>
+          </div>
         </form>
+        {stkStatus ? <div className="mt-4 rounded-md bg-teal-50 p-3 text-sm font-semibold text-teal-800">{stkStatus}</div> : null}
         {status ? <div className="mt-4 rounded-md bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">{status}</div> : null}
         {error ? <div className="mt-4 rounded-md bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</div> : null}
       </section>

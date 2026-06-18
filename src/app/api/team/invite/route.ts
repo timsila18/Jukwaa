@@ -45,5 +45,10 @@ export async function POST(request: Request) {
     newValue: { ...parsed.data, invitationCode },
   });
 
-  return NextResponse.json({ invitationId: data.id, invitationCode });
+  return NextResponse.json({
+    invitationId: data.id,
+    invitationCode,
+    joinUrl: `/signup/user?code=${encodeURIComponent(invitationCode)}`,
+    expiresOn: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+  });
 }

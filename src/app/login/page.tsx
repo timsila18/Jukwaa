@@ -40,11 +40,11 @@ export default function LoginPage() {
         <form className="mt-6 space-y-4" onSubmit={(event) => { event.preventDefault(); void submitLogin(); }}>
           <label className="block text-sm font-semibold text-slate-700">
             Phone or email
-            <input className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-teal-500" onChange={(event) => setLogin(event.target.value)} placeholder="+254700111222 or candidate@jukwaa.app" value={login} />
+            <input autoComplete="username" className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-teal-500" onChange={(event) => setLogin(event.target.value)} placeholder="+254700111222 or candidate@jukwaa.app" value={login} />
           </label>
           <label className="block text-sm font-semibold text-slate-700">
             Password
-            <input className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-teal-500" onChange={(event) => setPassword(event.target.value)} placeholder="Enter password" type="password" value={password} />
+            <input autoComplete="current-password" className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-teal-500" onChange={(event) => setPassword(event.target.value)} placeholder="Enter password" type="password" value={password} />
           </label>
           <button className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-teal-700 px-4 text-sm font-bold text-white hover:bg-teal-800" type="submit">
             <Smartphone size={16} />
