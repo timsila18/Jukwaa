@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   BadgeCheck,
   Bell,
+  Building2,
   CalendarDays,
   Camera,
   CheckCircle2,
@@ -16,6 +17,7 @@ import {
   FileSpreadsheet,
   Flag,
   Gauge,
+  KeyRound,
   LandPlot,
   LockKeyhole,
   MapPinned,
@@ -26,12 +28,15 @@ import {
   Plus,
   Radio,
   RadioTower,
+  ReceiptText,
   Search,
   ShieldCheck,
   Siren,
+  Smartphone,
   Target,
   Trophy,
   UserCheck,
+  UserCog,
   Users,
   UploadCloud,
   Vote,
@@ -64,8 +69,14 @@ import {
   electionIncidents,
   fieldVisits,
   agentDeploymentRows,
+  campaignHealthScore,
   groupCount,
   intelligenceReports,
+  candidateBranding,
+  candidateProfiles,
+  electionCycles,
+  featureEntitlements,
+  invitations,
   kenyaGeographySummary,
   notifications,
   pollingAgents,
@@ -77,17 +88,25 @@ import {
   politicalParties,
   reportRows,
   roles,
+  securityEvents,
   supporters,
   summarizeCampaign,
   summarizeElectionOps,
+  summarizeGovernance,
   summarizePhaseTwo,
   supporterMobilizationAnalytics,
+  teamHierarchyRows,
   territoryCoverage,
   turnoutTrend,
   users,
   volunteerPerformance,
   volunteerTasks,
   volunteers,
+  workspaceOwnership,
+  workspaceSubscription,
+  invoices,
+  payments,
+  platformWorkspaceMetrics,
   type SupportLevel,
 } from "@/lib/demo-data";
 
@@ -106,6 +125,11 @@ const navItems = [
   { label: "Incident Reporting", icon: Siren },
   { label: "Results Center", icon: BadgeCheck },
   { label: "Situation Room", icon: MapPinned },
+  { label: "Candidate Management", icon: UserCog },
+  { label: "Workspace Governance", icon: Building2 },
+  { label: "Invitations", icon: KeyRound },
+  { label: "Subscriptions", icon: ReceiptText },
+  { label: "Super Admin", icon: ShieldCheck },
   { label: "Locations", icon: MapPin },
   { label: "Polling Stations", icon: Vote },
   { label: "Users", icon: ShieldCheck },
@@ -227,6 +251,9 @@ export default function Home() {
   const summary = summarizeCampaign();
   const phaseTwoSummary = summarizePhaseTwo();
   const electionSummary = summarizeElectionOps();
+  const governanceSummary = summarizeGovernance();
+  const platformMetrics = platformWorkspaceMetrics();
+  const healthScore = campaignHealthScore();
 
   const duplicate = useMemo(() => {
     const normalizedPhone = phone.replace(/\D/g, "");
@@ -249,6 +276,7 @@ export default function Home() {
   const mobilizationRows = supporterMobilizationAnalytics();
   const pvtRows = pvtTotals();
   const qualityQueue = pvtQualityQueue();
+  const hierarchyRows = teamHierarchyRows();
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
@@ -367,6 +395,320 @@ export default function Home() {
             <StatCard label="Open Incidents" value={String(electionSummary.openIncidents)} helper="Unresolved election-day cases" icon={Siren} />
             <StatCard label="Verified Forms" value={`${electionSummary.formCoverage}%`} helper={`${electionSummary.verifiedForms} forms cleared`} icon={FileCheck2} />
             <StatCard label="Critical Alerts" value={String(electionSummary.criticalAlerts)} helper="Situation room escalations" icon={AlertTriangle} />
+          </section>
+
+          <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+            <StatCard label="Candidate Workspaces" value={String(governanceSummary.candidates)} helper="Every workspace has one owner" icon={UserCog} />
+            <StatCard label="Health Score" value={`${healthScore}/100`} helper="Volunteers, supporters, coverage, comms, events" icon={Gauge} />
+            <StatCard label="Pending Invites" value={String(governanceSummary.pendingInvites)} helper="Invitation-only onboarding" icon={KeyRound} />
+            <StatCard label="Subscription" value={workspaceSubscription.status} helper={`${workspaceSubscription.plan} plan active`} icon={ReceiptText} />
+            <StatCard label="Failed Logins" value={String(governanceSummary.failedLogins)} helper="Security monitoring enabled" icon={ShieldCheck} />
+            <StatCard label="Paid Revenue" value={`KES ${governanceSummary.paidRevenue.toLocaleString()}`} helper="Commercial framework ready" icon={Building2} />
+          </section>
+
+          <section className="mt-6 grid gap-4 xl:grid-cols-3">
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-950">Candidate Management System</h2>
+                  <p className="text-sm text-slate-500">Candidate-owned workspace, campaign lifecycle, verification, and multi-election readiness.</p>
+                </div>
+                <ReportLink report="candidate-management" label="Candidates" />
+              </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                {candidateProfiles.map((candidate) => (
+                  <div key={candidate.id} className="rounded-lg border border-slate-200 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-lg font-bold text-slate-950">{candidate.fullName}</p>
+                        <p className="text-sm text-slate-500">{candidate.positionContesting} - {candidate.constituency}</p>
+                      </div>
+                      <StatusPill label={candidate.verificationStatus} />
+                    </div>
+                    <p className="mt-3 text-sm leading-6 text-slate-600">{candidate.biography}</p>
+                    <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                      <div className="rounded-md bg-slate-50 p-3">
+                        <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Campaign</p>
+                        <p className="mt-1 text-sm font-bold text-slate-950">{candidate.campaignName}</p>
+                      </div>
+                      <div className="rounded-md bg-slate-50 p-3">
+                        <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Lifecycle</p>
+                        <p className="mt-1 text-sm font-bold text-slate-950">{candidate.activeStatus}</p>
+                      </div>
+                      <div className="rounded-md bg-slate-50 p-3">
+                        <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Primary Login</p>
+                        <p className="mt-1 text-sm font-bold text-slate-950">{candidate.phoneNumber}</p>
+                      </div>
+                      <div className="rounded-md bg-slate-50 p-3">
+                        <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Party</p>
+                        <p className="mt-1 text-sm font-bold text-slate-950">{candidate.politicalParty}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <div className="rounded-lg border border-slate-200 p-4">
+                  <h2 className="text-sm font-bold text-slate-950">Candidate Branding Center</h2>
+                  <div className="mt-4 flex items-center gap-3">
+                    <div className="grid h-14 w-14 place-items-center rounded-lg bg-teal-700 text-xl font-bold text-white">{candidateBranding.logo}</div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-950">{candidateBranding.slogan}</p>
+                      <p className="text-xs text-slate-500">Logo, candidate photo, campaign banner, colors, and social links flow across the workspace.</p>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex gap-2">
+                    {candidateBranding.campaignColors.map((color) => (
+                      <span key={color} className="h-9 w-14 rounded-md border border-slate-200" style={{ backgroundColor: color }} />
+                    ))}
+                  </div>
+                  <div className="mt-4 grid gap-2 text-sm text-slate-600">
+                    {Object.entries(candidateBranding.socialLinks).map(([network, url]) => (
+                      <div key={network} className="flex items-center justify-between rounded-md bg-slate-50 p-2">
+                        <span className="font-bold capitalize text-slate-700">{network}</span>
+                        <span className="truncate text-xs">{url}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-bold text-slate-950">Workspace Ownership</h2>
+                <StatusPill label={workspaceOwnership.ownershipStatus} />
+              </div>
+              <div className="mt-4 space-y-3">
+                <div className="rounded-lg bg-slate-50 p-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Owner</p>
+                  <p className="mt-1 text-sm font-bold text-slate-950">{workspaceOwnership.candidate}</p>
+                  <p className="mt-1 text-xs text-slate-500">Candidate cannot be deleted from their workspace.</p>
+                </div>
+                <div className="rounded-lg bg-slate-50 p-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Secondary Owner</p>
+                  <p className="mt-1 text-sm font-bold text-slate-950">{workspaceOwnership.campaignManager}</p>
+                  <p className="mt-1 text-xs text-slate-500">{workspaceOwnership.managerReplacePolicy}</p>
+                </div>
+                <div className="rounded-lg border border-teal-200 bg-teal-50 p-3">
+                  <p className="text-sm font-bold text-teal-900">No Self Registration</p>
+                  <p className="mt-1 text-sm text-teal-800">Access is restricted to invitation links, email invites, phone invites, or join codes.</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="mt-6 grid gap-4 xl:grid-cols-3">
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-bold text-slate-950">Invitation System</h2>
+                <ReportLink report="invitations" label="Invites" />
+              </div>
+              <div className="mt-4 space-y-3">
+                {invitations.map((invite) => (
+                  <div key={invite.id} className="rounded-lg border border-slate-200 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-slate-950">{invite.invitedName}</p>
+                        <p className="text-xs text-slate-500">{invite.role} - {invite.invitedPhone}</p>
+                      </div>
+                      <StatusPill label={invite.status} />
+                    </div>
+                    <p className="mt-2 font-mono text-xs text-slate-500">{invite.invitationCode} - expires {invite.expiryDate}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-bold text-slate-950">Election Management</h2>
+                <StatusPill label={`${governanceSummary.activeCampaigns} Active`} />
+              </div>
+              <div className="mt-4 space-y-3">
+                {electionCycles.map((election) => (
+                  <div key={election.id} className="rounded-lg bg-slate-50 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-slate-950">{election.electionName}</p>
+                        <p className="text-xs text-slate-500">{election.electionType} - {election.country}</p>
+                      </div>
+                      <StatusPill label={election.status} />
+                    </div>
+                    <p className="mt-2 text-xs font-semibold text-slate-500">{election.electionDate}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <h2 className="text-sm font-bold text-slate-950">Phone-First Authentication</h2>
+              <div className="mt-4 grid gap-3">
+                {[
+                  ["Primary", "Phone number + password", Smartphone],
+                  ["Secondary", "Email + password", KeyRound],
+                  ["Future-ready", "OTP authentication", ShieldCheck],
+                ].map(([label, value, Icon]) => (
+                  <div key={String(label)} className="flex items-center gap-3 rounded-lg bg-slate-50 p-3">
+                    <span className="grid h-9 w-9 place-items-center rounded-lg bg-white text-teal-700 shadow-sm">
+                      <Icon size={18} />
+                    </span>
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{String(label)}</p>
+                      <p className="text-sm font-bold text-slate-950">{String(value)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section className="mt-6 grid gap-4 xl:grid-cols-3">
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-950">Campaign Team Structure</h2>
+                  <p className="text-sm text-slate-500">Candidate-owned hierarchy from campaign manager down to polling agents.</p>
+                </div>
+                <ReportLink report="team-hierarchy" label="Hierarchy" />
+              </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                {hierarchyRows.map((node) => (
+                  <div key={node.level} className="rounded-lg border border-slate-200 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="rounded-md bg-teal-50 px-2 py-1 text-xs font-bold text-teal-700">{node.level}</span>
+                      <StatusPill label={node.status} />
+                    </div>
+                    <p className="mt-3 text-sm font-bold text-slate-950">{node.role}</p>
+                    <p className="text-xs text-slate-500">{node.name}</p>
+                    <p className="mt-2 text-xs font-semibold text-slate-500">Reports to {node.reportsTo}</p>
+                    <p className="mt-3 text-lg font-bold text-slate-950">{node.members}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <h2 className="text-sm font-bold text-slate-950">User Approval Workflow</h2>
+              <div className="mt-4 grid gap-3">
+                {["Approve User", "Suspend User", "Deactivate User", "Reactivate User"].map((action) => (
+                  <button key={action} className="flex h-11 items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800">
+                    {action}
+                    <UserCheck size={16} />
+                  </button>
+                ))}
+              </div>
+              <p className="mt-3 text-xs leading-5 text-slate-500">Campaign Manager approval is required for non-owner workspace users.</p>
+            </div>
+          </section>
+
+          <section className="mt-6 grid gap-4 xl:grid-cols-3">
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-bold text-slate-950">Subscription Management</h2>
+                <ReportLink report="subscription" label="Plan" />
+              </div>
+              <div className="mt-4 rounded-lg bg-slate-50 p-4">
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Current Plan</p>
+                <p className="mt-1 text-2xl font-bold text-slate-950">{workspaceSubscription.plan}</p>
+                <p className="mt-1 text-sm text-slate-500">{workspaceSubscription.startDate} to {workspaceSubscription.expiryDate}</p>
+                <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+                  <div className="rounded-md bg-white p-2"><b>{workspaceSubscription.userLimit}</b><br />users</div>
+                  <div className="rounded-md bg-white p-2"><b>{workspaceSubscription.volunteerLimit}</b><br />volunteers</div>
+                  <div className="rounded-md bg-white p-2"><b>{workspaceSubscription.pollingAgentLimit}</b><br />agents</div>
+                  <div className="rounded-md bg-white p-2"><b>{workspaceSubscription.storageGb}GB</b><br />storage</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <h2 className="text-sm font-bold text-slate-950">Feature Entitlements</h2>
+              <div className="mt-4 space-y-2">
+                {[
+                  ["AI Access", featureEntitlements.aiAccess ? "Enabled" : "Locked"],
+                  ["SMS Access", featureEntitlements.smsAccess ? "Enabled" : "Locked"],
+                  ["WhatsApp Access", featureEntitlements.whatsappAccess ? "Enabled" : "Locked"],
+                  ["Polling Agents", `${featureEntitlements.pollingAgentLimit} limit`],
+                  ["Storage", `${featureEntitlements.storageLimitGb}GB limit`],
+                  ["Users", `${featureEntitlements.userLimit} limit`],
+                ].map(([label, value]) => (
+                  <div key={String(label)} className="flex items-center justify-between rounded-md bg-slate-50 p-3">
+                    <span className="text-sm font-semibold text-slate-700">{String(label)}</span>
+                    <span className="text-xs font-bold text-teal-700">{String(value)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-bold text-slate-950">Payment Infrastructure</h2>
+                <ReportLink report="payments" label="Payments" />
+              </div>
+              <div className="mt-4 space-y-3">
+                {payments.map((payment) => (
+                  <div key={payment.id} className="rounded-lg bg-slate-50 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-slate-950">{payment.method}</p>
+                        <p className="text-xs text-slate-500">{payment.reference}</p>
+                      </div>
+                      <StatusPill label={payment.status} />
+                    </div>
+                    <p className="mt-2 text-sm font-bold text-slate-950">KES {payment.amountKes.toLocaleString()}</p>
+                  </div>
+                ))}
+                <p className="text-xs text-slate-500">{invoices.length} invoices tracked. Payment processors are framework-only until live billing is enabled.</p>
+              </div>
+            </div>
+          </section>
+
+          <section className="mt-6 grid gap-4 xl:grid-cols-3">
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-bold text-slate-950">Security Hardening</h2>
+                <ReportLink report="security-events" label="Security" />
+              </div>
+              <div className="mt-4 space-y-3">
+                {securityEvents.map((event) => (
+                  <div key={event.id} className="rounded-lg border border-slate-200 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-slate-950">{event.event}</p>
+                        <p className="text-xs text-slate-500">{event.user} - {event.device}</p>
+                      </div>
+                      <span className="font-mono text-xs text-slate-500">{event.ipAddress}</span>
+                    </div>
+                    <p className="mt-2 text-xs font-semibold text-slate-500">{event.createdAt}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-950">JUKWAA Super Admin Portal</h2>
+                  <p className="text-sm text-slate-500">Owner dashboard for candidates, workspaces, subscriptions, support tickets, and usage statistics.</p>
+                </div>
+                <ReportLink report="governance-summary" label="Governance" />
+              </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                {[
+                  ["Workspaces", platformMetrics.workspaces],
+                  ["Candidates", platformMetrics.candidates],
+                  ["Active Subs", platformMetrics.activeSubscriptions],
+                  ["MRR KES", platformMetrics.monthlyRecurringRevenue.toLocaleString()],
+                  ["Active Users", platformMetrics.activeUsers],
+                  ["Total Users", platformMetrics.totalUsers],
+                  ["Usage", `${platformMetrics.usagePercent}%`],
+                  ["Support Tickets", platformMetrics.supportTickets],
+                ].map(([label, value]) => (
+                  <div key={String(label)} className="rounded-lg bg-slate-50 p-3">
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{String(label)}</p>
+                    <p className="mt-2 text-xl font-bold text-slate-950">{String(value)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
           </section>
 
           <section className="mt-6 grid gap-4 xl:grid-cols-3">

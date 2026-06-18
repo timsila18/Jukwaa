@@ -65,6 +65,12 @@ export type IncidentCategory = "Violence" | "Intimidation" | "Voter Suppression"
 export type IncidentStatus = "Open" | "In Progress" | "Resolved";
 export type FormType = "Form 35" | "Form 36" | "Form 37" | "Form 38" | "Country-specific Equivalent";
 export type VerificationStatus = "Pending" | "Verified" | "Rejected";
+export type CampaignStatus = "Draft" | "Active" | "Suspended" | "Completed" | "Archived";
+export type InvitationStatus = "Pending" | "Accepted" | "Expired" | "Revoked";
+export type ElectionType = "Presidential" | "Governor" | "Senator" | "Women Representative" | "MP" | "MCA" | "Party Election" | "Referendum";
+export type SubscriptionPlan = "Starter" | "Professional" | "Advanced" | "Enterprise";
+export type SubscriptionStatus = "Trial" | "Active" | "Past Due" | "Expired" | "Cancelled";
+export type PaymentMethod = "M-Pesa STK Push" | "Paybill" | "Card Payment" | "Bank Transfer";
 
 export type Volunteer = {
   id: string;
@@ -223,6 +229,130 @@ export type ElectionAlert = {
   severity: PriorityLevel;
   pollingStation: string;
   status: "Unread" | "Read" | "Archived";
+  createdAt: string;
+};
+
+export type CandidateProfile = {
+  id: string;
+  tenantId: string;
+  fullName: string;
+  phoneNumber: string;
+  email: string;
+  nationalId: string;
+  gender: "Female" | "Male" | "Other";
+  dateOfBirth: string;
+  profilePhoto: string;
+  politicalParty: string;
+  positionContesting: string;
+  county: string;
+  constituency: string;
+  ward: string;
+  campaignName: string;
+  slogan: string;
+  biography: string;
+  campaignStartDate: string;
+  campaignEndDate: string;
+  activeStatus: CampaignStatus;
+  verificationStatus: VerificationStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type WorkspaceOwnership = {
+  workspace: string;
+  candidate: string;
+  campaignManager: string;
+  ownershipStatus: "Compliant" | "Needs Manager" | "Suspended";
+  candidateLocked: boolean;
+  managerReplacePolicy: string;
+};
+
+export type Invitation = {
+  id: string;
+  candidateId: string;
+  invitedName: string;
+  invitedPhone: string;
+  invitedEmail: string;
+  role: Role;
+  invitedBy: string;
+  invitationCode: string;
+  status: InvitationStatus;
+  expiryDate: string;
+  createdAt: string;
+};
+
+export type ElectionCycle = {
+  id: string;
+  electionName: string;
+  country: string;
+  electionType: ElectionType;
+  electionDate: string;
+  status: CampaignStatus;
+};
+
+export type CandidateBranding = {
+  logo: string;
+  campaignColors: string[];
+  candidatePhoto: string;
+  slogan: string;
+  campaignBanner: string;
+  socialLinks: Record<string, string>;
+};
+
+export type TeamHierarchyNode = {
+  level: string;
+  role: Role;
+  name: string;
+  parent?: string;
+  status: "Approved" | "Pending Approval" | "Suspended";
+  members: number;
+};
+
+export type WorkspaceSubscription = {
+  id: string;
+  plan: SubscriptionPlan;
+  startDate: string;
+  expiryDate: string;
+  status: SubscriptionStatus;
+  userLimit: number;
+  volunteerLimit: number;
+  pollingAgentLimit: number;
+  storageGb: number;
+};
+
+export type FeatureEntitlements = {
+  aiAccess: boolean;
+  smsAccess: boolean;
+  whatsappAccess: boolean;
+  pollingAgentLimit: number;
+  storageLimitGb: number;
+  userLimit: number;
+};
+
+export type Invoice = {
+  id: string;
+  invoiceNumber: string;
+  plan: SubscriptionPlan;
+  amountKes: number;
+  status: "Draft" | "Issued" | "Paid" | "Overdue" | "Void";
+  dueDate: string;
+};
+
+export type PaymentRecord = {
+  id: string;
+  method: PaymentMethod;
+  amountKes: number;
+  status: "Pending" | "Confirmed" | "Failed";
+  reference: string;
+  createdAt: string;
+};
+
+export type SecurityEvent = {
+  id: string;
+  user: string;
+  event: "Login" | "Failed Login" | "Password Updated" | "Device Added" | "Session Revoked";
+  device: string;
+  ipAddress: string;
   createdAt: string;
 };
 
@@ -612,6 +742,118 @@ export const electionAlerts: ElectionAlert[] = [
   { id: "alert-03", title: "Form needs review", body: "River Road Center form has duplicate and missing stamp flags.", alertType: "Results", severity: "High", pollingStation: "River Road Center", status: "Read", createdAt: "2027-08-09 18:05" },
 ];
 
+export const candidateProfiles: CandidateProfile[] = [
+  {
+    id: "cand-001",
+    tenantId: campaign.tenantId,
+    fullName: "John Doe",
+    phoneNumber: "+254700111222",
+    email: "candidate@jukwaa.app",
+    nationalId: "ID-0001",
+    gender: "Male",
+    dateOfBirth: "1984-04-12",
+    profilePhoto: "/candidate/john-doe.jpg",
+    politicalParty: campaign.politicalParty,
+    positionContesting: "Member of National Assembly (MP)",
+    county: campaign.county,
+    constituency: campaign.constituency,
+    ward: "All wards",
+    campaignName: "John Doe for MP",
+    slogan: campaign.slogan,
+    biography: "Community advocate focused on service delivery, youth jobs, and accountable local leadership.",
+    campaignStartDate: "2026-01-15",
+    campaignEndDate: "2027-08-30",
+    activeStatus: "Active",
+    verificationStatus: "Verified",
+    createdAt: "2026-01-15 09:00",
+    updatedAt: "2026-06-18 12:00",
+  },
+];
+
+export const workspaceOwnership: WorkspaceOwnership = {
+  workspace: "John Doe for MP",
+  candidate: "John Doe",
+  campaignManager: "Mary Field",
+  ownershipStatus: "Compliant",
+  candidateLocked: true,
+  managerReplacePolicy: "Only Candidate or JUKWAA Super Admin can replace the Campaign Manager.",
+};
+
+export const invitations: Invitation[] = [
+  { id: "inv-001", candidateId: "cand-001", invitedName: "Mary Field", invitedPhone: "+254711000101", invitedEmail: "manager@jukwaa.app", role: "Campaign Manager", invitedBy: "John Doe", invitationCode: "JUK-MARY-2027", status: "Accepted", expiryDate: "2026-02-01", createdAt: "2026-01-16" },
+  { id: "inv-002", candidateId: "cand-001", invitedName: "Peter Data", invitedPhone: "+254711000102", invitedEmail: "data@jukwaa.app", role: "Data Clerk", invitedBy: "Mary Field", invitationCode: "JUK-DATA-2027", status: "Accepted", expiryDate: "2026-02-05", createdAt: "2026-01-20" },
+  { id: "inv-003", candidateId: "cand-001", invitedName: "Grace Ward", invitedPhone: "+254711000103", invitedEmail: "grace@jukwaa.app", role: "Ward Coordinator", invitedBy: "Mary Field", invitationCode: "JUK-WARD-4821", status: "Pending", expiryDate: "2026-06-25", createdAt: "2026-06-18" },
+  { id: "inv-004", candidateId: "cand-001", invitedName: "Sam Polling", invitedPhone: "+254722300001", invitedEmail: "polling@jukwaa.app", role: "Polling Agent", invitedBy: "Peter Data", invitationCode: "JUK-POLL-9102", status: "Accepted", expiryDate: "2026-06-10", createdAt: "2026-06-02" },
+  { id: "inv-005", candidateId: "cand-001", invitedName: "Old Volunteer", invitedPhone: "+254711000104", invitedEmail: "old@jukwaa.app", role: "Volunteer", invitedBy: "Mary Field", invitationCode: "JUK-VOID-1150", status: "Revoked", expiryDate: "2026-05-30", createdAt: "2026-05-22" },
+];
+
+export const electionCycles: ElectionCycle[] = [
+  { id: "elec-2027-mp", electionName: "Kenya General Election 2027", country: "Kenya", electionType: "MP", electionDate: "2027-08-09", status: "Active" },
+  { id: "elec-2032-mp", electionName: "Kenya General Election 2032", country: "Kenya", electionType: "MP", electionDate: "2032-08-10", status: "Draft" },
+  { id: "elec-party-2026", electionName: "Party Nomination 2026", country: "Kenya", electionType: "Party Election", electionDate: "2026-11-20", status: "Draft" },
+];
+
+export const candidateBranding: CandidateBranding = {
+  logo: "JD",
+  campaignColors: [campaign.primaryColor, campaign.secondaryColor, "#f59e0b"],
+  candidatePhoto: "/candidate/john-doe.jpg",
+  slogan: campaign.slogan,
+  campaignBanner: "/campaign/banner-john-doe.jpg",
+  socialLinks: {
+    x: "https://x.com/johndoe",
+    facebook: "https://facebook.com/johndoecampaign",
+    whatsapp: "https://wa.me/254700111222",
+  },
+};
+
+export const teamHierarchy: TeamHierarchyNode[] = [
+  { level: "01", role: "Candidate", name: "John Doe", status: "Approved", members: 1 },
+  { level: "02", role: "Campaign Manager", name: "Mary Field", parent: "John Doe", status: "Approved", members: 1 },
+  { level: "03", role: "Constituency Coordinator", name: "Central Constituency Desk", parent: "Mary Field", status: "Approved", members: 2 },
+  { level: "04", role: "Ward Coordinator", name: "Ward Command Team", parent: "Central Constituency Desk", status: "Pending Approval", members: 4 },
+  { level: "05", role: "Village Coordinator", name: "Village Captains", parent: "Ward Command Team", status: "Approved", members: 12 },
+  { level: "06", role: "Volunteer", name: "Volunteer Network", parent: "Village Captains", status: "Approved", members: volunteers.length },
+  { level: "07", role: "Polling Agent", name: "Polling Agent Corps", parent: "Volunteer Network", status: "Approved", members: pollingAgents.length },
+];
+
+export const workspaceSubscription: WorkspaceSubscription = {
+  id: "sub-001",
+  plan: "Professional",
+  startDate: "2026-01-15",
+  expiryDate: "2027-09-15",
+  status: "Active",
+  userLimit: 50,
+  volunteerLimit: 500,
+  pollingAgentLimit: 300,
+  storageGb: 100,
+};
+
+export const featureEntitlements: FeatureEntitlements = {
+  aiAccess: false,
+  smsAccess: true,
+  whatsappAccess: true,
+  pollingAgentLimit: workspaceSubscription.pollingAgentLimit,
+  storageLimitGb: workspaceSubscription.storageGb,
+  userLimit: workspaceSubscription.userLimit,
+};
+
+export const invoices: Invoice[] = [
+  { id: "invn-001", invoiceNumber: "JUK-2026-0001", plan: "Professional", amountKes: 45000, status: "Paid", dueDate: "2026-02-01" },
+  { id: "invn-002", invoiceNumber: "JUK-2027-0007", plan: "Professional", amountKes: 45000, status: "Issued", dueDate: "2027-01-15" },
+];
+
+export const payments: PaymentRecord[] = [
+  { id: "pay-001", method: "M-Pesa STK Push", amountKes: 45000, status: "Confirmed", reference: "QBJ7X9KD2", createdAt: "2026-01-15 10:40" },
+  { id: "pay-002", method: "Bank Transfer", amountKes: 45000, status: "Pending", reference: "BANK-2027-0007", createdAt: "2027-01-08 14:15" },
+];
+
+export const securityEvents: SecurityEvent[] = [
+  { id: "sec-001", user: "Mary Field", event: "Login", device: "Chrome on Android", ipAddress: "196.201.12.44", createdAt: "2026-06-18 09:12" },
+  { id: "sec-002", user: "Peter Data", event: "Failed Login", device: "Windows Desktop", ipAddress: "196.201.12.88", createdAt: "2026-06-18 08:44" },
+  { id: "sec-003", user: "John Doe", event: "Device Added", device: "Safari on iPhone", ipAddress: "196.201.11.10", createdAt: "2026-06-17 19:05" },
+  { id: "sec-004", user: "Rose Volunteer", event: "Session Revoked", device: "Android App", ipAddress: "196.201.14.17", createdAt: "2026-06-16 17:22" },
+];
+
 export function summarizeCampaign() {
   const strong = supporters.filter((supporter) => supporter.supportLevel === "Strong Supporter").length;
   const undecided = supporters.filter((supporter) => supporter.supportLevel === "Undecided").length;
@@ -824,6 +1066,62 @@ export function pvtQualityQueue() {
     }));
 }
 
+export function campaignHealthScore() {
+  const activeVolunteerScore = Math.min(25, volunteers.filter((volunteer) => volunteer.status === "Active").length * 5);
+  const supporterScore = Math.min(25, Math.round(supporters.length / 4));
+  const coverageScore = Math.min(25, Math.round(summarizePhaseTwo().coveragePercent / 4));
+  const communicationScore = featureEntitlements.smsAccess || featureEntitlements.whatsappAccess ? 10 : 0;
+  const eventScore = Math.min(15, campaignEvents.filter((event) => event.actualAttendance > 0 || new Date(event.date) >= new Date("2026-06-18")).length * 4);
+
+  return Math.min(100, activeVolunteerScore + supporterScore + coverageScore + communicationScore + eventScore);
+}
+
+export function summarizeGovernance() {
+  const acceptedInvites = invitations.filter((invite) => invite.status === "Accepted").length;
+  const pendingApprovals = teamHierarchy.filter((node) => node.status === "Pending Approval").reduce((sum, node) => sum + node.members, 0);
+  const activeCampaigns = electionCycles.filter((election) => election.status === "Active").length;
+  const failedLogins = securityEvents.filter((event) => event.event === "Failed Login").length;
+  const paidRevenue = payments.filter((payment) => payment.status === "Confirmed").reduce((sum, payment) => sum + payment.amountKes, 0);
+
+  return {
+    candidates: candidateProfiles.length,
+    acceptedInvites,
+    pendingInvites: invitations.filter((invite) => invite.status === "Pending").length,
+    pendingApprovals,
+    activeCampaigns,
+    subscriptionStatus: workspaceSubscription.status,
+    healthScore: campaignHealthScore(),
+    failedLogins,
+    paidRevenue,
+  };
+}
+
+export function teamHierarchyRows() {
+  return teamHierarchy.map((node) => ({
+    level: node.level,
+    role: node.role,
+    name: node.name,
+    reportsTo: node.parent ?? "Workspace owner",
+    members: node.members,
+    status: node.status,
+  }));
+}
+
+export function platformWorkspaceMetrics() {
+  const activeUsers = users.filter((user) => user.status === "Active").length;
+  const totalUsers = users.length + invitations.filter((invite) => invite.status === "Pending").length;
+  return {
+    workspaces: candidateProfiles.length,
+    candidates: candidateProfiles.length,
+    activeSubscriptions: workspaceSubscription.status === "Active" ? 1 : 0,
+    monthlyRecurringRevenue: payments.filter((payment) => payment.status === "Confirmed").reduce((sum, payment) => sum + payment.amountKes, 0),
+    activeUsers,
+    totalUsers,
+    usagePercent: Math.round((totalUsers / workspaceSubscription.userLimit) * 100),
+    supportTickets: 2,
+  };
+}
+
 export function reportRows(reportType: string) {
   const byWard = groupCount(supporters, "ward");
   const byStation = groupCount(supporters, "pollingStation");
@@ -925,6 +1223,42 @@ export function reportRows(reportType: string) {
     conversionSignal: row.conversionSignal,
     recommendation: row.recommendation,
   }));
+  const candidateRows = candidateProfiles.map((candidate) => ({
+    candidate: candidate.fullName,
+    workspace: candidate.campaignName,
+    phone: candidate.phoneNumber,
+    position: candidate.positionContesting,
+    party: candidate.politicalParty,
+    status: candidate.activeStatus,
+    verification: candidate.verificationStatus,
+  }));
+  const invitationRows = invitations.map((invite) => ({
+    invitedName: invite.invitedName,
+    phone: invite.invitedPhone,
+    email: invite.invitedEmail,
+    role: invite.role,
+    invitedBy: invite.invitedBy,
+    status: invite.status,
+    expiryDate: invite.expiryDate,
+  }));
+  const subscriptionRows = [{
+    plan: workspaceSubscription.plan,
+    status: workspaceSubscription.status,
+    startDate: workspaceSubscription.startDate,
+    expiryDate: workspaceSubscription.expiryDate,
+    userLimit: workspaceSubscription.userLimit,
+    volunteerLimit: workspaceSubscription.volunteerLimit,
+    pollingAgentLimit: workspaceSubscription.pollingAgentLimit,
+    storageGb: workspaceSubscription.storageGb,
+  }];
+  const paymentRows = payments.map((payment) => ({
+    method: payment.method,
+    amountKes: payment.amountKes,
+    status: payment.status,
+    reference: payment.reference,
+    createdAt: payment.createdAt,
+  }));
+  const governanceSummary = summarizeGovernance();
 
   const reports: Record<string, Array<Record<string, string | number>>> = {
     "supporters-by-ward": byWard,
@@ -953,6 +1287,26 @@ export function reportRows(reportType: string) {
       { metric: "Critical alerts", value: electionSummary.criticalAlerts },
     ],
     "election-day-performance": electionPerformanceRows,
+    "candidate-management": candidateRows,
+    invitations: invitationRows,
+    "team-hierarchy": teamHierarchyRows(),
+    subscription: subscriptionRows,
+    payments: paymentRows,
+    "security-events": securityEvents.map((event) => ({
+      user: event.user,
+      event: event.event,
+      device: event.device,
+      ipAddress: event.ipAddress,
+      createdAt: event.createdAt,
+    })),
+    "governance-summary": [
+      { metric: "Candidates", value: governanceSummary.candidates },
+      { metric: "Accepted invites", value: governanceSummary.acceptedInvites },
+      { metric: "Pending invites", value: governanceSummary.pendingInvites },
+      { metric: "Campaign health score", value: governanceSummary.healthScore },
+      { metric: "Failed logins", value: governanceSummary.failedLogins },
+      { metric: "Paid revenue KES", value: governanceSummary.paidRevenue },
+    ],
   };
 
   return reports[reportType] ?? byWard;
