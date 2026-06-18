@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { UserCog } from "lucide-react";
 import { candidatePositionScopes, partyAffiliationOptions } from "@/lib/demo-data";
 
@@ -14,7 +15,19 @@ const positionValues: Record<string, string> = {
   mca: "MCA",
 };
 
+const positionGeography: Record<string, { county: boolean; constituency: boolean; ward: boolean; helper: string }> = {
+  Presidential: { county: false, constituency: false, ward: false, helper: "National campaign: no county, constituency, or ward is required." },
+  Governor: { county: true, constituency: false, ward: false, helper: "County-level campaign: choose the county only." },
+  Senator: { county: true, constituency: false, ward: false, helper: "County-level campaign: choose the county only." },
+  "Women Representative": { county: true, constituency: false, ward: false, helper: "County-level campaign: choose the county only." },
+  MP: { county: true, constituency: true, ward: false, helper: "Constituency-level campaign: choose county and constituency. Ward is not needed." },
+  MCA: { county: true, constituency: true, ward: true, helper: "Ward-level campaign: choose county, constituency, and ward." },
+  "Party Election": { county: true, constituency: true, ward: true, helper: "Choose the geography that applies to the party election." },
+  Referendum: { county: false, constituency: false, ward: false, helper: "National issue campaign: no electoral geography is required." },
+};
+
 export default function CandidateSignupPage() {
+  const router = useRouter();
   const [form, setForm] = useState({
     fullName: "",
     phoneNumber: "",
@@ -33,9 +46,19 @@ export default function CandidateSignupPage() {
   });
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
+  const geography = positionGeography[form.position] ?? positionGeography.MP;
 
   function update(key: keyof typeof form, value: string) {
-    setForm((current) => ({ ...current, [key]: value }));
+    setForm((current) => {
+      const next = { ...current, [key]: value };
+      if (key === "position") {
+        const scope = positionGeography[value] ?? positionGeography.MP;
+        if (!scope.county) next.county = "";
+        if (!scope.constituency) next.constituency = "";
+        if (!scope.ward) next.ward = "";
+      }
+      return next;
+    });
   }
 
   async function submitCandidate() {
@@ -43,6 +66,18 @@ export default function CandidateSignupPage() {
     setError("");
     if (form.password !== form.confirmPassword) {
       setError("Passwords do not match.");
+      return;
+    }
+    if (geography.county && !form.county.trim()) {
+      setError("County is required for this position.");
+      return;
+    }
+    if (geography.constituency && !form.constituency.trim()) {
+      setError("Constituency is required for this position.");
+      return;
+    }
+    if (geography.ward && !form.ward.trim()) {
+      setError("Ward is required for this position.");
       return;
     }
     const response = await fetch("/api/onboarding/candidate", {
@@ -55,7 +90,14 @@ export default function CandidateSignupPage() {
       setError(payload.error ?? "Could not create candidate workspace.");
       return;
     }
-    setStatus(`Workspace created in payment-pending state. Pay KES ${payload.amountDueKes.toLocaleString()} to Paybill ${payload.paybillNumber}, account ${payload.accountReference}.`);
+    setStatus(`Workspace created. Redirecting to payment for account ${payload.accountReference}.`);
+    const params = new URLSearchParams({
+      applicationId: payload.applicationId ?? "",
+      accountReference: payload.accountReference ?? "",
+      phoneNumber: form.phoneNumber,
+      amountKes: String(payload.amountDueKes ?? ""),
+    });
+    router.push(`/payment/confirm?${params.toString()}`);
   }
 
   return (
@@ -89,9 +131,10 @@ export default function CandidateSignupPage() {
               {partyAffiliationOptions.map((option) => <option key={option.id} value={option.displayName}>{option.displayName}</option>)}
             </select>
           </label>
-          <label className="block text-sm font-semibold text-slate-700">County<input className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => update("county", event.target.value)} value={form.county} /></label>
-          <label className="block text-sm font-semibold text-slate-700">Constituency<input className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => update("constituency", event.target.value)} value={form.constituency} /></label>
-          <label className="block text-sm font-semibold text-slate-700">Ward<input className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => update("ward", event.target.value)} value={form.ward} /></label>
+          <div className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm leading-6 text-sky-900 md:col-span-2">{geography.helper}</div>
+          {geography.county ? <label className="block text-sm font-semibold text-slate-700">County<input className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => update("county", event.target.value)} value={form.county} /></label> : null}
+          {geography.constituency ? <label className="block text-sm font-semibold text-slate-700">Constituency<input className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => update("constituency", event.target.value)} value={form.constituency} /></label> : null}
+          {geography.ward ? <label className="block text-sm font-semibold text-slate-700">Ward<input className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => update("ward", event.target.value)} value={form.ward} /></label> : null}
           <label className="block text-sm font-semibold text-slate-700">Campaign name<input className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => update("campaignName", event.target.value)} value={form.campaignName} /></label>
           <label className="block text-sm font-semibold text-slate-700">Campaign slogan<input className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => update("slogan", event.target.value)} value={form.slogan} /></label>
           <label className="block text-sm font-semibold text-slate-700">

@@ -28,6 +28,17 @@ const planPricing: Record<string, number> = {
   Enterprise: 150000,
 };
 
+const positionGeography: Record<string, { county: boolean; constituency: boolean; ward: boolean }> = {
+  Presidential: { county: false, constituency: false, ward: false },
+  Governor: { county: true, constituency: false, ward: false },
+  Senator: { county: true, constituency: false, ward: false },
+  "Women Representative": { county: true, constituency: false, ward: false },
+  MP: { county: true, constituency: true, ward: false },
+  MCA: { county: true, constituency: true, ward: true },
+  "Party Election": { county: true, constituency: true, ward: true },
+  Referendum: { county: false, constituency: false, ward: false },
+};
+
 export async function POST(request: Request) {
   const limited = await enforceRateLimit(requestKey(request, "candidate-onboarding"), 8, 60_000);
   if (!limited.allowed) {
@@ -42,6 +53,23 @@ export async function POST(request: Request) {
   const supabase = getLooseSupabaseAdmin();
   const authAdmin = getSupabaseAdmin();
   const data = parsed.data;
+  const geography = positionGeography[data.position];
+  const county = geography.county ? data.county?.trim() ?? "" : "";
+  const constituency = geography.constituency ? data.constituency?.trim() ?? "" : "";
+  const ward = geography.ward ? data.ward?.trim() ?? "" : "";
+
+  if (geography.county && !county) {
+    return NextResponse.json({ error: "County is required for this position." }, { status: 400 });
+  }
+
+  if (geography.constituency && !constituency) {
+    return NextResponse.json({ error: "Constituency is required for this position." }, { status: 400 });
+  }
+
+  if (geography.ward && !ward) {
+    return NextResponse.json({ error: "Ward is required for this position." }, { status: 400 });
+  }
+
   const slug = slugify(data.campaignName || data.fullName);
   const authEmail = data.email ? data.email.toLowerCase() : loginEmail(data.phoneNumber);
   const accountReference = `JUKWAA-${shortCode(slug.toUpperCase().slice(0, 10) || "CAND")}`;
@@ -67,9 +95,9 @@ export async function POST(request: Request) {
       national_id: data.nationalId || null,
       political_party: data.politicalParty,
       position_contesting: data.position,
-      county: data.county || null,
-      constituency: data.constituency || null,
-      ward: data.ward || null,
+      county: county || null,
+      constituency: constituency || null,
+      ward: ward || null,
       campaign_name: data.campaignName,
       slogan: data.slogan || null,
       active_status: "Draft",
@@ -89,8 +117,8 @@ export async function POST(request: Request) {
     candidate_name: data.fullName,
     position_targeted: data.position,
     political_party: data.politicalParty,
-    county: data.county || null,
-    constituency: data.constituency || null,
+    county: county || null,
+    constituency: constituency || null,
     slogan: data.slogan || null,
     election_year: 2027,
     active_status: "Draft",
@@ -157,9 +185,9 @@ export async function POST(request: Request) {
     national_id: data.nationalId || null,
     position_contesting: data.position,
     political_party: data.politicalParty,
-    county: data.county || null,
-    constituency: data.constituency || null,
-    ward: data.ward || null,
+    county: county || null,
+    constituency: constituency || null,
+    ward: ward || null,
     campaign_name: data.campaignName,
     slogan: data.slogan || null,
     plan: data.plan,

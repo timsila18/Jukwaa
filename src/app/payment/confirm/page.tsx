@@ -5,7 +5,17 @@ import { useState } from "react";
 import { Smartphone } from "lucide-react";
 
 export default function PaymentConfirmPage() {
-  const [form, setForm] = useState({ applicationId: "", accountReference: "", phoneNumber: "", amountKes: "", mpesaReceiptNumber: "", channel: "Manual Paybill" });
+  const [form, setForm] = useState(() => {
+    const params = typeof window === "undefined" ? new URLSearchParams() : new URLSearchParams(window.location.search);
+    return {
+      applicationId: params.get("applicationId") ?? "",
+      accountReference: params.get("accountReference") ?? "",
+      phoneNumber: params.get("phoneNumber") ?? "",
+      amountKes: params.get("amountKes") ?? "",
+      mpesaReceiptNumber: "",
+      channel: "Manual Paybill",
+    };
+  });
   const [status, setStatus] = useState("");
   const [stkStatus, setStkStatus] = useState("");
   const [error, setError] = useState("");
