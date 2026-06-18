@@ -528,7 +528,7 @@ export const politicalParties: PoliticalParty[] = [
   { registerSerial: 13, name: "United Democratic Alliance", abbreviation: "UDA", featuredRank: 1 },
   { registerSerial: 16, name: "Orange Democratic Movement", abbreviation: "ODM", featuredRank: 2 },
   { registerSerial: 91, name: "Democracy for the Citizens Party", abbreviation: "DCP", featuredRank: 3 },
-  { registerSerial: 10, name: "Wiper Patriotic Front", abbreviation: "WPF", featuredRank: 4 },
+  { registerSerial: 10, name: "Wiper Democratic Movement-Kenya / Wiper Patriotic Front", abbreviation: "WDM-K / WPF", featuredRank: 4 },
   { registerSerial: 73, name: "Democratic Action Party-Kenya", abbreviation: "DAP-K", featuredRank: 5 },
   { registerSerial: 55, name: "Maendeleo Chap Chap", abbreviation: "MCCP", featuredRank: 6 },
   { registerSerial: 22, name: "National Rainbow Coalition", abbreviation: "NARC", featuredRank: 7 },
