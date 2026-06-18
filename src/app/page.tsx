@@ -50,7 +50,7 @@ import {
   WalletCards,
   X,
 } from "lucide-react";
-import { type FormEvent, useMemo, useState, useSyncExternalStore } from "react";
+import { type FormEvent, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -219,6 +219,26 @@ const subscribeToClient = () => () => {};
 const getClientSnapshot = () => true;
 const getServerSnapshot = () => false;
 
+type LiveBootstrap = {
+  workspace: { role: string; isPlatformAdmin: boolean };
+  campaign?: {
+    campaign_name?: string;
+    candidate_name?: string;
+    position_targeted?: string;
+    political_party?: string;
+    election_year?: string;
+    slogan?: string;
+  } | null;
+  summary: {
+    supporters: number;
+    volunteers: number;
+    issues: number;
+    events: number;
+    payments: number;
+    invitations: number;
+  };
+};
+
 function Logo() {
   return (
     <div className="flex items-center">
@@ -326,6 +346,7 @@ export default function Home() {
   const [meetingTokenError, setMeetingTokenError] = useState("");
   const [meetingTokenLoading, setMeetingTokenLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState("");
+  const [liveBootstrap, setLiveBootstrap] = useState<LiveBootstrap | null>(null);
   const summary = summarizeCampaign();
   const phaseTwoSummary = summarizePhaseTwo();
   const electionSummary = summarizeElectionOps();
@@ -359,6 +380,31 @@ export default function Home() {
   const hierarchyRows = teamHierarchyRows();
   const aiRows = aiStrategyQueue();
   const budgetRows = budgetVarianceRows();
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/dashboard/bootstrap")
+      .then(async (response) => {
+        if (!response.ok) return null;
+        return response.json() as Promise<LiveBootstrap>;
+      })
+      .then((payload) => {
+        if (active && payload) setLiveBootstrap(payload);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const displayCampaign = {
+    campaignName: liveBootstrap?.campaign?.campaign_name ?? campaign.campaignName,
+    candidateName: liveBootstrap?.campaign?.candidate_name ?? campaign.candidateName,
+    positionTargeted: liveBootstrap?.campaign?.position_targeted ?? campaign.positionTargeted,
+    politicalParty: liveBootstrap?.campaign?.political_party ?? selectedParty,
+    electionYear: liveBootstrap?.campaign?.election_year ?? campaign.electionYear,
+    slogan: liveBootstrap?.campaign?.slogan ?? campaign.slogan,
+  };
 
   function scrollToSection(label: string) {
     const sectionId = sectionTargets[label] ?? sectionTargets.Dashboard;
@@ -487,7 +533,7 @@ export default function Home() {
               </button>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Workspace</p>
-                <h1 className="text-xl font-bold text-slate-950">{campaign.campaignName}</h1>
+                <h1 className="text-xl font-bold text-slate-950">{displayCampaign.campaignName}</h1>
               </div>
             </div>
             <div className="flex flex-1 items-center justify-end gap-2">
@@ -526,8 +572,8 @@ export default function Home() {
           <section id="dashboard" className="scroll-mt-24 mb-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
               <div>
-                <p className="text-sm font-semibold text-sky-700">{campaign.candidateName} for {campaign.positionTargeted}</p>
-                <h2 className="mt-1 text-2xl font-bold text-slate-950">{campaign.slogan}</h2>
+                <p className="text-sm font-semibold text-sky-700">{displayCampaign.candidateName} for {displayCampaign.positionTargeted}</p>
+                <h2 className="mt-1 text-2xl font-bold text-slate-950">{displayCampaign.slogan}</h2>
                 <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
                   Multi-tenant campaign operations for supporters, teams, polling stations, reports, and audit-ready political intelligence.
                 </p>
@@ -535,7 +581,7 @@ export default function Home() {
               <div className="grid min-w-64 grid-cols-2 gap-2 text-sm">
                 <div className="rounded-md bg-slate-50 p-3">
                   <p className="font-semibold text-slate-500">Election Year</p>
-                  <p className="text-lg font-bold text-slate-950">{campaign.electionYear}</p>
+                  <p className="text-lg font-bold text-slate-950">{displayCampaign.electionYear}</p>
                 </div>
                 <div className="rounded-md bg-slate-50 p-3">
                   <p className="font-semibold text-slate-500">Tenant</p>
@@ -543,7 +589,7 @@ export default function Home() {
                 </div>
                 <div className="col-span-2 rounded-md bg-slate-50 p-3">
                   <p className="font-semibold text-slate-500">Party Affiliation</p>
-                  <p className="mt-1 text-sm font-bold text-slate-950">{selectedParty}</p>
+                  <p className="mt-1 text-sm font-bold text-slate-950">{displayCampaign.politicalParty}</p>
                 </div>
               </div>
             </div>
@@ -556,10 +602,10 @@ export default function Home() {
           ) : null}
 
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
-            <StatCard label="Total Supporters" value={String(summary.totalSupporters)} helper="Captured in demo workspace" icon={Users} />
+            <StatCard label="Total Supporters" value={String(liveBootstrap?.summary.supporters ?? summary.totalSupporters)} helper={liveBootstrap ? "Live workspace records" : "Captured in demo workspace"} icon={Users} />
             <StatCard label="Strong Supporters" value={String(summary.strong)} helper="Ready for mobilization" icon={CheckCircle2} />
             <StatCard label="Undecided Voters" value={String(summary.undecided)} helper="Needs persuasion follow-up" icon={AlertTriangle} />
-            <StatCard label="Volunteers Identified" value={String(summary.volunteers)} helper="Available for field work" icon={Activity} />
+            <StatCard label="Volunteers Identified" value={String(liveBootstrap?.summary.volunteers ?? summary.volunteers)} helper={liveBootstrap ? "Live workspace records" : "Available for field work"} icon={Activity} />
             <StatCard label="Stations Covered" value={String(summary.coveredStations)} helper="Polling station reach" icon={Vote} />
             <StatCard label="Wards Covered" value={String(summary.coveredWards)} helper="Geography coverage" icon={LandPlot} />
           </section>

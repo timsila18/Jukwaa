@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { KeyRound, Smartphone } from "lucide-react";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState("");
@@ -24,6 +26,7 @@ export default function LoginPage() {
       return;
     }
     setStatus(`Logged in as ${payload.user?.email ?? login}.`);
+    router.push(new URLSearchParams(window.location.search).get("next") || payload.redirectTo || "/");
   }
 
   return (
@@ -56,6 +59,7 @@ export default function LoginPage() {
         <div className="mt-5 grid gap-2 text-sm">
           <Link className="rounded-md bg-slate-50 p-3 font-semibold text-slate-700 hover:bg-sky-50 hover:text-sky-800" href="/signup/candidate">Create candidate workspace</Link>
           <Link className="rounded-md bg-slate-50 p-3 font-semibold text-slate-700 hover:bg-sky-50 hover:text-sky-800" href="/signup/user">Join as invited campaign user</Link>
+          <Link className="rounded-md bg-slate-50 p-3 font-semibold text-slate-700 hover:bg-sky-50 hover:text-sky-800" href="/forgot-password">Forgot password</Link>
         </div>
       </section>
     </main>

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getLooseSupabaseAdmin } from "@/lib/supabase";
-import { rateLimit, requestKey } from "@/lib/rate-limit";
+import { enforceRateLimit, requestKey } from "@/lib/rate-limit";
 import { writeAudit } from "@/lib/server-workflows";
 
 const schema = z.object({
@@ -51,7 +51,7 @@ async function mpesaAccessToken() {
 }
 
 export async function POST(request: Request) {
-  const limited = rateLimit(requestKey(request, "mpesa-stk"), 12, 60_000);
+  const limited = await enforceRateLimit(requestKey(request, "mpesa-stk"), 12, 60_000);
   if (!limited.allowed) {
     return NextResponse.json({ error: "Too many M-Pesa requests. Try again shortly." }, { status: 429 });
   }

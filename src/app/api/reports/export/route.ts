@@ -3,6 +3,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { reportRows } from "@/lib/demo-data";
+import { requireSession } from "@/lib/auth-session";
 
 function csvEscape(value: string | number) {
   const text = String(value);
@@ -10,6 +11,9 @@ function csvEscape(value: string | number) {
 }
 
 export async function GET(request: NextRequest) {
+  const auth = await requireSession(request);
+  if (auth.response) return auth.response;
+
   const searchParams = request.nextUrl.searchParams;
   const format = searchParams.get("format") ?? "csv";
   const report = searchParams.get("report") ?? "supporters-by-ward";

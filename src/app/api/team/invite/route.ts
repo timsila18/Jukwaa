@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getLooseSupabaseAdmin } from "@/lib/supabase";
-import { getDefaultWorkspace, shortCode, writeAudit } from "@/lib/server-workflows";
+import { shortCode, writeAudit } from "@/lib/server-workflows";
+import { requireSession } from "@/lib/auth-session";
 
 const schema = z.object({
   fullName: z.string().trim().min(2),
@@ -12,12 +13,15 @@ const schema = z.object({
 });
 
 export async function POST(request: Request) {
+  const auth = await requireSession(request, { roles: ["Candidate", "Campaign Manager", "Admin", "Constituency Coordinator", "Ward Coordinator"] });
+  if (auth.response) return auth.response;
+
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success || (!parsed.data.phoneNumber && !parsed.data.email)) {
     return NextResponse.json({ error: "Name, role, and phone or email are required." }, { status: 400 });
   }
 
-  const workspace = await getDefaultWorkspace();
+  const workspace = { tenantId: auth.session.tenantId, candidateId: auth.session.candidateId };
   const supabase = getLooseSupabaseAdmin();
   const invitationCode = shortCode("JUK");
   const { data, error } = await supabase.from("invitations").insert({
@@ -27,6 +31,7 @@ export async function POST(request: Request) {
     invited_phone: parsed.data.phoneNumber || null,
     invited_email: parsed.data.email || null,
     role: parsed.data.role,
+    invited_by: auth.session.memberId,
     invitation_code: invitationCode,
     status: "Pending",
     expiry_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),

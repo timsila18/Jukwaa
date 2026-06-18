@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getLooseSupabaseAdmin } from "@/lib/supabase";
+import { getLooseSupabaseAdmin, getSupabaseAdmin } from "@/lib/supabase";
 import { shortCode, slugify, writeAudit } from "@/lib/server-workflows";
-import { rateLimit, requestKey } from "@/lib/rate-limit";
+import { enforceRateLimit, requestKey } from "@/lib/rate-limit";
+import { loginEmail } from "@/lib/auth-session";
 
 const schema = z.object({
   fullName: z.string().trim().min(2),
@@ -17,6 +18,7 @@ const schema = z.object({
   campaignName: z.string().trim().min(2),
   slogan: z.string().trim().optional().or(z.literal("")),
   plan: z.enum(["Starter", "Professional", "Advanced", "Enterprise"]).default("Professional"),
+  password: z.string().min(8),
 });
 
 const planPricing: Record<string, number> = {
@@ -27,7 +29,7 @@ const planPricing: Record<string, number> = {
 };
 
 export async function POST(request: Request) {
-  const limited = rateLimit(requestKey(request, "candidate-onboarding"), 8, 60_000);
+  const limited = await enforceRateLimit(requestKey(request, "candidate-onboarding"), 8, 60_000);
   if (!limited.allowed) {
     return NextResponse.json({ error: "Too many candidate registration attempts. Try again shortly." }, { status: 429 });
   }
@@ -38,8 +40,10 @@ export async function POST(request: Request) {
   }
 
   const supabase = getLooseSupabaseAdmin();
+  const authAdmin = getSupabaseAdmin();
   const data = parsed.data;
   const slug = slugify(data.campaignName || data.fullName);
+  const authEmail = data.email ? data.email.toLowerCase() : loginEmail(data.phoneNumber);
   const accountReference = `JUKWAA-${shortCode(slug.toUpperCase().slice(0, 10) || "CAND")}`;
   const amountDue = planPricing[data.plan];
 
@@ -92,13 +96,34 @@ export async function POST(request: Request) {
     active_status: "Draft",
   });
 
+  const { data: createdUser, error: userError } = await authAdmin.auth.admin.createUser({
+    email: authEmail,
+    password: data.password,
+    email_confirm: true,
+    phone_confirm: true,
+    user_metadata: {
+      full_name: data.fullName,
+      phone_number: data.phoneNumber,
+    },
+    app_metadata: {
+      tenant_id: tenant.id,
+      candidate_id: candidate.id,
+      role: "Candidate",
+    },
+  });
+
+  if (userError || !createdUser.user) {
+    return NextResponse.json({ error: "Workspace records were created, but candidate login could not be created. Contact support.", detail: userError?.message }, { status: 409 });
+  }
+
   const { data: member } = await supabase.from("campaign_members").insert({
     tenant_id: tenant.id,
     candidate_id: candidate.id,
-    email: data.email || `${slug}@jukwaa.local`,
+    user_id: createdUser.user.id,
+    email: authEmail,
     full_name: data.fullName,
     role: "Candidate",
-    status: "Invited",
+    status: "Active",
   }).select("id").single();
 
   const { data: subscription } = await supabase.from("workspace_subscriptions").insert({

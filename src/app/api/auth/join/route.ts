@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { createClient } from "@supabase/supabase-js";
 import { getLooseSupabaseAdmin, getSupabaseAdmin } from "@/lib/supabase";
-import { rateLimit, requestKey } from "@/lib/rate-limit";
+import { enforceRateLimit, requestKey } from "@/lib/rate-limit";
 import { writeAudit } from "@/lib/server-workflows";
+import { attachSessionCookies } from "@/lib/auth-session";
 
 const schema = z.object({
   joinCode: z.string().trim().min(6),
@@ -31,7 +33,7 @@ function loginMatchesInvitation(login: string, invitation: Record<string, string
 }
 
 export async function POST(request: Request) {
-  const limited = rateLimit(requestKey(request, "join-code"), 10, 60_000);
+  const limited = await enforceRateLimit(requestKey(request, "join-code"), 10, 60_000);
   if (!limited.allowed) {
     return NextResponse.json({ error: "Too many join attempts. Try again shortly." }, { status: 429 });
   }
@@ -136,10 +138,21 @@ export async function POST(request: Request) {
     newValue: { email, role: invitation.role, status: "Accepted" },
   });
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     status: "Joined",
     login: input.login,
     email,
     userId: created.data.user.id,
+    redirectTo: "/",
   });
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (url && key) {
+    const client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+    const signedIn = await client.auth.signInWithPassword({ email, password: input.password });
+    if (signedIn.data.session) attachSessionCookies(response, signedIn.data.session);
+  }
+
+  return response;
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getLooseSupabaseAdmin } from "@/lib/supabase";
 import { writeAudit } from "@/lib/server-workflows";
+import { requireSession } from "@/lib/auth-session";
 
 const schema = z.object({
   applicationId: z.string().uuid(),
@@ -9,6 +10,9 @@ const schema = z.object({
 });
 
 export async function POST(request: Request) {
+  const auth = await requireSession(request, { platformAdmin: true });
+  if (auth.response) return auth.response;
+
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: "applicationId is required." }, { status: 400 });

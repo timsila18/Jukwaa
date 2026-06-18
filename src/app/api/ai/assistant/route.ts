@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getLooseSupabaseAdmin } from "@/lib/supabase";
-import { rateLimit, requestKey } from "@/lib/rate-limit";
+import { enforceRateLimit, requestKey } from "@/lib/rate-limit";
+import { requireSession } from "@/lib/auth-session";
 import {
   aiStrategyQueue,
   budgetVarianceRows,
@@ -54,7 +55,10 @@ function outputText(response: unknown) {
 }
 
 export async function POST(request: Request) {
-  const limited = rateLimit(requestKey(request, "ai-assistant"), 20, 60_000);
+  const auth = await requireSession(request);
+  if (auth.response) return auth.response;
+
+  const limited = await enforceRateLimit(requestKey(request, "ai-assistant"), 20, 60_000);
   if (!limited.allowed) {
     return NextResponse.json({ error: "Too many AI requests. Try again shortly." }, { status: 429 });
   }
@@ -122,18 +126,15 @@ export async function POST(request: Request) {
 
   const usage = typeof payload === "object" && payload !== null ? (payload as { usage?: { input_tokens?: number; output_tokens?: number } }).usage : undefined;
   const admin = getLooseSupabaseAdmin();
-  const { data: candidate } = await admin.from("candidates").select("id, tenant_id").order("created_at", { ascending: true }).limit(1).maybeSingle();
-  if (candidate) {
-    await admin.from("ai_usage_events").insert({
-      tenant_id: candidate.tenant_id,
-      candidate_id: candidate.id,
+  await admin.from("ai_usage_events").insert({
+      tenant_id: auth.session.tenantId,
+      candidate_id: auth.session.candidateId,
       feature: "Campaign Assistant",
       prompt_tokens: usage?.input_tokens ?? 0,
       output_tokens: usage?.output_tokens ?? 0,
       model,
       status: "Completed",
     });
-  }
 
   return NextResponse.json({
     answer: outputText(payload) || "JUKWAA AI returned an empty response. Try asking a more specific campaign question.",

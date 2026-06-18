@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getLooseSupabaseAdmin } from "@/lib/supabase";
-import { getDefaultWorkspace, shortCode, writeAudit } from "@/lib/server-workflows";
-import { rateLimit, requestKey } from "@/lib/rate-limit";
+import { shortCode, writeAudit } from "@/lib/server-workflows";
+import { enforceRateLimit, requestKey } from "@/lib/rate-limit";
+import { requireSession } from "@/lib/auth-session";
 
 const workflowSchemas = {
   supporter: z.object({
@@ -73,13 +74,27 @@ const workflowSchemas = {
 
 type WorkflowName = keyof typeof workflowSchemas;
 
+const workflowRoles: Record<WorkflowName, string[]> = {
+  supporter: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Village Coordinator", "Volunteer", "Data Clerk", "Admin"],
+  volunteer: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Admin"],
+  task: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Admin"],
+  issue: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Village Coordinator", "Volunteer", "Polling Agent", "Admin"],
+  event: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Admin"],
+  fieldVisit: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Village Coordinator", "Volunteer", "Admin"],
+  result: ["Candidate", "Campaign Manager", "Polling Agent", "Data Clerk", "Admin"],
+  payment: ["Candidate", "Campaign Manager", "Admin"],
+  userStatus: ["Candidate", "Campaign Manager", "Admin"],
+  supportTicket: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Village Coordinator", "Volunteer", "Polling Agent", "Media Team", "Data Clerk", "Admin"],
+  aiContent: ["Candidate", "Campaign Manager", "Media Team", "Admin"],
+};
+
 async function firstId(table: string, tenantId: string, column = "id") {
   const { data } = await getLooseSupabaseAdmin().from(table).select(column).eq("tenant_id", tenantId).limit(1).maybeSingle();
   return data?.[column] as string | undefined;
 }
 
 export async function POST(request: Request, context: { params: Promise<{ workflow: string }> }) {
-  const limited = rateLimit(requestKey(request, "workflow"), 60, 60_000);
+  const limited = await enforceRateLimit(requestKey(request, "workflow"), 60, 60_000);
   if (!limited.allowed) {
     return NextResponse.json({ error: "Too many workflow submissions. Try again shortly." }, { status: 429 });
   }
@@ -95,7 +110,12 @@ export async function POST(request: Request, context: { params: Promise<{ workfl
     return NextResponse.json({ error: "Workflow payload is invalid." }, { status: 400 });
   }
 
-  const workspace = await getDefaultWorkspace();
+  const auth = await requireSession(request);
+  if (auth.response) return auth.response;
+  if (!workflowRoles[name].includes(auth.session.role) && !auth.session.isPlatformAdmin) {
+    return NextResponse.json({ error: "You do not have permission for this workflow." }, { status: 403 });
+  }
+  const workspace = { tenantId: auth.session.tenantId, candidateId: auth.session.candidateId };
   const supabase = getLooseSupabaseAdmin();
   let table = "";
   let payload: Record<string, unknown> = {};

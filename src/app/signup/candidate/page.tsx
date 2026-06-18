@@ -28,6 +28,8 @@ export default function CandidateSignupPage() {
     campaignName: "",
     slogan: "",
     plan: "Professional",
+    password: "",
+    confirmPassword: "",
   });
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
@@ -39,6 +41,10 @@ export default function CandidateSignupPage() {
   async function submitCandidate() {
     setStatus("");
     setError("");
+    if (form.password !== form.confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
     const response = await fetch("/api/onboarding/candidate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -94,6 +100,8 @@ export default function CandidateSignupPage() {
               {["Starter", "Professional", "Advanced", "Enterprise"].map((plan) => <option key={plan}>{plan}</option>)}
             </select>
           </label>
+          <label className="block text-sm font-semibold text-slate-700">Create password<input autoComplete="new-password" className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => update("password", event.target.value)} type="password" value={form.password} /></label>
+          <label className="block text-sm font-semibold text-slate-700">Confirm password<input autoComplete="new-password" className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => update("confirmPassword", event.target.value)} type="password" value={form.confirmPassword} /></label>
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900 md:col-span-2">
             Payment activation: after registration, the candidate pays via the configured M-Pesa Paybill. Admin verifies payment and activates the workspace.
           </div>

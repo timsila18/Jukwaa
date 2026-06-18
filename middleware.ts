@@ -1,0 +1,49 @@
+import { NextRequest, NextResponse } from "next/server";
+
+const accessCookie = "jukwaa_access_token";
+
+const publicPaths = [
+  "/login",
+  "/forgot-password",
+  "/reset-password",
+  "/signup",
+  "/pricing",
+  "/support",
+  "/legal",
+  "/payment/confirm",
+  "/api/auth/login",
+  "/api/auth/join",
+  "/api/auth/forgot",
+  "/api/auth/reset",
+  "/api/onboarding/candidate",
+  "/api/onboarding/payment",
+  "/api/payments/mpesa/callback",
+  "/api/payments/mpesa/stk",
+  "/api/communications/livekit-token",
+  "/jukwaa-logo.png",
+  "/icon.svg",
+  "/manifest.webmanifest",
+  "/favicon.ico",
+];
+
+export function middleware(request: NextRequest) {
+  const path = request.nextUrl.pathname;
+  const isPublic = publicPaths.some((item) => path === item || path.startsWith(`${item}/`));
+  if (isPublic || path.startsWith("/_next/")) return NextResponse.next();
+
+  if (!request.cookies.get(accessCookie)?.value) {
+    if (path.startsWith("/api/")) {
+      return NextResponse.json({ error: "Login required." }, { status: 401 });
+    }
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.searchParams.set("next", path);
+    return NextResponse.redirect(url);
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: ["/((?!_next/static|_next/image|.*\\..*).*)"],
+};
