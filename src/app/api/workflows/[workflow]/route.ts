@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getLooseSupabaseAdmin } from "@/lib/supabase";
 import { shortCode, writeAudit } from "@/lib/server-workflows";
 import { enforceRateLimit, requestKey } from "@/lib/rate-limit";
-import { requireSession } from "@/lib/auth-session";
+import { requireSession, requireWorkspaceAccess } from "@/lib/auth-session";
 
 const workflowSchemas = {
   supporter: z.object({
@@ -112,6 +112,8 @@ export async function POST(request: Request, context: { params: Promise<{ workfl
 
   const auth = await requireSession(request);
   if (auth.response) return auth.response;
+  const access = await requireWorkspaceAccess(auth.session);
+  if (access.response) return access.response;
   if (!workflowRoles[name].includes(auth.session.role) && !auth.session.isPlatformAdmin) {
     return NextResponse.json({ error: "You do not have permission for this workflow." }, { status: 403 });
   }

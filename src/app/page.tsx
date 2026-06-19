@@ -222,7 +222,18 @@ const getClientSnapshot = () => true;
 const getServerSnapshot = () => false;
 
 type LiveBootstrap = {
-  workspace: { role: string; isPlatformAdmin: boolean };
+  workspace: {
+    role: string;
+    isPlatformAdmin: boolean;
+    access?: {
+      allowed: boolean;
+      status: string;
+      reason: string;
+      subscriptionStatus?: string | null;
+      onboardingStatus?: string | null;
+      paymentStatus?: string | null;
+    };
+  };
   campaign?: {
     campaign_name?: string;
     candidate_name?: string;
@@ -408,6 +419,9 @@ export default function Home() {
     electionYear: liveBootstrap?.campaign?.election_year ?? campaign.electionYear,
     slogan: liveBootstrap?.campaign?.slogan ?? campaign.slogan,
   };
+  const commercialAccess = liveBootstrap?.workspace.access;
+  const activationInvoice = invoices.find((invoice) => invoice.status !== "Paid") ?? invoices[0];
+  const paymentUrl = `/payment/confirm?accountReference=${encodeURIComponent(mpesaPaymentSetting.accountReferenceFormat)}&phoneNumber=${encodeURIComponent(candidateProfiles[0]?.phoneNumber ?? "")}&amountKes=${activationInvoice?.amountKes ?? 45000}`;
 
   function scrollToSection(label: string) {
     const sectionId = sectionTargets[label] ?? sectionTargets.Dashboard;
@@ -603,6 +617,28 @@ export default function Home() {
           {actionMessage ? (
             <section className="mb-6 rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm font-semibold text-sky-900">
               {actionMessage}
+            </section>
+          ) : null}
+
+          {commercialAccess && !commercialAccess.allowed ? (
+            <section className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-950 shadow-sm">
+              <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
+                <div>
+                  <p className="text-sm font-black uppercase tracking-wide">Workspace functions locked</p>
+                  <p className="mt-1 text-sm leading-6 text-amber-900">{commercialAccess.reason}</p>
+                  <p className="mt-1 text-xs font-semibold text-amber-800">You can login and view the workspace. Creating volunteers, inviting campaign managers, exports, AI, uploads, and meetings unlock after payment confirmation or admin approval.</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Link className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white hover:bg-slate-900" href={paymentUrl}>
+                    <HandCoins size={16} />
+                    Pay / Confirm
+                  </Link>
+                  <Link className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-amber-300 bg-white px-3 text-sm font-bold text-amber-900 hover:bg-amber-100" href="/support">
+                    <ShieldCheck size={16} />
+                    Request Admin Approval
+                  </Link>
+                </div>
+              </div>
             </section>
           ) : null}
 

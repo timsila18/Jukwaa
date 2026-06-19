@@ -1,6 +1,7 @@
 import { AccessToken } from "livekit-server-sdk";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { requireSession, requireWorkspaceAccess } from "@/lib/auth-session";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,11 @@ const requestSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const auth = await requireSession(request);
+  if (auth.response) return auth.response;
+  const access = await requireWorkspaceAccess(auth.session);
+  if (access.response) return access.response;
+
   const livekitUrl = process.env.LIVEKIT_URL;
   const apiKey = process.env.LIVEKIT_API_KEY;
   const apiSecret = process.env.LIVEKIT_API_SECRET;

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getLooseSupabaseAdmin } from "@/lib/supabase";
-import { requireSession } from "@/lib/auth-session";
+import { requireSession, requireWorkspaceAccess } from "@/lib/auth-session";
 import { shortCode, writeAudit } from "@/lib/server-workflows";
 
 const patchSchema = z.object({
@@ -27,6 +27,8 @@ export async function GET(request: Request) {
 export async function PATCH(request: Request) {
   const auth = await requireSession(request, { roles: ["Candidate", "Campaign Manager", "Admin"] });
   if (auth.response) return auth.response;
+  const access = await requireWorkspaceAccess(auth.session);
+  if (access.response) return access.response;
 
   const parsed = patchSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invitation action is invalid." }, { status: 400 });

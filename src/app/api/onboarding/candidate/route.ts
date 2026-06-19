@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { createClient } from "@supabase/supabase-js";
 import { getLooseSupabaseAdmin, getSupabaseAdmin } from "@/lib/supabase";
 import { shortCode, slugify, writeAudit } from "@/lib/server-workflows";
 import { enforceRateLimit, requestKey } from "@/lib/rate-limit";
-import { loginEmail } from "@/lib/auth-session";
+import { attachSessionCookies, loginEmail } from "@/lib/auth-session";
 
 const schema = z.object({
   fullName: z.string().trim().min(2),
@@ -206,7 +207,7 @@ export async function POST(request: Request) {
     newValue: { campaignName: data.campaignName, plan: data.plan, accountReference, memberId: member?.id },
   });
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     applicationId: application?.id,
     tenantId: tenant.id,
     candidateId: candidate.id,
@@ -214,5 +215,21 @@ export async function POST(request: Request) {
     amountDueKes: amountDue,
     accountReference,
     paybillNumber: process.env.MPESA_PAYBILL_NUMBER || "CONFIGURE_PAYBILL",
+    redirectTo: `/payment/confirm?${new URLSearchParams({
+      applicationId: application?.id ?? "",
+      accountReference,
+      phoneNumber: data.phoneNumber,
+      amountKes: String(amountDue),
+    }).toString()}`,
   });
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (url && key) {
+    const client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+    const signedIn = await client.auth.signInWithPassword({ email: authEmail, password: data.password });
+    if (signedIn.data.session) attachSessionCookies(response, signedIn.data.session);
+  }
+
+  return response;
 }

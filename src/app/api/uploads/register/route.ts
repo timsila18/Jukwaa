@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getLooseSupabaseAdmin } from "@/lib/supabase";
-import { requireSession } from "@/lib/auth-session";
+import { requireSession, requireWorkspaceAccess } from "@/lib/auth-session";
 import { writeAudit } from "@/lib/server-workflows";
 
 const schema = z.object({
@@ -18,6 +18,8 @@ function safePath(value: string) {
 export async function POST(request: Request) {
   const auth = await requireSession(request, { roles: ["Candidate", "Campaign Manager", "Admin", "Data Clerk", "Media Team"] });
   if (auth.response) return auth.response;
+  const access = await requireWorkspaceAccess(auth.session);
+  if (access.response) return access.response;
 
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Upload details are invalid." }, { status: 400 });

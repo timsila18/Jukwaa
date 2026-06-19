@@ -19,6 +19,7 @@ export async function POST(request: Request) {
   }
 
   const supabase = getLooseSupabaseAdmin();
+  const activationMode = parsed.data.paymentId ? "Payment Confirmed" : "Admin Approved";
   const { data: application, error } = await supabase
     .from("candidate_onboarding_applications")
     .select("id, tenant_id, candidate_id")
@@ -45,8 +46,8 @@ export async function POST(request: Request) {
     action: "Update",
     module: "Workspace Activation",
     recordId: application.id,
-    newValue: { status: "Activated" },
+    newValue: { status: "Activated", activationMode },
   });
 
-  return NextResponse.json({ status: "Activated", tenantId: application.tenant_id, candidateId: application.candidate_id });
+  return NextResponse.json({ status: "Activated", activationMode, tenantId: application.tenant_id, candidateId: application.candidate_id });
 }

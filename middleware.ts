@@ -19,7 +19,6 @@ const publicPaths = [
   "/api/onboarding/payment",
   "/api/payments/mpesa/callback",
   "/api/payments/mpesa/stk",
-  "/api/communications/livekit-token",
   "/jukwaa-logo.png",
   "/icon.svg",
   "/manifest.webmanifest",

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getLooseSupabaseAdmin } from "@/lib/supabase";
 import { enforceRateLimit, requestKey } from "@/lib/rate-limit";
-import { requireSession } from "@/lib/auth-session";
+import { requireSession, requireWorkspaceAccess } from "@/lib/auth-session";
 import {
   aiStrategyQueue,
   budgetVarianceRows,
@@ -57,6 +57,8 @@ function outputText(response: unknown) {
 export async function POST(request: Request) {
   const auth = await requireSession(request);
   if (auth.response) return auth.response;
+  const access = await requireWorkspaceAccess(auth.session);
+  if (access.response) return access.response;
 
   const limited = await enforceRateLimit(requestKey(request, "ai-assistant"), 20, 60_000);
   if (!limited.allowed) {

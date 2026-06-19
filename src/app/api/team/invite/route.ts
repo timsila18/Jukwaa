@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getLooseSupabaseAdmin } from "@/lib/supabase";
 import { shortCode, writeAudit } from "@/lib/server-workflows";
-import { requireSession } from "@/lib/auth-session";
+import { requireSession, requireWorkspaceAccess } from "@/lib/auth-session";
 
 const schema = z.object({
   fullName: z.string().trim().min(2),
@@ -15,6 +15,8 @@ const schema = z.object({
 export async function POST(request: Request) {
   const auth = await requireSession(request, { roles: ["Candidate", "Campaign Manager", "Admin", "Constituency Coordinator", "Ward Coordinator"] });
   if (auth.response) return auth.response;
+  const access = await requireWorkspaceAccess(auth.session);
+  if (access.response) return access.response;
 
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success || (!parsed.data.phoneNumber && !parsed.data.email)) {

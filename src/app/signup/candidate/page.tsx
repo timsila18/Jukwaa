@@ -95,13 +95,7 @@ export default function CandidateSignupPage() {
         return;
       }
       setStatus(`Workspace created. Redirecting to payment for account ${payload.accountReference}.`);
-      const params = new URLSearchParams({
-        applicationId: payload.applicationId ?? "",
-        accountReference: payload.accountReference ?? "",
-        phoneNumber: form.phoneNumber,
-        amountKes: String(payload.amountDueKes ?? ""),
-      });
-      window.location.assign(`/payment/confirm?${params.toString()}`);
+      window.location.assign(payload.redirectTo || "/payment/confirm");
     } catch {
       setStatus("");
       setError("Candidate signup could not be completed. Check your connection and try again.");

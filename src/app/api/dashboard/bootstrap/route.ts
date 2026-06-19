@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getLooseSupabaseAdmin } from "@/lib/supabase";
-import { requireSession } from "@/lib/auth-session";
+import { getWorkspaceAccess, requireSession } from "@/lib/auth-session";
 
 async function countRows(table: string, tenantId: string) {
   const admin = getLooseSupabaseAdmin();
@@ -11,6 +11,7 @@ async function countRows(table: string, tenantId: string) {
 export async function GET(request: Request) {
   const auth = await requireSession(request);
   if (auth.response) return auth.response;
+  const workspaceAccess = await getWorkspaceAccess(auth.session);
 
   const admin = getLooseSupabaseAdmin();
   const [supporters, volunteers, issues, events, payments, invitations] = await Promise.all([
@@ -36,6 +37,7 @@ export async function GET(request: Request) {
       memberId: auth.session.memberId,
       role: auth.session.role,
       isPlatformAdmin: auth.session.isPlatformAdmin,
+      access: workspaceAccess,
     },
     campaign: settings,
     summary: {
