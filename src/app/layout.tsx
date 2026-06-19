@@ -37,12 +37,28 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const themeScript = `
+    (() => {
+      try {
+        const saved = localStorage.getItem("jukwaa-theme");
+        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        const mode = saved === "dark" || saved === "light" ? saved : (prefersDark ? "dark" : "light");
+        document.documentElement.classList.toggle("dark", mode === "dark");
+        document.documentElement.dataset.theme = mode;
+      } catch {}
+    })();
+  `;
+
   return (
     <html
       lang="en"
       className={`${inter.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        {children}
+      </body>
     </html>
   );
 }

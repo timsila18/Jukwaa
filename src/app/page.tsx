@@ -53,6 +53,8 @@ import {
 import { type FormEvent, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { accessibleTextColor, validateWorkspaceBranding } from "@/lib/design-system";
 import {
   Bar,
   BarChart,
@@ -355,6 +357,7 @@ export default function Home() {
   const communicationsSummary = summarizeCommunications();
   const platformMetrics = platformWorkspaceMetrics();
   const healthScore = campaignHealthScore();
+  const brandingReview = useMemo(() => validateWorkspaceBranding(candidateBranding), []);
 
   const duplicate = useMemo(() => {
     const normalizedPhone = phone.replace(/\D/g, "");
@@ -491,7 +494,7 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900">
+    <main className="j-shell">
       <aside className={`fixed inset-y-0 left-0 z-40 w-72 border-r border-slate-200 bg-white p-4 transition-transform lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="flex items-center justify-between">
           <Logo />
@@ -560,6 +563,7 @@ export default function Home() {
               <button className="grid h-10 w-10 place-items-center rounded-md border border-slate-200 text-slate-500" aria-label="Notifications" onClick={() => runAction("Opening internal notifications and audit trail.", "Audit Trail")} type="button">
                 <Bell size={18} />
               </button>
+              <ThemeToggle />
               <button className="hidden h-10 items-center gap-2 rounded-md border border-red-200 bg-white px-3 text-sm font-bold text-red-700 transition hover:bg-red-50 sm:inline-flex" onClick={() => runAction("Logged out of the demo workspace. Use Login to start a real session.", "Dashboard")} type="button">
                 <X size={16} />
                 Logout
@@ -569,10 +573,11 @@ export default function Home() {
         </header>
 
         <div className="p-4 lg:p-6">
-          <section id="dashboard" className="scroll-mt-24 mb-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <section id="dashboard" className="j-panel j-workspace-banner scroll-mt-24 mb-6 p-4">
             <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
               <div>
-                <p className="text-sm font-semibold text-sky-700">{displayCampaign.candidateName} for {displayCampaign.positionTargeted}</p>
+                <span className="j-neutral-badge">Professional Campaign Intelligence Platform</span>
+                <p className="mt-3 text-sm font-semibold text-sky-700">{displayCampaign.candidateName} for {displayCampaign.positionTargeted}</p>
                 <h2 className="mt-1 text-2xl font-bold text-slate-950">{displayCampaign.slogan}</h2>
                 <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
                   Multi-tenant campaign operations for supporters, teams, polling stations, reports, and audit-ready political intelligence.
@@ -1083,16 +1088,35 @@ export default function Home() {
                 <div className="rounded-lg border border-slate-200 p-4">
                   <h2 className="text-sm font-bold text-slate-950">Candidate Branding Center</h2>
                   <div className="mt-4 flex items-center gap-3">
-                    <div className="grid h-14 w-14 place-items-center rounded-lg bg-slate-950 text-xl font-bold text-white">{candidateBranding.logo}</div>
+                    <div
+                      className="grid h-14 w-14 place-items-center rounded-lg text-xl font-bold"
+                      style={{ backgroundColor: candidateBranding.campaignColors[0], color: accessibleTextColor(candidateBranding.campaignColors[0]) }}
+                    >
+                      {candidateBranding.logo}
+                    </div>
                     <div>
                       <p className="text-sm font-bold text-slate-950">{candidateBranding.slogan}</p>
-                      <p className="text-xs text-slate-500">Logo, candidate photo, campaign banner, colors, and social links flow across the workspace.</p>
+                      <p className="text-xs text-slate-500">Logo, candidate photo, campaign banner, colors, and social links are limited to workspace branding zones.</p>
                     </div>
                   </div>
-                  <div className="mt-4 flex gap-2">
-                    {candidateBranding.campaignColors.map((color) => (
-                      <span key={color} className="h-9 w-14 rounded-md border border-slate-200" style={{ backgroundColor: color }} />
+                  <div className="mt-4 grid gap-2">
+                    {brandingReview.colorChecks.map((check) => (
+                      <div key={check.color} className="flex items-center justify-between gap-3 rounded-md bg-slate-50 p-2">
+                        <div className="flex items-center gap-2">
+                          <span className="j-swatch" style={{ backgroundColor: check.color }} />
+                          <div>
+                            <p className="text-xs font-bold text-slate-950">{check.color.toUpperCase()}</p>
+                            <p className="text-xs text-slate-500">White {check.contrastOnWhite}:1 / Navy {check.contrastOnNavy}:1</p>
+                          </div>
+                        </div>
+                        <span className={`rounded-md px-2 py-1 text-xs font-bold ${check.valid ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
+                          {check.valid ? "Approved" : "Needs contrast"}
+                        </span>
+                      </div>
                     ))}
+                  </div>
+                  <div className="mt-4 rounded-md border border-sky-200 bg-sky-50 p-3 text-xs leading-5 text-sky-900">
+                    {brandingReview.rule}
                   </div>
                   <div className="mt-4 grid gap-2 text-sm text-slate-600">
                     {Object.entries(candidateBranding.socialLinks).map(([network, url]) => (

@@ -17,14 +17,20 @@ export const designTokens = {
     },
   },
   spacing: {
+    xs: "0.25rem",
     sm: "0.5rem",
     md: "1rem",
     lg: "1.5rem",
+    xl: "2rem",
   },
   radius: {
     sm: "0.375rem",
     md: "0.5rem",
-    lg: "0.75rem",
+    lg: "0.5rem",
+  },
+  shadow: {
+    card: "0 1px 2px rgb(15 23 42 / 0.05)",
+    raised: "0 16px 40px rgb(15 23 42 / 0.08)",
   },
   font: {
     heading: "Inter",
@@ -75,4 +81,45 @@ export function validateWorkspaceAccent(accentColor: string, backgroundColor = d
   }
 
   return { valid: true, reason: "Accent color is readable for workspace branding." };
+}
+
+export type WorkspaceBrandingInput = {
+  logo?: string;
+  candidatePhoto?: string;
+  campaignBanner?: string;
+  slogan?: string;
+  campaignColors?: string[];
+};
+
+export type WorkspaceBrandingCheck = {
+  color: string;
+  valid: boolean;
+  contrastOnWhite: number;
+  contrastOnNavy: number;
+  reason: string;
+};
+
+export function validateWorkspaceBranding(branding: WorkspaceBrandingInput) {
+  const colors = branding.campaignColors?.length ? branding.campaignColors : [designTokens.colors.accent];
+  const colorChecks: WorkspaceBrandingCheck[] = colors.map((color) => {
+    const validation = validateWorkspaceAccent(color);
+    return {
+      color,
+      valid: validation.valid,
+      contrastOnWhite: Math.round(contrastRatio(color, designTokens.colors.card) * 100) / 100,
+      contrastOnNavy: Math.round(contrastRatio(color, designTokens.colors.primary) * 100) / 100,
+      reason: validation.reason,
+    };
+  });
+
+  return {
+    valid: colorChecks.every((check) => check.valid),
+    colorChecks,
+    protectedShell: true,
+    rule: "Campaign branding may appear in workspace banners and candidate profile areas, but the JUKWAA navigation, actions, forms, and system messages keep the neutral core palette.",
+  };
+}
+
+export function accessibleTextColor(backgroundColor: string) {
+  return contrastRatio("#FFFFFF", backgroundColor) >= 4.5 ? "#FFFFFF" : designTokens.colors.primary;
 }
