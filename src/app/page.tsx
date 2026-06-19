@@ -410,14 +410,17 @@ export default function Home() {
     ["Kajiado", "2,031 (8.2%)", "#f97316"],
     ["Others", "7,044 (28.3%)", "#d1d5db"],
   ] as const;
+  const activeSectionId = sectionTargets[activeSection] ?? sectionTargets.Dashboard;
+  const activeSubtitle = activeSection === "Dashboard" ? "Overview of your campaign operations" : `Manage ${activeSection.toLowerCase()} for this workspace`;
+
+  function sectionClass(sectionId: string, baseClassName: string) {
+    return activeSectionId === sectionId ? baseClassName : "hidden";
+  }
 
   function scrollToSection(label: string) {
-    const sectionId = sectionTargets[label] ?? sectionTargets.Dashboard;
     setActiveSection(label);
     setSidebarOpen(false);
-    window.requestAnimationFrame(() => {
-      document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function runAction(message: string, sectionLabel: string) {
@@ -570,8 +573,8 @@ export default function Home() {
                 <Menu size={20} />
               </button>
               <div>
-                <h1 className="text-xl font-bold text-white">Dashboard</h1>
-                <p className="text-xs font-medium text-slate-300">Overview of your campaign operations</p>
+                <h1 className="text-xl font-bold text-white">{activeSection}</h1>
+                <p className="text-xs font-medium text-slate-300">{activeSubtitle}</p>
               </div>
             </div>
             <div className="flex flex-1 items-center justify-end gap-2">
@@ -601,7 +604,7 @@ export default function Home() {
         </header>
 
         <div className="p-4 lg:p-6 xl:p-7">
-          <section id="dashboard" className="scroll-mt-24">
+          <section id="dashboard" className={sectionClass("dashboard", "scroll-mt-24")}>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
               {dashboardMetrics.map((metric) => (
                 <section key={metric.label} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -891,7 +894,7 @@ export default function Home() {
             </section>
           ) : null}
 
-          <section id="communications" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="communications" className={sectionClass("communications", "scroll-mt-24 grid gap-4 xl:grid-cols-3")}>
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -982,7 +985,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section id="ai-assistant" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="ai-assistant" className={sectionClass("ai-assistant", "scroll-mt-24 grid gap-4 xl:grid-cols-3")}>
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -1043,7 +1046,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section id="campaign-finance" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="campaign-finance" className={sectionClass("campaign-finance", "scroll-mt-24 grid gap-4 xl:grid-cols-3")}>
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-sm font-bold text-slate-950">Campaign Finance</h2>
@@ -1108,7 +1111,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section id="mpesa-payments" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="mpesa-payments" className={sectionClass("mpesa-payments", "scroll-mt-24 grid gap-4 xl:grid-cols-3")}>
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-sm font-bold text-slate-950">M-Pesa Payment Infrastructure</h2>
@@ -1177,7 +1180,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section id="predictive-analytics" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="predictive-analytics" className={sectionClass("predictive-analytics", "scroll-mt-24 grid gap-4 xl:grid-cols-3")}>
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-sm font-bold text-slate-950">Predictive Analytics</h2>
@@ -1231,7 +1234,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section id="document-center" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="document-center" className={sectionClass("document-center", "scroll-mt-24 grid gap-4 xl:grid-cols-3")}>
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-sm font-bold text-slate-950">Document Center</h2>
@@ -1270,7 +1273,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section id="candidate-management" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="candidate-management" className={sectionClass("candidate-management", "scroll-mt-24 grid gap-4 xl:grid-cols-3")}>
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -1385,7 +1388,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section id="invitations" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="invitations" className={sectionClass("invitations", "scroll-mt-24 grid gap-4 xl:grid-cols-3")}>
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-sm font-bold text-slate-950">Invitation System</h2>
@@ -1466,7 +1469,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section id="workspace-governance" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="workspace-governance" className={sectionClass("workspace-governance", "scroll-mt-24 grid gap-4 xl:grid-cols-3")}>
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -1505,7 +1508,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section id="subscriptions" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="subscriptions" className={sectionClass("subscriptions", "scroll-mt-24 grid gap-4 xl:grid-cols-3")}>
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-sm font-bold text-slate-950">Subscription Management</h2>
@@ -1566,7 +1569,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section id="audit-trail" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="audit-trail" className={sectionClass("audit-trail", "scroll-mt-24 grid gap-4 xl:grid-cols-3")}>
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-sm font-bold text-slate-950">Security Hardening</h2>
@@ -1622,7 +1625,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section id="super-admin" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="super-admin" className={sectionClass("super-admin", "scroll-mt-24 grid gap-4 xl:grid-cols-3")}>
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -1685,7 +1688,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section id="turnout-monitoring" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-4">
+          <section id="turnout-monitoring" className={sectionClass("turnout-monitoring", "scroll-mt-24 grid gap-4 xl:grid-cols-4")}>
             <ChartCard title="Turnout Monitoring">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={turnoutRows}>
@@ -1739,7 +1742,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section id="election-operations" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="election-operations" className={sectionClass("election-operations", "scroll-mt-24 grid gap-4 xl:grid-cols-3")}>
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-sm font-bold text-slate-950">Incident Command Center</h2>
@@ -1806,7 +1809,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section id="results-center" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="results-center" className={sectionClass("results-center", "scroll-mt-24 grid gap-4 xl:grid-cols-3")}>
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -1895,7 +1898,7 @@ export default function Home() {
             </ChartCard>
           </section>
 
-          <section id="territory-coverage" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="territory-coverage" className={sectionClass("territory-coverage", "scroll-mt-24 grid gap-4 xl:grid-cols-3")}>
             <ChartCard title="Supporters by Ward">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={wardData}>
@@ -1955,7 +1958,7 @@ export default function Home() {
             </ChartCard>
           </section>
 
-          <section id="supporters" className="scroll-mt-24 mt-6 grid gap-4 2xl:grid-cols-[1.5fr_0.8fr]">
+          <section id="supporters" className={sectionClass("supporters", "scroll-mt-24 grid gap-4 2xl:grid-cols-[1.5fr_0.8fr]")}>
             <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4">
                 <div>
@@ -2039,7 +2042,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section id="polling-stations" className="scroll-mt-24 mt-6 rounded-lg border border-slate-200 bg-white shadow-sm">
+          <section id="polling-stations" className={sectionClass("polling-stations", "scroll-mt-24 rounded-lg border border-slate-200 bg-white shadow-sm")}>
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4">
               <div>
                 <h2 className="text-sm font-bold text-slate-950">Polling Station Analytics</h2>
@@ -2086,7 +2089,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section id="volunteers" className="scroll-mt-24 mt-6 grid gap-4 2xl:grid-cols-[1.2fr_0.9fr]">
+          <section id="volunteers" className={sectionClass("volunteers", "scroll-mt-24 grid gap-4 2xl:grid-cols-[1.2fr_0.9fr]")}>
             <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4">
                 <div>
@@ -2168,7 +2171,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section id="community-issues" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="community-issues" className={sectionClass("community-issues", "scroll-mt-24 grid gap-4 xl:grid-cols-3")}>
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -2295,7 +2298,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section id="reports" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="reports" className={sectionClass("reports", "scroll-mt-24 grid gap-4 xl:grid-cols-3")}>
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <h2 className="text-sm font-bold text-slate-950">Internal Notifications</h2>
               <div className="mt-4 space-y-3">
@@ -2320,7 +2323,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section id="users" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
+          <section id="users" className={sectionClass("users", "scroll-mt-24 grid gap-4 xl:grid-cols-3")}>
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <h2 className="text-sm font-bold text-slate-950">Campaign Setup Wizard</h2>
               <div className="mt-4 space-y-3">
@@ -2372,7 +2375,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section id="locations" className="scroll-mt-24 mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <section id="locations" className={sectionClass("locations", "scroll-mt-24 rounded-lg border border-slate-200 bg-white p-4 shadow-sm")}>
             <h2 className="text-sm font-bold text-slate-950">Reusable Location Hierarchy and Report Catalog</h2>
             <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-md bg-slate-50 p-3 text-sm text-slate-600">Country {"->"} County {"->"} Constituency {"->"} Ward {"->"} Village {"->"} Polling Station</div>
@@ -2382,7 +2385,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section id="knowledge-center" className="scroll-mt-24 mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <section id="knowledge-center" className={sectionClass("knowledge-center", "scroll-mt-24 rounded-lg border border-slate-200 bg-white p-4 shadow-sm")}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-bold text-slate-950">Kenya Political Party Register</h2>
@@ -2402,7 +2405,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section id="candidate-geography" className="scroll-mt-24 mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <section id="candidate-geography" className={sectionClass("candidate-geography", "scroll-mt-24 rounded-lg border border-slate-200 bg-white p-4 shadow-sm")}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-bold text-slate-950">Kenya Candidate Geography Setup</h2>
