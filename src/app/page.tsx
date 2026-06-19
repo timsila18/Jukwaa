@@ -437,6 +437,15 @@ export default function Home() {
     scrollToSection(sectionLabel);
   }
 
+  async function logout() {
+    try {
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    } finally {
+      setActionMessage("");
+      window.location.assign("/login");
+    }
+  }
+
   async function persistWorkflow(workflow: string, payload: Record<string, unknown>, successMessage: string, sectionLabel: string) {
     try {
       const response = await fetch(`/api/workflows/${workflow}`, {
@@ -578,7 +587,7 @@ export default function Home() {
                 <Bell size={18} />
               </button>
               <ThemeToggle />
-              <button className="hidden h-10 items-center gap-2 rounded-md border border-red-200 bg-white px-3 text-sm font-bold text-red-700 transition hover:bg-red-50 sm:inline-flex" onClick={() => runAction("Logged out of the demo workspace. Use Login to start a real session.", "Dashboard")} type="button">
+              <button className="hidden h-10 items-center gap-2 rounded-md border border-red-200 bg-white px-3 text-sm font-bold text-red-700 transition hover:bg-red-50 sm:inline-flex" onClick={() => void logout()} type="button">
                 <X size={16} />
                 Logout
               </button>
@@ -1246,7 +1255,7 @@ export default function Home() {
                   <KeyRound size={15} />
                   Login
                 </Link>
-                <button className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-red-200 bg-white px-3 text-sm font-bold text-red-700 hover:bg-red-50" onClick={() => runAction("Logged out of the demo workspace. Use Login to start a real session.", "Dashboard")} type="button">
+                <button className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-red-200 bg-white px-3 text-sm font-bold text-red-700 hover:bg-red-50" onClick={() => void logout()} type="button">
                   <X size={15} />
                   Logout
                 </button>
