@@ -349,6 +349,10 @@ export default function Home() {
     let active = true;
     fetch("/api/dashboard/bootstrap")
       .then(async (response) => {
+        if (response.status === 401 || response.status === 403) {
+          window.location.assign(`/login?next=${encodeURIComponent("/")}`);
+          return null;
+        }
         if (!response.ok) return null;
         return response.json() as Promise<LiveBootstrap>;
       })

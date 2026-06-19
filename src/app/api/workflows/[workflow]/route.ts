@@ -277,7 +277,14 @@ export async function POST(request: Request, context: { params: Promise<{ workfl
       await writeAudit({ tenantId: workspace.tenantId, candidateId: workspace.candidateId, action: "Update", module: "User Approval", recordId: data.invitationId ?? "demo", newValue: data });
       return NextResponse.json({ id: data.invitationId ?? "demo", status: data.status, note: "Audit saved. Persisted invitation update requires a real invitation record." });
     }
-    const { data: updated, error } = await supabase.from("invitations").update({ status: data.status }).eq("id", data.invitationId).select("id").single();
+    const { data: updated, error } = await supabase
+      .from("invitations")
+      .update({ status: data.status })
+      .eq("id", data.invitationId)
+      .eq("tenant_id", workspace.tenantId)
+      .eq("candidate_id", workspace.candidateId)
+      .select("id")
+      .single();
     if (error || !updated) return NextResponse.json({ error: "Could not update invitation.", detail: error?.message }, { status: 500 });
     await writeAudit({ tenantId: workspace.tenantId, candidateId: workspace.candidateId, action: "Update", module: "User Approval", recordId: updated.id, newValue: data });
     return NextResponse.json({ id: updated.id, status: data.status });

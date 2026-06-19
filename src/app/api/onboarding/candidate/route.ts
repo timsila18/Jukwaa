@@ -40,6 +40,15 @@ const positionGeography: Record<string, { county: boolean; constituency: boolean
   Referendum: { county: false, constituency: false, ward: false },
 };
 
+async function cleanupFailedWorkspace(tenantId?: string, userId?: string) {
+  const admin = getLooseSupabaseAdmin();
+  const authAdmin = getSupabaseAdmin();
+  await Promise.allSettled([
+    tenantId ? admin.from("tenants").delete().eq("id", tenantId) : Promise.resolve(),
+    userId ? authAdmin.auth.admin.deleteUser(userId) : Promise.resolve(),
+  ]);
+}
+
 export async function POST(request: Request) {
   const limited = await enforceRateLimit(requestKey(request, "candidate-onboarding"), 8, 60_000);
   if (!limited.allowed) {
@@ -108,6 +117,7 @@ export async function POST(request: Request) {
     .single();
 
   if (candidateError || !candidate) {
+    await cleanupFailedWorkspace(tenant.id);
     return NextResponse.json({ error: "Could not create candidate record.", detail: candidateError?.message }, { status: 500 });
   }
 
@@ -142,10 +152,11 @@ export async function POST(request: Request) {
   });
 
   if (userError || !createdUser.user) {
+    await cleanupFailedWorkspace(tenant.id);
     return NextResponse.json({ error: "Workspace records were created, but candidate login could not be created. Contact support.", detail: userError?.message }, { status: 409 });
   }
 
-  const { data: member } = await supabase.from("campaign_members").insert({
+  const { data: member, error: memberError } = await supabase.from("campaign_members").insert({
     tenant_id: tenant.id,
     candidate_id: candidate.id,
     user_id: createdUser.user.id,
@@ -154,6 +165,11 @@ export async function POST(request: Request) {
     role: "Candidate",
     status: "Active",
   }).select("id").single();
+
+  if (memberError || !member) {
+    await cleanupFailedWorkspace(tenant.id, createdUser.user.id);
+    return NextResponse.json({ error: "Candidate login was created, but workspace membership failed. Please try again.", detail: memberError?.message }, { status: 500 });
+  }
 
   const { data: subscription } = await supabase.from("workspace_subscriptions").insert({
     tenant_id: tenant.id,

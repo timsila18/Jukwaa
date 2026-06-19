@@ -26,11 +26,16 @@ export async function POST(request: Request) {
     .eq("email", email)
     .maybeSingle();
 
+  const genericResponse = NextResponse.json({
+    status: "If the account exists, a reset request has been recorded.",
+    note: "Ask your campaign administrator or JUKWAA support to issue the reset code.",
+  });
+
   if (!member || member.status !== "Active") {
-    return NextResponse.json({ error: "No active JUKWAA account was found for those details." }, { status: 404 });
+    return genericResponse;
   }
 
-  const resetCode = `RST-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+  const resetCode = `RST-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
   await admin.from("password_reset_codes").insert({
     tenant_id: member.tenant_id,
     candidate_id: member.candidate_id,
@@ -40,10 +45,5 @@ export async function POST(request: Request) {
     expires_at: new Date(Date.now() + 30 * 60_000).toISOString(),
   });
 
-  return NextResponse.json({
-    status: "Reset code generated",
-    resetCode,
-    expiresIn: "30 minutes",
-    note: "Give this code only to the account owner. After reset, they login with the new password.",
-  });
+  return genericResponse;
 }
