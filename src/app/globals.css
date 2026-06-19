@@ -1,19 +1,21 @@
 @import "tailwindcss";
 
 :root {
-  --jukwaa-primary: #0f172a;
-  --jukwaa-secondary: #475569;
-  --jukwaa-accent: #0ea5e9;
-  --jukwaa-background: #f8fafc;
+  --jukwaa-primary: #07111f;
+  --jukwaa-secondary: #42526a;
+  --jukwaa-accent: #0284c7;
+  --jukwaa-gold: #c89b3c;
+  --jukwaa-ink: #07111f;
+  --jukwaa-background: #f5f7fb;
   --jukwaa-card: #ffffff;
-  --jukwaa-muted: #f1f5f9;
-  --jukwaa-border: #e2e8f0;
-  --jukwaa-text-muted: #64748b;
+  --jukwaa-muted: #eef3f8;
+  --jukwaa-border: #d9e2ec;
+  --jukwaa-text-muted: #5d6b7f;
   --jukwaa-success: #22c55e;
   --jukwaa-warning: #f59e0b;
   --jukwaa-danger: #ef4444;
-  --jukwaa-shadow-card: 0 1px 2px rgb(15 23 42 / 0.05);
-  --jukwaa-shadow-raised: 0 16px 40px rgb(15 23 42 / 0.08);
+  --jukwaa-shadow-card: 0 1px 2px rgb(7 17 31 / 0.06), 0 14px 34px rgb(7 17 31 / 0.06);
+  --jukwaa-shadow-raised: 0 24px 70px rgb(7 17 31 / 0.14);
   --background: var(--jukwaa-background);
   --foreground: var(--jukwaa-primary);
   color-scheme: light;
@@ -51,6 +53,13 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  text-rendering: geometricPrecision;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 button,
@@ -75,7 +84,10 @@ textarea {
 
   .j-shell {
     min-height: 100vh;
-    background: var(--jukwaa-background);
+    background:
+      linear-gradient(180deg, rgb(7 17 31 / 0.035), transparent 22rem),
+      radial-gradient(circle at 82% 0%, rgb(2 132 199 / 0.09), transparent 22rem),
+      var(--jukwaa-background);
     color: var(--foreground);
   }
 
@@ -84,6 +96,11 @@ textarea {
     background: var(--jukwaa-card);
     border-radius: 0.5rem;
     box-shadow: var(--jukwaa-shadow-card);
+    transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+  }
+
+  .j-panel:hover {
+    border-color: color-mix(in srgb, var(--jukwaa-accent) 20%, var(--jukwaa-border));
   }
 
   .j-muted-panel {
@@ -96,17 +113,30 @@ textarea {
     min-height: 1.75rem;
     align-items: center;
     border-radius: 0.375rem;
-    border: 1px solid color-mix(in srgb, var(--jukwaa-accent) 24%, var(--jukwaa-border));
-    background: color-mix(in srgb, var(--jukwaa-accent) 10%, var(--jukwaa-card));
-    color: #0369a1;
+    border: 1px solid color-mix(in srgb, var(--jukwaa-gold) 36%, var(--jukwaa-border));
+    background: linear-gradient(180deg, #fff8e8, #fffdf8);
+    color: #7c5c18;
     padding: 0 0.625rem;
     font-size: 0.75rem;
     font-weight: 800;
   }
 
   .j-workspace-banner {
-    border-left: 4px solid var(--jukwaa-accent);
-    background: linear-gradient(90deg, color-mix(in srgb, var(--jukwaa-accent) 8%, var(--jukwaa-card)), var(--jukwaa-card));
+    position: relative;
+    overflow: hidden;
+    border-left: 4px solid var(--jukwaa-gold);
+    background:
+      linear-gradient(120deg, #ffffff 0%, #f8fbff 58%, #eef7ff 100%);
+  }
+
+  .j-workspace-banner::after {
+    position: absolute;
+    inset: auto 1.25rem 0 auto;
+    height: 0.1875rem;
+    width: 9rem;
+    content: "";
+    background: linear-gradient(90deg, var(--jukwaa-gold), var(--jukwaa-accent));
+    opacity: 0.8;
   }
 
   .j-theme-toggle {
@@ -142,9 +172,10 @@ textarea {
   .j-button-primary {
     min-height: 2.75rem;
     border-radius: 0.375rem;
-    background: #0f172a;
+    background: linear-gradient(180deg, #0b1728, #07111f);
     color: #ffffff;
     font-weight: 700;
+    box-shadow: 0 12px 24px rgb(7 17 31 / 0.18);
   }
 
   .j-button-primary:hover {
@@ -166,6 +197,61 @@ textarea {
     border-radius: 0.375rem;
     background: var(--jukwaa-card);
     color: var(--foreground);
+  }
+
+  .j-premium-shell {
+    background:
+      linear-gradient(180deg, #07111f 0%, #0b1728 48%, #101f34 100%);
+    color: #dbeafe;
+    box-shadow: 16px 0 40px rgb(7 17 31 / 0.18);
+  }
+
+  .j-premium-nav {
+    color: #b8c5d8;
+  }
+
+  .j-premium-nav:hover {
+    background: rgb(255 255 255 / 0.075);
+    color: #ffffff;
+  }
+
+  .j-premium-nav-active {
+    background: linear-gradient(90deg, rgb(200 155 60 / 0.2), rgb(2 132 199 / 0.16));
+    color: #ffffff;
+    box-shadow: inset 3px 0 0 var(--jukwaa-gold);
+  }
+
+  .j-premium-topbar {
+    border-color: rgb(217 226 236 / 0.84);
+    background: rgb(255 255 255 / 0.86);
+    box-shadow: 0 10px 34px rgb(7 17 31 / 0.08);
+  }
+
+  .j-auth-page {
+    background:
+      linear-gradient(135deg, #07111f 0%, #0d1b2f 42%, #f5f7fb 42%, #f5f7fb 100%);
+  }
+
+  .j-auth-card {
+    border: 1px solid rgb(217 226 236 / 0.92);
+    background: rgb(255 255 255 / 0.94);
+    box-shadow: var(--jukwaa-shadow-raised);
+    backdrop-filter: blur(18px);
+  }
+
+  .j-kpi {
+    border: 1px solid var(--jukwaa-border);
+    background: linear-gradient(180deg, #ffffff, #f9fbfe);
+    border-radius: 0.5rem;
+    box-shadow: var(--jukwaa-shadow-card);
+  }
+
+  .j-table-shell {
+    border: 1px solid var(--jukwaa-border);
+    background: #ffffff;
+    border-radius: 0.5rem;
+    box-shadow: var(--jukwaa-shadow-card);
+    overflow: hidden;
   }
 }
 
@@ -240,5 +326,148 @@ textarea {
 
   .shadow-sm {
     box-shadow: 0 1px 2px rgb(0 0 0 / 0.35) !important;
+  }
+}
+
+.j-shell {
+  min-height: 100vh;
+  background:
+    linear-gradient(180deg, rgb(7 17 31 / 0.035), transparent 22rem),
+    radial-gradient(circle at 82% 0%, rgb(2 132 199 / 0.09), transparent 22rem),
+    var(--jukwaa-background);
+  color: var(--foreground);
+}
+
+.j-panel {
+  border: 1px solid var(--jukwaa-border);
+  background: var(--jukwaa-card);
+  border-radius: 0.5rem;
+  box-shadow: var(--jukwaa-shadow-card);
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.j-panel:hover {
+  border-color: color-mix(in srgb, var(--jukwaa-accent) 20%, var(--jukwaa-border));
+}
+
+.j-neutral-badge {
+  display: inline-flex;
+  min-height: 1.75rem;
+  align-items: center;
+  border-radius: 0.375rem;
+  border: 1px solid color-mix(in srgb, var(--jukwaa-gold) 36%, var(--jukwaa-border));
+  background: linear-gradient(180deg, #fff8e8, #fffdf8);
+  color: #7c5c18;
+  padding: 0 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.j-workspace-banner {
+  position: relative;
+  overflow: hidden;
+  border-left: 4px solid var(--jukwaa-gold);
+  background:
+    linear-gradient(120deg, #ffffff 0%, #f8fbff 58%, #eef7ff 100%);
+}
+
+.j-workspace-banner::after {
+  position: absolute;
+  inset: auto 1.25rem 0 auto;
+  height: 0.1875rem;
+  width: 9rem;
+  content: "";
+  background: linear-gradient(90deg, var(--jukwaa-gold), var(--jukwaa-accent));
+  opacity: 0.8;
+}
+
+.j-button-primary {
+  min-height: 2.75rem;
+  border-radius: 0.375rem;
+  background: linear-gradient(180deg, #0b1728, #07111f);
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 12px 24px rgb(7 17 31 / 0.18);
+}
+
+.j-button-primary:hover {
+  background: #1e293b;
+}
+
+.j-button-secondary {
+  min-height: 2.75rem;
+  border: 1px solid var(--jukwaa-border);
+  border-radius: 0.375rem;
+  background: var(--jukwaa-card);
+  color: var(--jukwaa-secondary);
+  font-weight: 700;
+}
+
+.j-premium-shell {
+  background: linear-gradient(180deg, #07111f 0%, #0b1728 48%, #101f34 100%);
+  color: #dbeafe;
+  box-shadow: 16px 0 40px rgb(7 17 31 / 0.18);
+}
+
+.j-premium-nav {
+  color: #b8c5d8;
+}
+
+.j-premium-nav:hover {
+  background: rgb(255 255 255 / 0.075);
+  color: #ffffff;
+}
+
+.j-premium-nav-active {
+  background: linear-gradient(90deg, rgb(200 155 60 / 0.2), rgb(2 132 199 / 0.16));
+  color: #ffffff;
+  box-shadow: inset 3px 0 0 var(--jukwaa-gold);
+}
+
+.j-premium-topbar {
+  border-color: rgb(217 226 236 / 0.84);
+  background: rgb(255 255 255 / 0.86);
+  box-shadow: 0 10px 34px rgb(7 17 31 / 0.08);
+}
+
+.j-auth-page {
+  background:
+    linear-gradient(135deg, #07111f 0%, #0d1b2f 42%, #f5f7fb 42%, #f5f7fb 100%);
+}
+
+.j-auth-card {
+  border: 1px solid rgb(217 226 236 / 0.92);
+  background: rgb(255 255 255 / 0.94);
+  box-shadow: var(--jukwaa-shadow-raised);
+  backdrop-filter: blur(18px);
+  max-width: calc(100vw - 2rem) !important;
+  overflow: hidden;
+}
+
+.j-kpi {
+  border: 1px solid var(--jukwaa-border);
+  background: linear-gradient(180deg, #ffffff, #f9fbfe);
+  border-radius: 0.5rem;
+  box-shadow: var(--jukwaa-shadow-card);
+}
+
+.j-table-shell {
+  overflow: hidden;
+  border: 1px solid var(--jukwaa-border);
+  background: #ffffff;
+  border-radius: 0.5rem;
+  box-shadow: var(--jukwaa-shadow-card);
+}
+
+@media (max-width: 480px) {
+  .j-auth-page {
+    place-items: start center;
+    padding-top: 5.875rem;
+  }
+
+  .j-auth-card {
+    width: calc(100vw - 4rem) !important;
+    max-width: calc(100vw - 4rem) !important;
+    padding: 1.5rem !important;
   }
 }

@@ -1,9 +1,10 @@
 export const designTokens = {
   colors: {
-    primary: "#0F172A",
-    secondary: "#475569",
-    accent: "#0EA5E9",
-    background: "#F8FAFC",
+    primary: "#07111F",
+    secondary: "#42526A",
+    accent: "#0284C7",
+    gold: "#C89B3C",
+    background: "#F5F7FB",
     card: "#FFFFFF",
     success: "#22C55E",
     warning: "#F59E0B",
@@ -29,8 +30,8 @@ export const designTokens = {
     lg: "0.5rem",
   },
   shadow: {
-    card: "0 1px 2px rgb(15 23 42 / 0.05)",
-    raised: "0 16px 40px rgb(15 23 42 / 0.08)",
+    card: "0 1px 2px rgb(7 17 31 / 0.06), 0 14px 34px rgb(7 17 31 / 0.06)",
+    raised: "0 24px 70px rgb(7 17 31 / 0.14)",
   },
   font: {
     heading: "Inter",

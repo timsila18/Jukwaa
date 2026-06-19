@@ -87,13 +87,13 @@ function Status({ value }: { value: string }) {
 
 function Kpi({ label, value, icon: Icon }: { label: string; value: string; icon: typeof Users }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="j-kpi p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</p>
           <p className="mt-2 text-2xl font-black text-slate-950">{value}</p>
         </div>
-        <div className="grid h-10 w-10 place-items-center rounded-lg bg-sky-50 text-sky-700">
+        <div className="grid h-10 w-10 place-items-center rounded-lg bg-sky-50 text-sky-700 ring-1 ring-sky-100">
           <Icon size={19} />
         </div>
       </div>
@@ -169,7 +169,7 @@ export default function SaasAdminPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900 lg:px-6">
+    <main className="j-shell min-h-screen px-4 py-6 text-slate-900 lg:px-6">
       <section className="mx-auto max-w-7xl">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -178,11 +178,11 @@ export default function SaasAdminPage() {
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Manage candidate workspaces, payments, subscriptions, support, and early admin approvals from one platform console.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 hover:bg-slate-50" href="/admin/activation">
+            <Link className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50" href="/admin/activation">
               <ShieldCheck size={16} />
               Quick Approval
             </Link>
-            <button className="inline-flex h-10 items-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white hover:bg-slate-900" onClick={() => void load()} type="button">
+            <button className="inline-flex h-10 items-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white shadow-sm hover:bg-slate-900" onClick={() => void load()} type="button">
               <RefreshCcw size={16} />
               Refresh
             </button>
@@ -193,7 +193,7 @@ export default function SaasAdminPage() {
         {status ? <div className="mt-4 rounded-md bg-emerald-50 p-3 text-sm font-bold text-emerald-700">{status}</div> : null}
 
         {loading || !snapshot ? (
-          <div className="mt-6 rounded-lg border border-slate-200 bg-white p-6 text-sm font-bold text-slate-600 shadow-sm">Loading SaaS console...</div>
+          <div className="j-table-shell mt-6 p-6 text-sm font-bold text-slate-600">Loading SaaS console...</div>
         ) : (
           <>
             <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -203,7 +203,7 @@ export default function SaasAdminPage() {
               <Kpi label="Confirmed Revenue" value={money(snapshot.summary.revenueKes)} icon={WalletCards} />
             </section>
 
-            <section className="mt-6 rounded-lg border border-slate-200 bg-white shadow-sm">
+            <section className="j-table-shell mt-6">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4">
                 <div>
                   <h2 className="text-base font-black text-slate-950">{workspaceView === "queue" ? "Needs Action Queue" : "Workspace Operations"}</h2>
@@ -249,7 +249,7 @@ export default function SaasAdminPage() {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredWorkspaces.map((workspace) => (
-                      <tr key={workspace.candidateId} className="align-top hover:bg-slate-50">
+                      <tr key={workspace.candidateId} className="align-top transition hover:bg-slate-50">
                         <td className="px-4 py-4">
                           <p className="font-black text-slate-950">{workspace.campaignName}</p>
                           <p className="mt-1 text-xs font-semibold text-slate-500">{workspace.candidateName} - {workspace.position}</p>
@@ -334,7 +334,7 @@ export default function SaasAdminPage() {
             </section>
 
             <section className="mt-6 grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-              <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="j-panel p-4">
                 <h2 className="text-base font-black text-slate-950">Payment Queue</h2>
                 <div className="mt-4 grid gap-3">
                   {pendingPayments.slice(0, 8).map((payment) => (
@@ -361,7 +361,7 @@ export default function SaasAdminPage() {
                 </div>
               </div>
 
-              <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="j-panel p-4">
                 <h2 className="text-base font-black text-slate-950">Platform Admins</h2>
                 <div className="mt-4 grid gap-3">
                   {snapshot.platformAdmins.map((admin) => (
@@ -375,7 +375,7 @@ export default function SaasAdminPage() {
               </div>
             </section>
 
-            <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <section className="j-panel mt-6 p-4">
               <h2 className="text-base font-black text-slate-950">Support Tickets</h2>
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 {snapshot.tickets.slice(0, 12).map((ticket) => (

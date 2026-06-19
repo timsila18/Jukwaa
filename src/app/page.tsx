@@ -254,7 +254,7 @@ type LiveBootstrap = {
 
 function Logo() {
   return (
-    <div className="flex items-center">
+    <div className="flex items-center rounded-lg bg-white/95 px-2 py-1 shadow-sm ring-1 ring-white/20">
       <Image
         src="/jukwaa-logo.png"
         alt="JUKWAA - Where Leadership Meets the People"
@@ -269,13 +269,13 @@ function Logo() {
 
 function StatCard({ label, value, helper, icon: Icon }: { label: string; value: string; helper: string; icon: typeof Gauge }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="j-kpi p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
           <p className="mt-2 text-2xl font-bold text-slate-950">{value}</p>
         </div>
-        <div className="grid h-9 w-9 place-items-center rounded-lg bg-sky-50 text-sky-700">
+        <div className="grid h-9 w-9 place-items-center rounded-lg bg-sky-50 text-sky-700 ring-1 ring-sky-100">
           <Icon size={18} />
         </div>
       </div>
@@ -518,10 +518,10 @@ export default function Home() {
 
   return (
     <main className="j-shell">
-      <aside className={`fixed inset-y-0 left-0 z-40 w-72 border-r border-slate-200 bg-white p-4 transition-transform lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
+      <aside className={`j-premium-shell fixed inset-y-0 left-0 z-40 w-72 border-r border-white/10 p-4 transition-transform lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="flex items-center justify-between">
           <Logo />
-          <button className="rounded-md p-2 text-slate-500 lg:hidden" onClick={() => setSidebarOpen(false)} aria-label="Close menu">
+          <button className="rounded-md p-2 text-slate-300 lg:hidden" onClick={() => setSidebarOpen(false)} aria-label="Close menu">
             <X size={20} />
           </button>
         </div>
@@ -530,18 +530,18 @@ export default function Home() {
             <button
               key={item.label}
               onClick={() => scrollToSection(item.label)}
-              className={`flex h-10 w-full items-center gap-3 rounded-md px-3 text-sm font-semibold transition ${activeSection === item.label ? "bg-sky-50 text-sky-800" : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"}`}
+              className={`flex h-10 w-full items-center gap-3 rounded-md px-3 text-sm font-semibold transition ${activeSection === item.label ? "j-premium-nav-active" : "j-premium-nav"}`}
             >
               <item.icon size={18} />
               {item.label}
             </button>
           ))}
         </nav>
-        <div className="mt-8 border-t border-slate-200 pt-5">
+        <div className="mt-8 border-t border-white/10 pt-5">
           <p className="px-3 text-xs font-bold uppercase tracking-wide text-slate-400">Future Modules</p>
           <div className="mt-2 space-y-1">
             {futureItems.map((item) => (
-              <button key={item} className="flex h-9 w-full items-center gap-3 rounded-md px-3 text-sm font-medium text-slate-400 transition hover:bg-slate-100" onClick={() => runAction(`${item} is represented in the current AI Campaign Assistant module.`, "AI Campaign Assistant")} type="button">
+              <button key={item} className="flex h-9 w-full items-center gap-3 rounded-md px-3 text-sm font-medium text-slate-400 transition hover:bg-white/10" onClick={() => runAction(`${item} is represented in the current AI Campaign Assistant module.`, "AI Campaign Assistant")} type="button">
                 <LockKeyhole size={15} />
                 {item}
               </button>
@@ -551,7 +551,7 @@ export default function Home() {
       </aside>
 
       <div className="lg:pl-72">
-        <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur lg:px-6">
+        <header className="j-premium-topbar sticky top-0 z-30 border-b px-4 py-3 backdrop-blur-xl lg:px-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <button className="rounded-md border border-slate-200 p-2 lg:hidden" onClick={() => setSidebarOpen(true)} aria-label="Open menu">
@@ -563,7 +563,7 @@ export default function Home() {
               </div>
             </div>
             <div className="flex flex-1 items-center justify-end gap-2">
-              <label className="hidden h-10 min-w-64 items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-500 md:flex">
+              <label className="hidden h-10 min-w-64 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-500 shadow-sm md:flex">
                 <Search size={16} />
                 <input className="w-full bg-transparent outline-none" placeholder="Search supporters, stations, users" />
               </label>
@@ -579,11 +579,11 @@ export default function Home() {
                 <WalletCards size={16} />
                 Pricing
               </Link>
-              <Link className="hidden h-10 items-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white transition hover:bg-slate-900 sm:inline-flex" href="/signup/user">
+              <Link className="hidden h-10 items-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white shadow-sm transition hover:bg-slate-900 sm:inline-flex" href="/signup/user">
                 <Plus size={16} />
                 Add User
               </Link>
-              <button className="grid h-10 w-10 place-items-center rounded-md border border-slate-200 text-slate-500" aria-label="Notifications" onClick={() => runAction("Opening internal notifications and audit trail.", "Audit Trail")} type="button">
+              <button className="grid h-10 w-10 place-items-center rounded-md border border-slate-200 bg-white text-slate-500 shadow-sm" aria-label="Notifications" onClick={() => runAction("Opening internal notifications and audit trail.", "Audit Trail")} type="button">
                 <Bell size={18} />
               </button>
               <ThemeToggle />
@@ -596,7 +596,7 @@ export default function Home() {
         </header>
 
         <div className="p-4 lg:p-6">
-          <section id="dashboard" className="j-panel j-workspace-banner scroll-mt-24 mb-6 p-4">
+          <section id="dashboard" className="j-panel j-workspace-banner scroll-mt-24 mb-6 p-5">
             <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
               <div>
                 <span className="j-neutral-badge">Professional Campaign Intelligence Platform</span>
