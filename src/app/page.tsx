@@ -229,12 +229,12 @@ function Logo() {
   return (
     <div className="flex items-center">
       <Image
-        src="/jukwaa-logo.png"
+        src="/jukwaa-logo-sidebar.png"
         alt="JUKWAA - Where Leadership Meets the People"
-        width={360}
-        height={96}
+        width={520}
+        height={165}
         priority
-        className="h-16 w-auto max-w-[235px] object-contain"
+        className="h-[66px] w-full max-w-[208px] rounded-sm object-cover object-center"
       />
     </div>
   );
@@ -633,15 +633,15 @@ export default function Home() {
 
   return (
     <main className="j-shell">
-      <aside className={`j-premium-shell fixed inset-y-0 left-0 z-40 flex w-[232px] flex-col border-r border-white/10 p-4 transition-transform lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
+      <aside className={`j-premium-shell fixed inset-y-0 left-0 z-40 flex w-[240px] flex-col border-r border-white/10 p-4 transition-transform lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="flex items-center justify-between">
           <Logo />
           <button className="rounded-md p-2 text-slate-300 lg:hidden" onClick={() => setSidebarOpen(false)} aria-label="Close menu">
             <X size={20} />
           </button>
         </div>
-        <div className="mt-6 rounded-lg border border-white/10 bg-white/5 p-3">
-          <p className="text-xs font-medium text-slate-400">Current Workspace</p>
+        <div className="mt-6 rounded-lg border border-white/10 bg-white/[0.055] p-3 shadow-[0_14px_34px_rgba(0,0,0,0.16)]">
+          <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Current Workspace</p>
           <div className="mt-2 flex items-center justify-between gap-3">
             <p className="text-sm font-bold text-white">{referenceWorkspaceName}</p>
             <ChevronDown size={16} className="text-slate-300" />
@@ -653,7 +653,7 @@ export default function Home() {
             <button
               key={item.label}
               onClick={() => scrollToSection(item.label)}
-              className={`flex h-9 w-full items-center gap-3 rounded-md px-3 text-[12px] font-semibold transition ${activeSection === item.label ? "j-premium-nav-active" : "j-premium-nav"}`}
+              className={`flex h-10 w-full items-center gap-3 rounded-md px-3 text-[12px] font-semibold transition ${activeSection === item.label ? "j-premium-nav-active" : "j-premium-nav"}`}
             >
               <item.icon size={16} />
               <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
@@ -689,39 +689,39 @@ export default function Home() {
         </div>
       </aside>
 
-      <div className="lg:pl-[232px]">
-        <header className="sticky top-0 z-30 border-b border-white/10 bg-[#07111f] px-4 py-3 text-white shadow-[0_12px_34px_rgba(7,17,31,0.22)] lg:px-7">
+      <div className="lg:pl-[240px]">
+        <header className="j-main-topbar sticky top-0 z-30 border-b border-slate-200/80 bg-white/95 px-4 py-3 text-slate-950 shadow-[0_10px_30px_rgba(7,17,31,0.06)] backdrop-blur lg:px-7">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <button className="rounded-md border border-white/15 p-2 text-white lg:hidden" onClick={() => setSidebarOpen(true)} aria-label="Open menu">
+              <button className="rounded-md border border-slate-200 p-2 text-slate-950 lg:hidden" onClick={() => setSidebarOpen(true)} aria-label="Open menu">
                 <Menu size={20} />
               </button>
               <div>
-                <h1 className="text-xl font-bold text-white">{activeSection}</h1>
-                <p className="text-xs font-medium text-slate-300">{activeSubtitle}</p>
+                <h1 className="text-xl font-black text-slate-950">{activeSection}</h1>
+                <p className="text-xs font-semibold text-slate-600">{activeSubtitle}</p>
               </div>
             </div>
             <div className="flex flex-1 items-center justify-end gap-2">
-              <label className="hidden h-10 min-w-[300px] items-center gap-2 rounded-md border border-white/15 bg-white/5 px-3 text-sm text-slate-300 shadow-sm xl:flex">
+              <label className="hidden h-10 min-w-[300px] items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-600 shadow-sm xl:flex">
                 <Search size={16} />
                 <input className="w-full bg-transparent outline-none placeholder:text-slate-400" placeholder="Search supporters, tasks, events..." />
-                <span className="rounded bg-white/10 px-2 py-1 text-xs font-bold text-slate-300">Ctrl K</span>
+                <span className="rounded bg-slate-100 px-2 py-1 text-xs font-black text-slate-700">Ctrl K</span>
               </label>
-              <button className="relative grid h-10 w-10 place-items-center rounded-md border border-white/15 bg-white/5 text-white shadow-sm" aria-label="Notifications" onClick={() => runAction("Opening internal notifications and audit trail.", "Audit Trail")} type="button">
+              <button className="relative grid h-10 w-10 place-items-center rounded-md border border-slate-200 bg-white text-slate-950 shadow-sm" aria-label="Notifications" onClick={() => runAction("Opening internal notifications and audit trail.", "Audit Trail")} type="button">
                 <Bell size={18} />
                 <span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-red-500 text-[10px] font-black text-white">7</span>
               </button>
-              <button className="relative grid h-10 w-10 place-items-center rounded-md border border-white/15 bg-white/5 text-white shadow-sm" aria-label="Messages" onClick={() => scrollToSection("Communications")} type="button">
+              <button className="relative grid h-10 w-10 place-items-center rounded-md border border-slate-200 bg-white text-slate-950 shadow-sm" aria-label="Messages" onClick={() => scrollToSection("Communications")} type="button">
                 <MessageSquare size={18} />
                 <span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-emerald-500 text-[10px] font-black text-white">3</span>
               </button>
-              <button className="hidden h-10 items-center gap-3 rounded-md border-l border-white/10 pl-3 text-left sm:inline-flex" onClick={() => scrollToSection("Candidate Management")} type="button">
-                <span className="grid h-9 w-9 place-items-center rounded-full bg-white text-sm font-black text-slate-950">{referenceCandidateName.slice(0, 1)}</span>
+              <button className="hidden h-10 items-center gap-3 rounded-md border-l border-slate-200 pl-3 text-left sm:inline-flex" onClick={() => scrollToSection("Candidate Management")} type="button">
+                <span className="grid h-9 w-9 place-items-center rounded-full bg-slate-100 text-sm font-black text-slate-700 ring-1 ring-slate-200">{referenceCandidateName.slice(0, 1)}</span>
                 <span>
-                  <span className="block text-sm font-bold text-white">{referenceCandidateName}</span>
-                  <span className="block text-xs text-slate-300">Owner</span>
+                  <span className="block text-sm font-black text-slate-950">{referenceCandidateName}</span>
+                  <span className="block text-xs font-semibold text-slate-600">Owner</span>
                 </span>
-                <ChevronDown size={16} className="text-slate-300" />
+                <ChevronDown size={16} className="text-slate-700" />
               </button>
             </div>
           </div>
@@ -729,14 +729,47 @@ export default function Home() {
 
         <div className="j-workspace-content p-4 lg:p-6 xl:p-7">
           <section id="dashboard" className={sectionClass("dashboard", "scroll-mt-24")}>
+            <section className="j-command-center mb-5 rounded-lg border border-amber-200/90 bg-white p-5 shadow-sm">
+              <div className="grid gap-5 lg:grid-cols-[1.1fr_1fr_1.45fr] lg:items-center">
+                <div>
+                  <h2 className="text-2xl font-black tracking-tight text-slate-950">Campaign Command Center</h2>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">Track progress, engage supporters, and win with data.</p>
+                </div>
+                <div className="border-slate-200 lg:border-l lg:pl-6">
+                  <p className="text-sm font-bold text-slate-700">Campaign Readiness</p>
+                  <div className="mt-1 flex items-center gap-4">
+                    <span className="text-3xl font-black text-amber-600">68%</span>
+                    <span className="h-2 flex-1 rounded-full bg-slate-200">
+                      <span className="block h-2 w-[68%] rounded-full bg-amber-500" />
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs font-semibold text-slate-500">You&apos;re making great progress!</p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <button className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-[#07111f] px-4 text-sm font-black text-white shadow-[0_14px_28px_rgba(7,17,31,0.2)] transition hover:bg-[#0f1f34]" onClick={() => scrollToSection("Supporters")} type="button">
+                    <Users size={17} />
+                    Add Supporter
+                  </button>
+                  <button className="inline-flex h-12 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-black text-slate-800 shadow-sm transition hover:border-amber-300 hover:bg-amber-50" onClick={() => scrollToSection("Tasks & Field Ops")} type="button">
+                    <CheckCircle2 size={17} className="text-amber-600" />
+                    Create Task
+                  </button>
+                  <button className="inline-flex h-12 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-black text-slate-800 shadow-sm transition hover:border-amber-300 hover:bg-amber-50" onClick={() => scrollToSection("Events")} type="button">
+                    <CalendarDays size={17} className="text-amber-600" />
+                    Create Event
+                  </button>
+                </div>
+              </div>
+            </section>
+
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
               {dashboardMetrics.map((metric) => (
-                <section key={metric.label} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                <section key={metric.label} className="j-dashboard-card rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-xs font-semibold text-slate-500">{metric.label}</p>
-                      <p className="mt-2 text-2xl font-black text-slate-950">{metric.value}</p>
-                      <p className="mt-2 text-xs font-bold text-emerald-600">{metric.helper}</p>
+                      <p className="text-sm font-bold text-slate-700">{metric.label}</p>
+                      <p className="mt-2 text-3xl font-black tracking-tight text-slate-950">{metric.value}</p>
+                      <p className="mt-2 text-xs font-black text-emerald-600">↑ {metric.helper}</p>
                     </div>
                     <div className={`grid h-11 w-11 place-items-center rounded-lg ${
                       metric.tone === "gold" ? "bg-amber-50 text-amber-700 ring-1 ring-amber-100"
@@ -753,7 +786,7 @@ export default function Home() {
             </div>
 
             <div className="mt-6 grid gap-5 xl:grid-cols-[1.22fr_1.05fr_1fr]">
-              <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <section className="j-dashboard-card rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="mb-4 flex items-center justify-between">
                   <h2 className="text-base font-black text-slate-950">Supporter Growth</h2>
                   <button className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600" type="button">Last 30 days <ChevronDown size={14} /></button>
@@ -788,7 +821,7 @@ export default function Home() {
                 </div>
               </section>
 
-              <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <section className="j-dashboard-card rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                 <h2 className="text-base font-black text-slate-950">Supporters by County</h2>
                 <div className="mt-4 grid gap-4 md:grid-cols-[0.9fr_1fr] xl:grid-cols-1 2xl:grid-cols-[0.9fr_1fr]">
                   <div className="grid h-56 place-items-center">
@@ -815,7 +848,7 @@ export default function Home() {
                 </div>
               </section>
 
-              <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <section className="j-dashboard-card rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex items-center justify-between">
                   <h2 className="text-base font-black text-slate-950">Action Queue <span className="ml-1 rounded-full bg-red-50 px-2 py-0.5 text-xs text-red-600">12</span></h2>
                 </div>
@@ -847,7 +880,7 @@ export default function Home() {
             </div>
 
             <div className="mt-5 grid gap-5 xl:grid-cols-[1.05fr_1.15fr_1fr]">
-              <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <section className="j-dashboard-card rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                 <h2 className="text-base font-black text-slate-950">Campaign Progress</h2>
                 <div className="mt-4 grid gap-4 md:grid-cols-[0.72fr_1fr]">
                   <div className="grid place-items-center">
@@ -872,7 +905,7 @@ export default function Home() {
                 </div>
               </section>
 
-              <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <section className="j-dashboard-card rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                 <h2 className="text-base font-black text-slate-950">Subscription & Payments</h2>
                 <div className="mt-4 grid gap-4 md:grid-cols-2">
                   <div>
@@ -901,7 +934,7 @@ export default function Home() {
               </section>
 
               <div className="grid gap-5">
-                <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                <section className="j-dashboard-card rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="flex items-center justify-between"><h2 className="text-base font-black text-slate-950">Live Communications</h2><button className="text-xs font-bold text-blue-700" onClick={() => scrollToSection("Communications")} type="button">View all</button></div>
                   <div className="mt-4 grid grid-cols-4 gap-3">
                     {[
@@ -923,7 +956,7 @@ export default function Home() {
                   </div>
                 </section>
 
-                <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                <section className="j-dashboard-card rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                   <h2 className="text-base font-black text-slate-950">Quick Actions</h2>
                   <div className="mt-4 grid grid-cols-3 gap-2">
                     {quickActions.map(([label, Icon, section]) => (
@@ -938,7 +971,7 @@ export default function Home() {
             </div>
 
             <div className="mt-5 grid gap-5 xl:grid-cols-[2fr_1fr]">
-              <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <section className="j-dashboard-card rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="mb-3 flex items-center justify-between"><h2 className="text-base font-black text-slate-950">Recent Activity</h2><button className="text-xs font-bold text-blue-700" onClick={() => scrollToSection("Audit Trail")} type="button">View all</button></div>
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[760px] text-left text-sm">
@@ -958,7 +991,7 @@ export default function Home() {
                 </div>
               </section>
 
-              <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+              <section className="j-dashboard-card rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex items-center justify-between"><h2 className="text-base font-black text-slate-950">Field Operations Overview</h2><button className="text-xs font-bold text-blue-700" onClick={() => scrollToSection("Field Operations")} type="button">View map</button></div>
                 <div className="mt-4 grid grid-cols-4 gap-2">
                   {[["Wards Covered", "42 / 58"], ["Field Visits", "156"], ["Reports Submitted", "89"], ["Issues Resolved", "23"]].map(([label, value]) => (
