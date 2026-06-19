@@ -41,8 +41,7 @@ export default function RootLayout({
     (() => {
       try {
         const saved = localStorage.getItem("jukwaa-theme");
-        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-        const mode = saved === "dark" || saved === "light" ? saved : (prefersDark ? "dark" : "light");
+        const mode = saved === "dark" || saved === "light" ? saved : "light";
         document.documentElement.classList.toggle("dark", mode === "dark");
         document.documentElement.dataset.theme = mode;
       } catch {}

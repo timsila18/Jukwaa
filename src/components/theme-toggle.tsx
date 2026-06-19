@@ -16,7 +16,7 @@ export function ThemeToggle({ variant = "default" }: { variant?: "default" | "to
     if (typeof window === "undefined") return "light";
     const saved = localStorage.getItem("jukwaa-theme");
     if (saved === "dark" || saved === "light") return saved;
-    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    return "light";
   });
 
   useEffect(() => {
