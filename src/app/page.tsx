@@ -5,29 +5,22 @@ import {
   AlertTriangle,
   BadgeCheck,
   Bell,
-  BookOpen,
   Brain,
   Building2,
   CalendarDays,
   Camera,
+  BarChart3,
   CheckCircle2,
   ChevronDown,
   ClipboardCheck,
-  ClipboardList,
   Download,
-  FileArchive,
-  FileSpreadsheet,
   Gauge,
   Globe2,
   HandCoins,
   KeyRound,
   LandPlot,
-  LockKeyhole,
-  MapPinned,
-  MapPin,
   Menu,
   MessageSquare,
-  MonitorDot,
   Navigation,
   Plus,
   Radio,
@@ -37,12 +30,12 @@ import {
   ShieldCheck,
   Siren,
   Smartphone,
-  Target,
-  TrendingUp,
   Trophy,
   UserCheck,
   UserCog,
   Users,
+  UsersRound,
+  Settings,
   Video,
   UploadCloud,
   Vote,
@@ -86,7 +79,6 @@ import {
   aiStrategyQueue,
   budgetVarianceRows,
   campaignDocuments,
-  campaignHealthScore,
   groupCount,
   intelligenceReports,
   candidateBranding,
@@ -97,7 +89,6 @@ import {
   invitations,
   kenyaGeographySummary,
   notifications,
-  pollingAgents,
   pollingAnalytics,
   pollingResults,
   partyAffiliationOptions,
@@ -108,10 +99,7 @@ import {
   roles,
   securityEvents,
   supporters,
-  summarizeCampaign,
-  summarizeElectionOps,
   summarizeGovernance,
-  summarizePhaseTwo,
   supporterMobilizationAnalytics,
   solcoIntegration,
   teamHierarchyRows,
@@ -133,7 +121,6 @@ import {
   mpesaTransactions,
   predictiveInsights,
   scenarioPlans,
-  summarizePhaseFive,
   type SupportLevel,
 } from "@/lib/demo-data";
 
@@ -141,45 +128,28 @@ const navItems = [
   { label: "Dashboard", icon: Gauge },
   { label: "Supporters", icon: Users },
   { label: "Volunteers", icon: UserCheck },
-  { label: "Field Operations", icon: ClipboardCheck },
-  { label: "Community Issues", icon: AlertTriangle },
-  { label: "Events & Rallies", icon: CalendarDays },
-  { label: "Territory Coverage", icon: Target },
-  { label: "Ground Intelligence", icon: Radio },
-  { label: "Election Operations", icon: MonitorDot },
   { label: "Polling Agents", icon: RadioTower },
-  { label: "Turnout Monitoring", icon: Activity },
-  { label: "Incident Reporting", icon: Siren },
-  { label: "Results Center", icon: BadgeCheck },
-  { label: "Situation Room", icon: MapPinned },
-  { label: "Candidate Management", icon: UserCog },
-  { label: "Workspace Governance", icon: Building2 },
-  { label: "Invitations", icon: KeyRound },
-  { label: "Subscriptions", icon: ReceiptText },
-  { label: "Super Admin", icon: ShieldCheck },
+  { label: "Tasks & Field Ops", icon: ClipboardCheck },
+  { label: "Events", icon: CalendarDays },
   { label: "Communications", icon: MessageSquare },
-  { label: "AI Campaign Assistant", icon: Brain },
-  { label: "Campaign Finance", icon: WalletCards },
-  { label: "M-Pesa Payments", icon: Smartphone },
-  { label: "Predictive Analytics", icon: TrendingUp },
-  { label: "Document Center", icon: FileArchive },
-  { label: "Knowledge Center", icon: BookOpen },
-  { label: "Locations", icon: MapPin },
-  { label: "Polling Stations", icon: Vote },
-  { label: "Users", icon: ShieldCheck },
-  { label: "Reports", icon: FileSpreadsheet },
-  { label: "Audit Trail", icon: ClipboardList },
+  { label: "Issues & Manifesto", icon: HandCoins },
+  { label: "Reports & Analytics", icon: BarChart3 },
+  { label: "AI Campaign Studio", icon: Brain, badge: "NEW" },
+  { label: "Payments & Billing", icon: WalletCards },
+  { label: "Team & Roles", icon: UsersRound },
+  { label: "Settings", icon: Settings },
 ];
-
-const futureItems = ["AI Intelligence"];
 
 const sectionTargets: Record<string, string> = {
   Dashboard: "dashboard",
   Supporters: "supporters",
   Volunteers: "volunteers",
   "Field Operations": "field-operations",
+  "Tasks & Field Ops": "field-operations",
   "Community Issues": "community-issues",
+  "Issues & Manifesto": "community-issues",
   "Events & Rallies": "events-rallies",
+  Events: "events-rallies",
   "Territory Coverage": "territory-coverage",
   "Ground Intelligence": "ground-intelligence",
   "Election Operations": "election-operations",
@@ -192,9 +162,11 @@ const sectionTargets: Record<string, string> = {
   "Workspace Governance": "workspace-governance",
   Invitations: "invitations",
   Subscriptions: "subscriptions",
+  "Payments & Billing": "subscriptions",
   "Super Admin": "super-admin",
   Communications: "communications",
   "AI Campaign Assistant": "ai-assistant",
+  "AI Campaign Studio": "ai-assistant",
   "Campaign Finance": "campaign-finance",
   "M-Pesa Payments": "mpesa-payments",
   "Predictive Analytics": "predictive-analytics",
@@ -203,8 +175,11 @@ const sectionTargets: Record<string, string> = {
   Locations: "locations",
   "Polling Stations": "polling-stations",
   Users: "users",
+  "Team & Roles": "users",
   Reports: "reports",
+  "Reports & Analytics": "reports",
   "Audit Trail": "audit-trail",
+  Settings: "workspace-governance",
 };
 
 const supportColors: Record<SupportLevel, string> = {
@@ -341,13 +316,8 @@ export default function Home() {
   const [meetingTokenLoading, setMeetingTokenLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState("");
   const [liveBootstrap, setLiveBootstrap] = useState<LiveBootstrap | null>(null);
-  const summary = summarizeCampaign();
-  const phaseTwoSummary = summarizePhaseTwo();
-  const electionSummary = summarizeElectionOps();
   const governanceSummary = summarizeGovernance();
-  const phaseFiveSummary = summarizePhaseFive();
   const platformMetrics = platformWorkspaceMetrics();
-  const healthScore = campaignHealthScore();
   const brandingReview = useMemo(() => validateWorkspaceBranding(candidateBranding), []);
 
   const duplicate = useMemo(() => {
@@ -391,36 +361,30 @@ export default function Home() {
     };
   }, []);
 
-  const displayCampaign = {
-    campaignName: liveBootstrap?.campaign?.campaign_name ?? campaign.campaignName,
-    candidateName: liveBootstrap?.campaign?.candidate_name ?? campaign.candidateName,
-    positionTargeted: liveBootstrap?.campaign?.position_targeted ?? campaign.positionTargeted,
-    politicalParty: liveBootstrap?.campaign?.political_party ?? selectedParty,
-    electionYear: liveBootstrap?.campaign?.election_year ?? campaign.electionYear,
-    slogan: liveBootstrap?.campaign?.slogan ?? campaign.slogan,
-  };
   const commercialAccess = liveBootstrap?.workspace.access;
   const activationInvoice = invoices.find((invoice) => invoice.status !== "Paid") ?? invoices[0];
   const paymentUrl = `/payment/confirm?accountReference=${encodeURIComponent(mpesaPaymentSetting.accountReferenceFormat)}&phoneNumber=${encodeURIComponent(candidateProfiles[0]?.phoneNumber ?? "")}&amountKes=${activationInvoice?.amountKes ?? 45000}`;
+  const referenceCandidateName = "Tim Sila";
+  const referenceWorkspaceName = "Kalonzo Musyoka Campaign";
   const dashboardMetrics = [
-    { label: "Supporters", value: (liveBootstrap?.summary.supporters ?? summary.totalSupporters).toLocaleString(), helper: "+12.4% vs last 7 days", icon: Users, tone: "sky" },
-    { label: "Volunteers", value: String(phaseTwoSummary.activeVolunteers), helper: "+8.7% vs last 7 days", icon: UserCheck, tone: "gold" },
-    { label: "Polling Agents", value: String(pollingAgents.length), helper: "+15.3% vs last 7 days", icon: ShieldCheck, tone: "emerald" },
-    { label: "Tasks Completed", value: `${phaseTwoSummary.tasksCompleted}%`, helper: "+6.1% vs last 7 days", icon: CheckCircle2, tone: "violet" },
-    { label: "Events This Month", value: String(phaseTwoSummary.upcomingEvents), helper: "+2 this cycle", icon: CalendarDays, tone: "red" },
+    { label: "Supporters", value: "24,860", helper: "+12.4% vs last 7 days", icon: Users, tone: "sky" },
+    { label: "Volunteers", value: "1,245", helper: "+8.7% vs last 7 days", icon: UserCheck, tone: "gold" },
+    { label: "Polling Agents", value: "386", helper: "+15.3% vs last 7 days", icon: ShieldCheck, tone: "emerald" },
+    { label: "Tasks Completed", value: "78%", helper: "+6.1% vs last 7 days", icon: CheckCircle2, tone: "violet" },
+    { label: "Events This Month", value: "9", helper: "+2 vs last 7 days", icon: CalendarDays, tone: "red" },
   ];
   const actionQueue = [
-    { label: "New Supporter Registrations", value: summary.totalSupporters, icon: Users, tone: "sky" },
-    { label: "Volunteer Applications", value: governanceSummary.pendingInvites, icon: UserCheck, tone: "gold" },
-    { label: "Polling Agent Applications", value: pollingAgents.filter((agent) => agent.status !== "Active").length, icon: ShieldCheck, tone: "emerald" },
-    { label: "Incident Reports", value: electionSummary.openIncidents, icon: Siren, tone: "red" },
-    { label: "Tasks Overdue", value: volunteerTasks.filter((task) => task.status !== "Completed").length, icon: AlertTriangle, tone: "amber" },
+    { label: "New Supporter Registrations", value: 238, icon: Users, tone: "sky" },
+    { label: "Volunteer Applications", value: 15, icon: UserCheck, tone: "gold" },
+    { label: "Polling Agent Applications", value: 9, icon: ShieldCheck, tone: "emerald" },
+    { label: "Incident Reports", value: 7, icon: Siren, tone: "red" },
+    { label: "Tasks Overdue", value: 11, icon: AlertTriangle, tone: "amber" },
   ];
   const progressRows = [
     ["Organization", 85, Building2],
-    ["Field Operations", phaseTwoSummary.coveragePercent, ClipboardCheck],
+    ["Field Operations", 68, ClipboardCheck],
     ["Communications", 74, MessageSquare],
-    ["Fundraising", phaseFiveSummary.fundraisingProgress, HandCoins],
+    ["Fundraising", 59, HandCoins],
     ["Voter Outreach", 78, Vote],
   ] as const;
   const quickActions = [
@@ -432,12 +396,20 @@ export default function Home() {
     ["AI Assistant", Brain, "AI Campaign Assistant"],
   ] as const;
   const recentActivityRows = [
-    ["Supporter Registration", "New supporter in Makueni County", "Field Agent", "2 min ago", "New"],
+    ["Supporter Registration", "New supporter in Makueni County", "Field Agent - John M.", "2 min ago", "New"],
     ["Volunteer Application", "Application from Mary Wanjiku", "System", "15 min ago", "Pending"],
-    ["Task Completed", "Door-to-door canvassing in Ward 3", "Volunteer", "1 hour ago", "Completed"],
-    ["Payment Received", `M-Pesa payment of KES ${payments[0]?.amountKes.toLocaleString() ?? "25,000"}`, "System", "3 hours ago", "Confirmed"],
-    ["Incident Reported", "Voter intimidation in Polling Station 12", "Agent", "5 hours ago", "Open"],
+    ["Task Completed", "Door-to-door canvassing in Ward 3", "Volunteer - James K.", "1 hour ago", "Completed"],
+    ["Payment Received", "M-Pesa payment of KES 25,000", "System", "3 hours ago", "Confirmed"],
+    ["Incident Reported", "Voter intimidation in Polling Station 12", "Agent - Peter O.", "5 hours ago", "Open"],
   ];
+  const countyBreakdown = [
+    ["Nairobi", "6,142 (24.7%)", "#1d6fff"],
+    ["Makueni", "3,942 (15.9%)", "#d6a200"],
+    ["Machakos", "3,214 (12.9%)", "#16a34a"],
+    ["Kitui", "2,487 (10.0%)", "#7c3aed"],
+    ["Kajiado", "2,031 (8.2%)", "#f97316"],
+    ["Others", "7,044 (28.3%)", "#d1d5db"],
+  ] as const;
 
   function scrollToSection(label: string) {
     const sectionId = sectionTargets[label] ?? sectionTargets.Dashboard;
@@ -534,7 +506,7 @@ export default function Home() {
 
   return (
     <main className="j-shell">
-      <aside className={`j-premium-shell fixed inset-y-0 left-0 z-40 w-72 border-r border-white/10 p-4 transition-transform lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
+      <aside className={`j-premium-shell fixed inset-y-0 left-0 z-40 flex w-[232px] flex-col border-r border-white/10 p-4 transition-transform lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="flex items-center justify-between">
           <Logo />
           <button className="rounded-md p-2 text-slate-300 lg:hidden" onClick={() => setSidebarOpen(false)} aria-label="Close menu">
@@ -544,56 +516,54 @@ export default function Home() {
         <div className="mt-6 rounded-lg border border-white/10 bg-white/5 p-3">
           <p className="text-xs font-medium text-slate-400">Current Workspace</p>
           <div className="mt-2 flex items-center justify-between gap-3">
-            <p className="text-sm font-bold text-white">{displayCampaign.campaignName}</p>
+            <p className="text-sm font-bold text-white">{referenceWorkspaceName}</p>
             <ChevronDown size={16} className="text-slate-300" />
           </div>
           <p className="mt-2 flex items-center gap-2 text-xs font-semibold text-emerald-300"><span className="h-2 w-2 rounded-full bg-emerald-400" />Active</p>
         </div>
-        <nav className="mt-8 space-y-1">
+        <nav className="mt-4 space-y-1">
           {navItems.map((item) => (
             <button
               key={item.label}
               onClick={() => scrollToSection(item.label)}
-              className={`flex h-10 w-full items-center gap-3 rounded-md px-3 text-sm font-semibold transition ${activeSection === item.label ? "j-premium-nav-active" : "j-premium-nav"}`}
+              className={`flex h-9 w-full items-center gap-3 rounded-md px-3 text-[12px] font-semibold transition ${activeSection === item.label ? "j-premium-nav-active" : "j-premium-nav"}`}
             >
-              <item.icon size={18} />
-              {item.label}
+              <item.icon size={16} />
+              <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
+              {"badge" in item ? <span className="rounded bg-amber-300 px-1.5 py-0.5 text-[10px] font-black text-slate-950">{item.badge}</span> : null}
+              {item.label === "Communications" ? <ChevronDown size={14} className="rotate-[-90deg]" /> : null}
             </button>
           ))}
         </nav>
-        <div className="mt-8 rounded-lg border border-amber-400/45 bg-amber-400/5 p-3">
-          <p className="flex items-center gap-2 text-xs font-black text-amber-300"><Trophy size={14} />{workspaceSubscription.plan} Plan</p>
-          <p className="mt-2 text-xs text-slate-300">Expires on {workspaceSubscription.expiryDate}</p>
+        <div className="mt-auto rounded-lg border border-amber-400/55 bg-amber-400/5 p-3">
+          <p className="flex items-center gap-2 text-xs font-black text-amber-300"><Trophy size={14} />Premium Plan</p>
+          <p className="mt-2 text-xs text-slate-300">Expires on 24 Aug 2026</p>
           <div className="mt-3 h-2 rounded-full bg-white/10"><div className="h-2 w-[78%] rounded-full bg-amber-400" /></div>
+          <p className="mt-2 text-xs text-slate-300">71 days remaining</p>
           <button className="mt-3 h-9 w-full rounded-md border border-amber-300/50 text-xs font-bold text-amber-100 hover:bg-amber-300/10" onClick={() => scrollToSection("Subscriptions")} type="button">Manage Subscription</button>
         </div>
         <div className="mt-4 border-t border-white/10 pt-4">
           <button className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-2 text-left hover:bg-white/10" onClick={() => scrollToSection("Candidate Management")} type="button">
             <span className="flex items-center gap-3">
-              <span className="grid h-10 w-10 place-items-center rounded-full bg-white text-sm font-black text-slate-950">{displayCampaign.candidateName.slice(0, 1)}</span>
+              <span className="grid h-10 w-10 place-items-center rounded-full bg-white text-sm font-black text-slate-950">{referenceCandidateName.slice(0, 1)}</span>
               <span>
-                <span className="block text-sm font-bold text-white">{displayCampaign.candidateName}</span>
+                <span className="block text-sm font-bold text-white">{referenceCandidateName}</span>
                 <span className="block text-xs text-slate-400">Campaign Owner</span>
               </span>
             </span>
             <ChevronDown size={16} className="text-slate-300" />
           </button>
         </div>
-        <div className="mt-4 border-t border-white/10 pt-5">
-          <p className="px-3 text-xs font-bold uppercase tracking-wide text-slate-400">Future Modules</p>
-          <div className="mt-2 space-y-1">
-            {futureItems.map((item) => (
-              <button key={item} className="flex h-9 w-full items-center gap-3 rounded-md px-3 text-sm font-medium text-slate-400 transition hover:bg-white/10" onClick={() => runAction(`${item} is represented in the current AI Campaign Assistant module.`, "AI Campaign Assistant")} type="button">
-                <LockKeyhole size={15} />
-                {item}
-              </button>
-            ))}
-          </div>
+        <div className="mt-2">
+          <button className="flex h-9 items-center gap-3 rounded-md px-3 text-xs font-semibold text-slate-300 transition hover:bg-white/10" onClick={() => setSidebarOpen(false)} type="button">
+            <ChevronDown className="rotate-90" size={16} />
+            Collapse
+          </button>
         </div>
       </aside>
 
-      <div className="lg:pl-72">
-        <header className="sticky top-0 z-30 border-b border-white/10 bg-[#07111f] px-4 py-3 text-white shadow-[0_12px_34px_rgba(7,17,31,0.22)] lg:px-6">
+      <div className="lg:pl-[232px]">
+        <header className="sticky top-0 z-30 border-b border-white/10 bg-[#07111f] px-4 py-3 text-white shadow-[0_12px_34px_rgba(7,17,31,0.22)] lg:px-7">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <button className="rounded-md border border-white/15 p-2 text-white lg:hidden" onClick={() => setSidebarOpen(true)} aria-label="Open menu">
@@ -605,7 +575,7 @@ export default function Home() {
               </div>
             </div>
             <div className="flex flex-1 items-center justify-end gap-2">
-              <label className="hidden h-10 min-w-80 items-center gap-2 rounded-md border border-white/15 bg-white/5 px-3 text-sm text-slate-300 shadow-sm md:flex">
+              <label className="hidden h-10 min-w-[300px] items-center gap-2 rounded-md border border-white/15 bg-white/5 px-3 text-sm text-slate-300 shadow-sm xl:flex">
                 <Search size={16} />
                 <input className="w-full bg-transparent outline-none placeholder:text-slate-400" placeholder="Search supporters, tasks, events..." />
                 <span className="rounded bg-white/10 px-2 py-1 text-xs font-bold text-slate-300">Ctrl K</span>
@@ -614,23 +584,23 @@ export default function Home() {
                 <Bell size={18} />
                 <span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-red-500 text-[10px] font-black text-white">7</span>
               </button>
-              <ThemeToggle variant="topbar" />
+              <button className="relative grid h-10 w-10 place-items-center rounded-md border border-white/15 bg-white/5 text-white shadow-sm" aria-label="Messages" onClick={() => scrollToSection("Communications")} type="button">
+                <MessageSquare size={18} />
+                <span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-emerald-500 text-[10px] font-black text-white">3</span>
+              </button>
               <button className="hidden h-10 items-center gap-3 rounded-md border-l border-white/10 pl-3 text-left sm:inline-flex" onClick={() => scrollToSection("Candidate Management")} type="button">
-                <span className="grid h-9 w-9 place-items-center rounded-full bg-white text-sm font-black text-slate-950">{displayCampaign.candidateName.slice(0, 1)}</span>
+                <span className="grid h-9 w-9 place-items-center rounded-full bg-white text-sm font-black text-slate-950">{referenceCandidateName.slice(0, 1)}</span>
                 <span>
-                  <span className="block text-sm font-bold text-white">{displayCampaign.candidateName}</span>
+                  <span className="block text-sm font-bold text-white">{referenceCandidateName}</span>
                   <span className="block text-xs text-slate-300">Owner</span>
                 </span>
                 <ChevronDown size={16} className="text-slate-300" />
-              </button>
-              <button className="grid h-10 w-10 place-items-center rounded-md border border-white/15 bg-white/5 text-white transition hover:bg-white/10" onClick={() => void logout()} type="button" aria-label="Logout">
-                <X size={16} />
               </button>
             </div>
           </div>
         </header>
 
-        <div className="p-4 lg:p-6">
+        <div className="p-4 lg:p-6 xl:p-7">
           <section id="dashboard" className="scroll-mt-24">
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
               {dashboardMetrics.map((metric) => (
@@ -655,17 +625,17 @@ export default function Home() {
               ))}
             </div>
 
-            <div className="mt-6 grid gap-5 xl:grid-cols-[1.25fr_1.05fr_1fr]">
+            <div className="mt-6 grid gap-5 xl:grid-cols-[1.22fr_1.05fr_1fr]">
               <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="mb-4 flex items-center justify-between">
                   <h2 className="text-base font-black text-slate-950">Supporter Growth</h2>
-                  <button className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600" type="button">Last 30 days</button>
+                  <button className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600" type="button">Last 30 days <ChevronDown size={14} /></button>
                 </div>
                 <div className="relative h-64 overflow-hidden rounded-md bg-white">
                   <div className="absolute inset-x-0 top-8 space-y-9 px-2">
-                    {[30, 25, 20, 15, 10].map((tick) => (
+                    {[30, 25, 20, 15, 10, 0].map((tick) => (
                       <div key={tick} className="flex items-center gap-3 text-xs text-slate-400">
-                        <span className="w-7 text-right">{tick}K</span>
+                        <span className="w-7 text-right">{tick === 0 ? "0" : `${tick}K`}</span>
                         <span className="h-px flex-1 border-t border-dashed border-slate-200" />
                       </div>
                     ))}
@@ -681,6 +651,10 @@ export default function Home() {
                     <path d="M0 168 C38 142 52 155 86 130 C121 104 139 122 170 92 C205 58 221 70 255 42 C291 12 315 38 348 18 C382 -2 397 8 420 0" fill="none" stroke="#1d6fff" strokeLinecap="round" strokeWidth="4" />
                     <circle cx="420" cy="0" r="5" fill="#fff" stroke="#1d6fff" strokeWidth="4" />
                   </svg>
+                  <div className="absolute right-7 top-12 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-center text-xs shadow-sm">
+                    <p className="font-black text-slate-800">24,860</p>
+                    <p className="text-slate-400">Jun 17, 2026</p>
+                  </div>
                   <div className="absolute bottom-2 left-14 right-8 flex justify-between text-xs font-medium text-slate-400">
                     <span>May 20</span><span>May 27</span><span>Jun 3</span><span>Jun 10</span><span>Jun 17</span>
                   </div>
@@ -694,20 +668,20 @@ export default function Home() {
                     <div className="grid h-40 w-40 place-items-center rounded-full" style={{ background: "conic-gradient(#1d6fff 0 25%, #d6a200 25% 40%, #16a34a 40% 53%, #7c3aed 53% 68%, #f97316 68% 80%, #d1d5db 80% 100%)" }}>
                       <div className="grid h-20 w-20 place-items-center rounded-full bg-white text-center shadow-sm">
                         <span>
-                          <span className="block text-lg font-black text-slate-950">{summary.totalSupporters}</span>
+                          <span className="block text-lg font-black text-slate-950">24,860</span>
                           <span className="block text-[10px] font-bold text-slate-400">Total</span>
                         </span>
                       </div>
                     </div>
                   </div>
                   <div className="space-y-3">
-                    {wardData.slice(0, 6).map((entry, index) => (
-                      <div key={entry.name} className="flex items-center justify-between gap-3 text-sm">
+                    {countyBreakdown.map(([name, value, color]) => (
+                      <div key={name} className="flex items-center justify-between gap-3 text-sm">
                         <span className="flex min-w-0 items-center gap-2 font-semibold text-slate-600">
-                          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: ["#1d6fff", "#d6a200", "#16a34a", "#7c3aed", "#f97316", "#d1d5db"][index % 6] }} />
-                          <span className="truncate">{entry.name}</span>
+                          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
+                          <span className="truncate">{name}</span>
                         </span>
-                        <span className="font-bold text-slate-700">{entry.value}</span>
+                        <span className="font-bold text-slate-700">{value}</span>
                       </div>
                     ))}
                   </div>
@@ -716,11 +690,11 @@ export default function Home() {
 
               <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-base font-black text-slate-950">Action Queue <span className="ml-1 rounded-full bg-red-50 px-2 py-0.5 text-xs text-red-600">{actionQueue.length + 7}</span></h2>
+                  <h2 className="text-base font-black text-slate-950">Action Queue <span className="ml-1 rounded-full bg-red-50 px-2 py-0.5 text-xs text-red-600">12</span></h2>
                 </div>
                 <div className="mt-4 grid grid-cols-2 rounded-md border border-slate-200 bg-slate-50 p-1 text-xs font-black">
-                  <button className="rounded bg-white px-3 py-2 text-blue-700 shadow-sm" type="button">Needs Action</button>
-                  <button className="rounded px-3 py-2 text-slate-500" type="button">All Items</button>
+                  <button className="rounded bg-white px-3 py-2 text-blue-700 shadow-sm" type="button">Needs Action <span className="ml-1 rounded-full bg-blue-50 px-1.5 text-blue-700">12</span></button>
+                  <button className="rounded px-3 py-2 text-slate-500" type="button">All Items <span className="ml-1 rounded-full bg-slate-200 px-1.5 text-slate-500">48</span></button>
                 </div>
                 <div className="mt-3 divide-y divide-slate-100">
                   {actionQueue.map((item) => (
@@ -741,7 +715,7 @@ export default function Home() {
                     </button>
                   ))}
                 </div>
-                <button className="mt-2 h-9 w-full rounded-md border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50" onClick={() => scrollToSection("Super Admin")} type="button">View All Queue</button>
+                <button className="mt-2 inline-flex h-9 w-full items-center justify-center gap-2 rounded-md border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50" onClick={() => scrollToSection("Super Admin")} type="button">View All Queue <ChevronDown className="-rotate-90" size={14} /></button>
               </section>
             </div>
 
@@ -752,7 +726,7 @@ export default function Home() {
                   <div className="grid place-items-center">
                     <div className="grid h-36 w-36 place-items-center rounded-full border-[10px] border-blue-100" style={{ borderTopColor: "#1d6fff", borderRightColor: "#1d6fff" }}>
                       <div className="text-center">
-                        <p className="text-3xl font-black text-slate-950">{healthScore}%</p>
+                        <p className="text-3xl font-black text-slate-950">72%</p>
                         <p className="text-xs font-semibold text-slate-500">Overall Progress</p>
                       </div>
                     </div>
@@ -775,19 +749,21 @@ export default function Home() {
                 <h2 className="text-base font-black text-slate-950">Subscription & Payments</h2>
                 <div className="mt-4 grid gap-4 md:grid-cols-2">
                   <div>
-                    <p className="flex items-center gap-2 text-lg font-black text-slate-950"><Trophy size={18} className="text-amber-600" />{workspaceSubscription.plan} Plan</p>
+                    <p className="flex items-center gap-2 text-lg font-black text-slate-950"><Trophy size={18} className="text-amber-600" />Premium Plan</p>
                     <dl className="mt-4 space-y-2 text-sm">
-                      <div className="flex justify-between"><dt className="text-slate-500">Status</dt><dd className="font-bold text-emerald-700">{workspaceSubscription.status}</dd></div>
-                      <div className="flex justify-between"><dt className="text-slate-500">Expires</dt><dd className="font-bold text-slate-700">{workspaceSubscription.expiryDate}</dd></div>
-                      <div className="flex justify-between"><dt className="text-slate-500">Monthly Fee</dt><dd className="font-bold text-slate-700">KES {activationInvoice?.amountKes.toLocaleString() ?? "25,000"}</dd></div>
+                      <div className="flex justify-between"><dt className="text-slate-500">Status</dt><dd className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700">Active</dd></div>
+                      <div className="flex justify-between"><dt className="text-slate-500">Expires</dt><dd className="font-bold text-slate-700">24 Aug 2026 (71 days)</dd></div>
+                      <div className="flex justify-between"><dt className="text-slate-500">Plan</dt><dd className="font-bold text-slate-700">Premium</dd></div>
+                      <div className="flex justify-between"><dt className="text-slate-500">Monthly Fee</dt><dd className="font-bold text-slate-700">KES 25,000</dd></div>
                     </dl>
                   </div>
                   <div className="border-t border-slate-200 pt-4 md:border-l md:border-t-0 md:pl-4 md:pt-0">
                     <p className="text-sm font-black text-slate-950">Recent Payment</p>
                     <dl className="mt-4 space-y-2 text-sm">
-                      <div className="flex justify-between"><dt className="text-slate-500">Amount</dt><dd className="font-bold text-slate-700">KES {payments[0]?.amountKes.toLocaleString() ?? "25,000"}</dd></div>
-                      <div className="flex justify-between"><dt className="text-slate-500">Reference</dt><dd className="font-bold text-slate-700">{payments[0]?.reference ?? "PAY-8XJ2K7"}</dd></div>
-                      <div className="flex justify-between"><dt className="text-slate-500">Status</dt><dd className="font-bold text-emerald-700">{payments[0]?.status ?? "Paid"}</dd></div>
+                      <div className="flex justify-between"><dt className="text-slate-500">Amount</dt><dd className="font-bold text-slate-700">KES 25,000</dd></div>
+                      <div className="flex justify-between"><dt className="text-slate-500">Date</dt><dd className="font-bold text-slate-700">24 May 2026</dd></div>
+                      <div className="flex justify-between"><dt className="text-slate-500">Reference</dt><dd className="font-bold text-slate-700">PAY-8XJ2K7</dd></div>
+                      <div className="flex justify-between"><dt className="text-slate-500">Status</dt><dd className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700">Paid</dd></div>
                     </dl>
                   </div>
                 </div>
@@ -822,7 +798,7 @@ export default function Home() {
 
                 <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                   <h2 className="text-base font-black text-slate-950">Quick Actions</h2>
-                  <div className="mt-4 grid grid-cols-2 gap-2">
+                  <div className="mt-4 grid grid-cols-3 gap-2">
                     {quickActions.map(([label, Icon, section]) => (
                       <button key={label} className="flex h-12 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-2 text-xs font-black text-slate-700 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700" onClick={() => scrollToSection(section)} type="button">
                         <Icon size={16} />
@@ -857,20 +833,34 @@ export default function Home() {
 
               <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex items-center justify-between"><h2 className="text-base font-black text-slate-950">Field Operations Overview</h2><button className="text-xs font-bold text-blue-700" onClick={() => scrollToSection("Field Operations")} type="button">View map</button></div>
-                <div className="mt-4 grid grid-cols-2 gap-2">
-                  {[["Wards Covered", `${summary.coveredWards}/${kenyaGeographySummary.extractedWardEntries}`], ["Field Visits", String(fieldVisits.length)], ["Reports Submitted", String(intelligenceReports.length)], ["Issues Addressed", String(communityIssues.filter((issue) => issue.status === "Addressed").length)]].map(([label, value]) => (
+                <div className="mt-4 grid grid-cols-4 gap-2">
+                  {[["Wards Covered", "42 / 58"], ["Field Visits", "156"], ["Reports Submitted", "89"], ["Issues Resolved", "23"]].map(([label, value]) => (
                     <div key={label} className="rounded-md border border-slate-200 p-3">
                       <p className="text-xs font-bold text-slate-500">{label}</p>
                       <p className="mt-1 text-lg font-black text-slate-950">{value}</p>
+                      <p className="text-[10px] font-semibold text-slate-400">This week</p>
                     </div>
                   ))}
                 </div>
                 <div className="mt-4">
-                  <div className="mb-1 flex justify-between text-sm font-bold text-slate-700"><span>Polling Day Readiness</span><span>{electionSummary.agentCoverage}%</span></div>
-                  <div className="h-2 rounded-full bg-slate-100"><div className="h-2 rounded-full bg-emerald-500" style={{ width: `${electionSummary.agentCoverage}%` }} /></div>
+                  <div className="mb-1 flex justify-between text-sm font-bold text-slate-700"><span>Polling Day Readiness</span><span>68%</span></div>
+                  <div className="h-2 rounded-full bg-slate-100"><div className="h-2 w-[68%] rounded-full bg-emerald-500" /></div>
+                  <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
+                    <span>Based on agents, materials, and logistics</span>
+                    <button className="font-bold text-blue-700" onClick={() => scrollToSection("Reports")} type="button">View Readiness Report</button>
+                  </div>
                 </div>
               </section>
             </div>
+            <footer className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-slate-200 py-4 text-xs text-slate-500">
+              <p>JUKWAA Kenya © 2026. All rights reserved.</p>
+              <div className="flex flex-wrap items-center gap-8">
+                <Link className="hover:text-blue-700" href="/support">Support</Link>
+                <Link className="hover:text-blue-700" href="/legal">Privacy Policy</Link>
+                <Link className="hover:text-blue-700" href="/legal">Terms & Service</Link>
+                <ThemeToggle />
+              </div>
+            </footer>
           </section>
 
           {actionMessage ? (

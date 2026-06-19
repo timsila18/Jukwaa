@@ -84,10 +84,7 @@ textarea {
 
   .j-shell {
     min-height: 100vh;
-    background:
-      linear-gradient(180deg, rgb(7 17 31 / 0.035), transparent 22rem),
-      radial-gradient(circle at 82% 0%, rgb(2 132 199 / 0.09), transparent 22rem),
-      var(--jukwaa-background);
+    background: #f5f7fb;
     color: var(--foreground);
   }
 
@@ -213,7 +210,8 @@ textarea {
 
   .j-premium-shell {
     background:
-      linear-gradient(180deg, #07111f 0%, #0b1728 48%, #101f34 100%);
+      radial-gradient(circle at 0% 0%, rgb(29 111 255 / 0.16), transparent 18rem),
+      linear-gradient(180deg, #06111f 0%, #071527 48%, #06111f 100%);
     color: #dbeafe;
     box-shadow: 16px 0 40px rgb(7 17 31 / 0.18);
   }
@@ -228,9 +226,9 @@ textarea {
   }
 
   .j-premium-nav-active {
-    background: linear-gradient(90deg, rgb(200 155 60 / 0.2), rgb(2 132 199 / 0.16));
+    background: linear-gradient(180deg, #2678ff, #0965f2);
     color: #ffffff;
-    box-shadow: inset 3px 0 0 var(--jukwaa-gold);
+    box-shadow: 0 10px 22px rgb(9 101 242 / 0.24);
   }
 
   .j-premium-topbar {
