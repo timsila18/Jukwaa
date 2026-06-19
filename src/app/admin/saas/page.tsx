@@ -106,6 +106,7 @@ export default function SaasAdminPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [query, setQuery] = useState("");
+  const [workspaceView, setWorkspaceView] = useState<"queue" | "all">("queue");
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
 
@@ -133,13 +134,19 @@ export default function SaasAdminPage() {
   const filteredWorkspaces = useMemo(() => {
     const value = query.trim().toLowerCase();
     if (!snapshot) return [];
-    if (!value) return snapshot.workspaces;
-    return snapshot.workspaces.filter((workspace) =>
+    const visibleWorkspaces = workspaceView === "queue"
+      ? snapshot.workspaces.filter((workspace) => workspace.accessStatus === "Locked" || workspace.candidateStatus === "Suspended" || workspace.subscription?.status === "Past Due")
+      : snapshot.workspaces;
+
+    if (!value) return visibleWorkspaces;
+    return visibleWorkspaces.filter((workspace) =>
       [workspace.campaignName, workspace.candidateName, workspace.email, workspace.phoneNumber, workspace.position, workspace.politicalParty]
         .filter(Boolean)
         .some((field) => String(field).toLowerCase().includes(value)),
     );
-  }, [query, snapshot]);
+  }, [query, snapshot, workspaceView]);
+
+  const pendingPayments = useMemo(() => snapshot?.payments.filter((payment) => payment.status !== "Confirmed") ?? [], [snapshot]);
 
   async function runAction(action: string, body: Record<string, string | undefined>) {
     setBusy(`${action}-${body.candidateId ?? body.applicationId ?? body.paymentId ?? body.ticketId}`);
@@ -199,15 +206,33 @@ export default function SaasAdminPage() {
             <section className="mt-6 rounded-lg border border-slate-200 bg-white shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4">
                 <div>
-                  <h2 className="text-base font-black text-slate-950">Workspace Operations</h2>
+                  <h2 className="text-base font-black text-slate-950">{workspaceView === "queue" ? "Needs Action Queue" : "Workspace Operations"}</h2>
                   <p className="mt-1 text-sm text-slate-500">Approve before payment, confirm payment, suspend, reactivate, and manage subscription health.</p>
                 </div>
-                <input
-                  className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500 sm:w-80"
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search workspace, candidate, phone"
-                  value={query}
-                />
+                <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+                  <div className="grid h-10 grid-cols-2 rounded-md border border-slate-200 bg-slate-50 p-1">
+                    <button
+                      className={`rounded px-3 text-xs font-black ${workspaceView === "queue" ? "bg-white text-slate-950 shadow-sm" : "text-slate-500"}`}
+                      onClick={() => setWorkspaceView("queue")}
+                      type="button"
+                    >
+                      Needs Action
+                    </button>
+                    <button
+                      className={`rounded px-3 text-xs font-black ${workspaceView === "all" ? "bg-white text-slate-950 shadow-sm" : "text-slate-500"}`}
+                      onClick={() => setWorkspaceView("all")}
+                      type="button"
+                    >
+                      All Workspaces
+                    </button>
+                  </div>
+                  <input
+                    className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500 sm:w-80"
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Search workspace, candidate, phone"
+                    value={query}
+                  />
+                </div>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[1180px] text-left text-sm">
@@ -300,6 +325,11 @@ export default function SaasAdminPage() {
                     ))}
                   </tbody>
                 </table>
+                {!filteredWorkspaces.length ? (
+                  <div className="border-t border-slate-100 p-6 text-sm font-bold text-slate-500">
+                    {workspaceView === "queue" ? "No workspaces need approval right now." : "No workspaces match your search."}
+                  </div>
+                ) : null}
               </div>
             </section>
 
@@ -307,7 +337,7 @@ export default function SaasAdminPage() {
               <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                 <h2 className="text-base font-black text-slate-950">Payment Queue</h2>
                 <div className="mt-4 grid gap-3">
-                  {snapshot.payments.slice(0, 8).map((payment) => (
+                  {pendingPayments.slice(0, 8).map((payment) => (
                     <div key={payment.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-slate-50 p-3">
                       <div>
                         <p className="text-sm font-black text-slate-950">{payment.account_reference}</p>
@@ -327,6 +357,7 @@ export default function SaasAdminPage() {
                       </div>
                     </div>
                   ))}
+                  {!pendingPayments.length ? <p className="rounded-md bg-slate-50 p-3 text-sm font-bold text-slate-500">No pending payments need confirmation.</p> : null}
                 </div>
               </div>
 
