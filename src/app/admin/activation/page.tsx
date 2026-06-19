@@ -29,7 +29,10 @@ export default function ActivationPage() {
   return (
     <main className="grid min-h-screen place-items-center bg-slate-50 px-4 py-8 text-slate-900">
       <section className="w-full max-w-xl rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-        <Link className="text-sm font-bold text-sky-700" href="/">Back to dashboard</Link>
+        <div className="flex flex-wrap gap-3 text-sm font-bold">
+          <Link className="text-sky-700" href="/">Back to dashboard</Link>
+          <Link className="text-slate-700" href="/admin/saas">SaaS admin console</Link>
+        </div>
         <div className="mt-6">
           <div className="grid h-11 w-11 place-items-center rounded-lg bg-sky-50 text-sky-700"><ShieldCheck size={20} /></div>
           <h1 className="mt-4 text-2xl font-bold text-slate-950">Activate or Approve Workspace</h1>

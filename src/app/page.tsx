@@ -1401,8 +1401,9 @@ export default function Home() {
                 </div>
                 <ReportLink report="governance-summary" label="Governance" />
               </div>
-              <div className="mt-4 grid gap-2 sm:grid-cols-3">
-                <Link className="inline-flex h-10 items-center justify-center rounded-md bg-slate-950 px-3 text-sm font-bold text-white hover:bg-slate-900" href="/admin/activation">Manual Activation</Link>
+              <div className="mt-4 grid gap-2 sm:grid-cols-4">
+                <Link className="inline-flex h-10 items-center justify-center rounded-md bg-slate-950 px-3 text-sm font-bold text-white hover:bg-slate-900" href="/admin/saas">SaaS Console</Link>
+                <Link className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 hover:bg-slate-50" href="/admin/activation">Manual Activation</Link>
                 <Link className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 hover:bg-slate-50" href="/support">Support Contacts</Link>
                 <Link className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 hover:bg-slate-50" href="/legal">Legal Policies</Link>
               </div>
