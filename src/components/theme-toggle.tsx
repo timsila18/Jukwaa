@@ -11,7 +11,7 @@ function applyTheme(mode: ThemeMode) {
   localStorage.setItem("jukwaa-theme", mode);
 }
 
-export function ThemeToggle() {
+export function ThemeToggle({ variant = "default" }: { variant?: "default" | "topbar" }) {
   const [mode, setMode] = useState<ThemeMode>(() => {
     if (typeof window === "undefined") return "light";
     const saved = localStorage.getItem("jukwaa-theme");
@@ -31,12 +31,12 @@ export function ThemeToggle() {
   return (
     <button
       aria-label={`Switch to ${mode === "dark" ? "light" : "dark"} mode`}
-      className="j-theme-toggle"
+      className={`j-theme-toggle ${variant === "topbar" ? "j-theme-toggle--topbar" : ""}`}
       onClick={toggleTheme}
+      title={`Switch to ${mode === "dark" ? "light" : "dark"} mode`}
       type="button"
     >
       {mode === "dark" ? <Sun size={17} /> : <Moon size={17} />}
-      <span className="hidden sm:inline">{mode === "dark" ? "Light" : "Dark"}</span>
     </button>
   );
 }

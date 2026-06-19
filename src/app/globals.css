@@ -142,17 +142,29 @@ textarea {
   .j-theme-toggle {
     display: inline-flex;
     height: 2.5rem;
+    width: 2.5rem;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
     border: 1px solid var(--jukwaa-border);
     border-radius: 0.375rem;
     background: var(--jukwaa-card);
     color: var(--jukwaa-secondary);
-    padding: 0 0.75rem;
     font-size: 0.875rem;
     font-weight: 800;
     transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
+  }
+
+  .j-theme-toggle--topbar {
+    border-color: rgb(255 255 255 / 0.15);
+    background: rgb(255 255 255 / 0.05);
+    color: #ffffff;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
+  }
+
+  .j-theme-toggle--topbar:hover {
+    border-color: rgb(255 255 255 / 0.28);
+    background: rgb(255 255 255 / 0.1);
+    color: #ffffff;
   }
 
   .j-theme-toggle:hover {

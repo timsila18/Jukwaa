@@ -16,7 +16,6 @@ import {
   ClipboardList,
   Download,
   FileArchive,
-  FileCheck2,
   FileSpreadsheet,
   Gauge,
   Globe2,
@@ -115,7 +114,6 @@ import {
   summarizePhaseTwo,
   supporterMobilizationAnalytics,
   solcoIntegration,
-  summarizeCommunications,
   teamHierarchyRows,
   territoryCoverage,
   turnoutTrend,
@@ -254,33 +252,16 @@ type LiveBootstrap = {
 
 function Logo() {
   return (
-    <div className="flex items-center rounded-lg bg-white/95 px-2 py-1 shadow-sm ring-1 ring-white/20">
+    <div className="flex items-center">
       <Image
         src="/jukwaa-logo.png"
         alt="JUKWAA - Where Leadership Meets the People"
         width={360}
         height={96}
         priority
-        className="h-14 w-auto max-w-[220px] object-contain"
+        className="h-16 w-auto max-w-[235px] object-contain"
       />
     </div>
-  );
-}
-
-function StatCard({ label, value, helper, icon: Icon }: { label: string; value: string; helper: string; icon: typeof Gauge }) {
-  return (
-    <section className="j-kpi p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-          <p className="mt-2 text-2xl font-bold text-slate-950">{value}</p>
-        </div>
-        <div className="grid h-9 w-9 place-items-center rounded-lg bg-sky-50 text-sky-700 ring-1 ring-sky-100">
-          <Icon size={18} />
-        </div>
-      </div>
-      <p className="mt-3 text-sm text-slate-500">{helper}</p>
-    </section>
   );
 }
 
@@ -365,7 +346,6 @@ export default function Home() {
   const electionSummary = summarizeElectionOps();
   const governanceSummary = summarizeGovernance();
   const phaseFiveSummary = summarizePhaseFive();
-  const communicationsSummary = summarizeCommunications();
   const platformMetrics = platformWorkspaceMetrics();
   const healthScore = campaignHealthScore();
   const brandingReview = useMemo(() => validateWorkspaceBranding(candidateBranding), []);
@@ -422,6 +402,42 @@ export default function Home() {
   const commercialAccess = liveBootstrap?.workspace.access;
   const activationInvoice = invoices.find((invoice) => invoice.status !== "Paid") ?? invoices[0];
   const paymentUrl = `/payment/confirm?accountReference=${encodeURIComponent(mpesaPaymentSetting.accountReferenceFormat)}&phoneNumber=${encodeURIComponent(candidateProfiles[0]?.phoneNumber ?? "")}&amountKes=${activationInvoice?.amountKes ?? 45000}`;
+  const dashboardMetrics = [
+    { label: "Supporters", value: (liveBootstrap?.summary.supporters ?? summary.totalSupporters).toLocaleString(), helper: "+12.4% vs last 7 days", icon: Users, tone: "sky" },
+    { label: "Volunteers", value: String(phaseTwoSummary.activeVolunteers), helper: "+8.7% vs last 7 days", icon: UserCheck, tone: "gold" },
+    { label: "Polling Agents", value: String(pollingAgents.length), helper: "+15.3% vs last 7 days", icon: ShieldCheck, tone: "emerald" },
+    { label: "Tasks Completed", value: `${phaseTwoSummary.tasksCompleted}%`, helper: "+6.1% vs last 7 days", icon: CheckCircle2, tone: "violet" },
+    { label: "Events This Month", value: String(phaseTwoSummary.upcomingEvents), helper: "+2 this cycle", icon: CalendarDays, tone: "red" },
+  ];
+  const actionQueue = [
+    { label: "New Supporter Registrations", value: summary.totalSupporters, icon: Users, tone: "sky" },
+    { label: "Volunteer Applications", value: governanceSummary.pendingInvites, icon: UserCheck, tone: "gold" },
+    { label: "Polling Agent Applications", value: pollingAgents.filter((agent) => agent.status !== "Active").length, icon: ShieldCheck, tone: "emerald" },
+    { label: "Incident Reports", value: electionSummary.openIncidents, icon: Siren, tone: "red" },
+    { label: "Tasks Overdue", value: volunteerTasks.filter((task) => task.status !== "Completed").length, icon: AlertTriangle, tone: "amber" },
+  ];
+  const progressRows = [
+    ["Organization", 85, Building2],
+    ["Field Operations", phaseTwoSummary.coveragePercent, ClipboardCheck],
+    ["Communications", 74, MessageSquare],
+    ["Fundraising", phaseFiveSummary.fundraisingProgress, HandCoins],
+    ["Voter Outreach", 78, Vote],
+  ] as const;
+  const quickActions = [
+    ["Add Supporter", Users, "Supporters"],
+    ["Create Task", CheckCircle2, "Field Operations"],
+    ["Add Volunteer", UserCheck, "Volunteers"],
+    ["Report Issue", Siren, "Community Issues"],
+    ["Create Event", CalendarDays, "Events & Rallies"],
+    ["AI Assistant", Brain, "AI Campaign Assistant"],
+  ] as const;
+  const recentActivityRows = [
+    ["Supporter Registration", "New supporter in Makueni County", "Field Agent", "2 min ago", "New"],
+    ["Volunteer Application", "Application from Mary Wanjiku", "System", "15 min ago", "Pending"],
+    ["Task Completed", "Door-to-door canvassing in Ward 3", "Volunteer", "1 hour ago", "Completed"],
+    ["Payment Received", `M-Pesa payment of KES ${payments[0]?.amountKes.toLocaleString() ?? "25,000"}`, "System", "3 hours ago", "Confirmed"],
+    ["Incident Reported", "Voter intimidation in Polling Station 12", "Agent", "5 hours ago", "Open"],
+  ];
 
   function scrollToSection(label: string) {
     const sectionId = sectionTargets[label] ?? sectionTargets.Dashboard;
@@ -525,6 +541,14 @@ export default function Home() {
             <X size={20} />
           </button>
         </div>
+        <div className="mt-6 rounded-lg border border-white/10 bg-white/5 p-3">
+          <p className="text-xs font-medium text-slate-400">Current Workspace</p>
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <p className="text-sm font-bold text-white">{displayCampaign.campaignName}</p>
+            <ChevronDown size={16} className="text-slate-300" />
+          </div>
+          <p className="mt-2 flex items-center gap-2 text-xs font-semibold text-emerald-300"><span className="h-2 w-2 rounded-full bg-emerald-400" />Active</p>
+        </div>
         <nav className="mt-8 space-y-1">
           {navItems.map((item) => (
             <button
@@ -537,7 +561,25 @@ export default function Home() {
             </button>
           ))}
         </nav>
-        <div className="mt-8 border-t border-white/10 pt-5">
+        <div className="mt-8 rounded-lg border border-amber-400/45 bg-amber-400/5 p-3">
+          <p className="flex items-center gap-2 text-xs font-black text-amber-300"><Trophy size={14} />{workspaceSubscription.plan} Plan</p>
+          <p className="mt-2 text-xs text-slate-300">Expires on {workspaceSubscription.expiryDate}</p>
+          <div className="mt-3 h-2 rounded-full bg-white/10"><div className="h-2 w-[78%] rounded-full bg-amber-400" /></div>
+          <button className="mt-3 h-9 w-full rounded-md border border-amber-300/50 text-xs font-bold text-amber-100 hover:bg-amber-300/10" onClick={() => scrollToSection("Subscriptions")} type="button">Manage Subscription</button>
+        </div>
+        <div className="mt-4 border-t border-white/10 pt-4">
+          <button className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-2 text-left hover:bg-white/10" onClick={() => scrollToSection("Candidate Management")} type="button">
+            <span className="flex items-center gap-3">
+              <span className="grid h-10 w-10 place-items-center rounded-full bg-white text-sm font-black text-slate-950">{displayCampaign.candidateName.slice(0, 1)}</span>
+              <span>
+                <span className="block text-sm font-bold text-white">{displayCampaign.candidateName}</span>
+                <span className="block text-xs text-slate-400">Campaign Owner</span>
+              </span>
+            </span>
+            <ChevronDown size={16} className="text-slate-300" />
+          </button>
+        </div>
+        <div className="mt-4 border-t border-white/10 pt-5">
           <p className="px-3 text-xs font-bold uppercase tracking-wide text-slate-400">Future Modules</p>
           <div className="mt-2 space-y-1">
             {futureItems.map((item) => (
@@ -551,75 +593,283 @@ export default function Home() {
       </aside>
 
       <div className="lg:pl-72">
-        <header className="j-premium-topbar sticky top-0 z-30 border-b px-4 py-3 backdrop-blur-xl lg:px-6">
+        <header className="sticky top-0 z-30 border-b border-white/10 bg-[#07111f] px-4 py-3 text-white shadow-[0_12px_34px_rgba(7,17,31,0.22)] lg:px-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <button className="rounded-md border border-slate-200 p-2 lg:hidden" onClick={() => setSidebarOpen(true)} aria-label="Open menu">
+              <button className="rounded-md border border-white/15 p-2 text-white lg:hidden" onClick={() => setSidebarOpen(true)} aria-label="Open menu">
                 <Menu size={20} />
               </button>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Workspace</p>
-                <h1 className="text-xl font-bold text-slate-950">{displayCampaign.campaignName}</h1>
+                <h1 className="text-xl font-bold text-white">Dashboard</h1>
+                <p className="text-xs font-medium text-slate-300">Overview of your campaign operations</p>
               </div>
             </div>
             <div className="flex flex-1 items-center justify-end gap-2">
-              <label className="hidden h-10 min-w-64 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-500 shadow-sm md:flex">
+              <label className="hidden h-10 min-w-80 items-center gap-2 rounded-md border border-white/15 bg-white/5 px-3 text-sm text-slate-300 shadow-sm md:flex">
                 <Search size={16} />
-                <input className="w-full bg-transparent outline-none" placeholder="Search supporters, stations, users" />
+                <input className="w-full bg-transparent outline-none placeholder:text-slate-400" placeholder="Search supporters, tasks, events..." />
+                <span className="rounded bg-white/10 px-2 py-1 text-xs font-bold text-slate-300">Ctrl K</span>
               </label>
-              <Link className="hidden h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-800 sm:inline-flex" href="/login">
-                <KeyRound size={16} />
-                Login
-              </Link>
-              <Link className="hidden h-10 items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-3 text-sm font-bold text-sky-800 transition hover:bg-sky-100 sm:inline-flex" href="/signup/candidate">
-                <UserCog size={16} />
-                New Candidate
-              </Link>
-              <Link className="hidden h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-800 xl:inline-flex" href="/pricing">
-                <WalletCards size={16} />
-                Pricing
-              </Link>
-              <Link className="hidden h-10 items-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white shadow-sm transition hover:bg-slate-900 sm:inline-flex" href="/signup/user">
-                <Plus size={16} />
-                Add User
-              </Link>
-              <button className="grid h-10 w-10 place-items-center rounded-md border border-slate-200 bg-white text-slate-500 shadow-sm" aria-label="Notifications" onClick={() => runAction("Opening internal notifications and audit trail.", "Audit Trail")} type="button">
+              <button className="relative grid h-10 w-10 place-items-center rounded-md border border-white/15 bg-white/5 text-white shadow-sm" aria-label="Notifications" onClick={() => runAction("Opening internal notifications and audit trail.", "Audit Trail")} type="button">
                 <Bell size={18} />
+                <span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-red-500 text-[10px] font-black text-white">7</span>
               </button>
-              <ThemeToggle />
-              <button className="hidden h-10 items-center gap-2 rounded-md border border-red-200 bg-white px-3 text-sm font-bold text-red-700 transition hover:bg-red-50 sm:inline-flex" onClick={() => void logout()} type="button">
+              <ThemeToggle variant="topbar" />
+              <button className="hidden h-10 items-center gap-3 rounded-md border-l border-white/10 pl-3 text-left sm:inline-flex" onClick={() => scrollToSection("Candidate Management")} type="button">
+                <span className="grid h-9 w-9 place-items-center rounded-full bg-white text-sm font-black text-slate-950">{displayCampaign.candidateName.slice(0, 1)}</span>
+                <span>
+                  <span className="block text-sm font-bold text-white">{displayCampaign.candidateName}</span>
+                  <span className="block text-xs text-slate-300">Owner</span>
+                </span>
+                <ChevronDown size={16} className="text-slate-300" />
+              </button>
+              <button className="grid h-10 w-10 place-items-center rounded-md border border-white/15 bg-white/5 text-white transition hover:bg-white/10" onClick={() => void logout()} type="button" aria-label="Logout">
                 <X size={16} />
-                Logout
               </button>
             </div>
           </div>
         </header>
 
         <div className="p-4 lg:p-6">
-          <section id="dashboard" className="j-panel j-workspace-banner scroll-mt-24 mb-6 p-5">
-            <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-              <div>
-                <span className="j-neutral-badge">Professional Campaign Intelligence Platform</span>
-                <p className="mt-3 text-sm font-semibold text-sky-700">{displayCampaign.candidateName} for {displayCampaign.positionTargeted}</p>
-                <h2 className="mt-1 text-2xl font-bold text-slate-950">{displayCampaign.slogan}</h2>
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                  Multi-tenant campaign operations for supporters, teams, polling stations, reports, and audit-ready political intelligence.
-                </p>
+          <section id="dashboard" className="scroll-mt-24">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+              {dashboardMetrics.map((metric) => (
+                <section key={metric.label} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold text-slate-500">{metric.label}</p>
+                      <p className="mt-2 text-2xl font-black text-slate-950">{metric.value}</p>
+                      <p className="mt-2 text-xs font-bold text-emerald-600">{metric.helper}</p>
+                    </div>
+                    <div className={`grid h-11 w-11 place-items-center rounded-lg ${
+                      metric.tone === "gold" ? "bg-amber-50 text-amber-700 ring-1 ring-amber-100"
+                        : metric.tone === "emerald" ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100"
+                          : metric.tone === "violet" ? "bg-violet-50 text-violet-700 ring-1 ring-violet-100"
+                            : metric.tone === "red" ? "bg-red-50 text-red-600 ring-1 ring-red-100"
+                              : "bg-blue-50 text-blue-700 ring-1 ring-blue-100"
+                    }`}>
+                      <metric.icon size={20} />
+                    </div>
+                  </div>
+                </section>
+              ))}
+            </div>
+
+            <div className="mt-6 grid gap-5 xl:grid-cols-[1.25fr_1.05fr_1fr]">
+              <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="text-base font-black text-slate-950">Supporter Growth</h2>
+                  <button className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600" type="button">Last 30 days</button>
+                </div>
+                <div className="relative h-64 overflow-hidden rounded-md bg-white">
+                  <div className="absolute inset-x-0 top-8 space-y-9 px-2">
+                    {[30, 25, 20, 15, 10].map((tick) => (
+                      <div key={tick} className="flex items-center gap-3 text-xs text-slate-400">
+                        <span className="w-7 text-right">{tick}K</span>
+                        <span className="h-px flex-1 border-t border-dashed border-slate-200" />
+                      </div>
+                    ))}
+                  </div>
+                  <svg className="absolute inset-x-10 bottom-8 h-44 w-[calc(100%-5rem)] overflow-visible" viewBox="0 0 420 180" preserveAspectRatio="none" aria-hidden="true">
+                    <defs>
+                      <linearGradient id="supporterLineFill" x1="0" x2="0" y1="0" y2="1">
+                        <stop offset="0%" stopColor="#1d6fff" stopOpacity="0.22" />
+                        <stop offset="100%" stopColor="#1d6fff" stopOpacity="0" />
+                      </linearGradient>
+                    </defs>
+                    <path d="M0 168 C38 142 52 155 86 130 C121 104 139 122 170 92 C205 58 221 70 255 42 C291 12 315 38 348 18 C382 -2 397 8 420 0 L420 180 L0 180 Z" fill="url(#supporterLineFill)" />
+                    <path d="M0 168 C38 142 52 155 86 130 C121 104 139 122 170 92 C205 58 221 70 255 42 C291 12 315 38 348 18 C382 -2 397 8 420 0" fill="none" stroke="#1d6fff" strokeLinecap="round" strokeWidth="4" />
+                    <circle cx="420" cy="0" r="5" fill="#fff" stroke="#1d6fff" strokeWidth="4" />
+                  </svg>
+                  <div className="absolute bottom-2 left-14 right-8 flex justify-between text-xs font-medium text-slate-400">
+                    <span>May 20</span><span>May 27</span><span>Jun 3</span><span>Jun 10</span><span>Jun 17</span>
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                <h2 className="text-base font-black text-slate-950">Supporters by County</h2>
+                <div className="mt-4 grid gap-4 md:grid-cols-[0.9fr_1fr] xl:grid-cols-1 2xl:grid-cols-[0.9fr_1fr]">
+                  <div className="grid h-56 place-items-center">
+                    <div className="grid h-40 w-40 place-items-center rounded-full" style={{ background: "conic-gradient(#1d6fff 0 25%, #d6a200 25% 40%, #16a34a 40% 53%, #7c3aed 53% 68%, #f97316 68% 80%, #d1d5db 80% 100%)" }}>
+                      <div className="grid h-20 w-20 place-items-center rounded-full bg-white text-center shadow-sm">
+                        <span>
+                          <span className="block text-lg font-black text-slate-950">{summary.totalSupporters}</span>
+                          <span className="block text-[10px] font-bold text-slate-400">Total</span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    {wardData.slice(0, 6).map((entry, index) => (
+                      <div key={entry.name} className="flex items-center justify-between gap-3 text-sm">
+                        <span className="flex min-w-0 items-center gap-2 font-semibold text-slate-600">
+                          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: ["#1d6fff", "#d6a200", "#16a34a", "#7c3aed", "#f97316", "#d1d5db"][index % 6] }} />
+                          <span className="truncate">{entry.name}</span>
+                        </span>
+                        <span className="font-bold text-slate-700">{entry.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-black text-slate-950">Action Queue <span className="ml-1 rounded-full bg-red-50 px-2 py-0.5 text-xs text-red-600">{actionQueue.length + 7}</span></h2>
+                </div>
+                <div className="mt-4 grid grid-cols-2 rounded-md border border-slate-200 bg-slate-50 p-1 text-xs font-black">
+                  <button className="rounded bg-white px-3 py-2 text-blue-700 shadow-sm" type="button">Needs Action</button>
+                  <button className="rounded px-3 py-2 text-slate-500" type="button">All Items</button>
+                </div>
+                <div className="mt-3 divide-y divide-slate-100">
+                  {actionQueue.map((item) => (
+                    <button key={item.label} className="flex w-full items-center justify-between gap-3 py-3 text-left" onClick={() => scrollToSection("Super Admin")} type="button">
+                      <span className="flex items-center gap-3">
+                        <span className={`grid h-8 w-8 place-items-center rounded-md ${
+                          item.tone === "gold" ? "bg-amber-50 text-amber-700"
+                            : item.tone === "emerald" ? "bg-emerald-50 text-emerald-700"
+                              : item.tone === "red" ? "bg-red-50 text-red-600"
+                                : item.tone === "amber" ? "bg-orange-50 text-orange-700"
+                                  : "bg-blue-50 text-blue-700"
+                        }`}>
+                          <item.icon size={16} />
+                        </span>
+                        <span className="text-sm font-semibold text-slate-700">{item.label}</span>
+                      </span>
+                      <span className="text-sm font-bold text-slate-600">{item.value}</span>
+                    </button>
+                  ))}
+                </div>
+                <button className="mt-2 h-9 w-full rounded-md border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50" onClick={() => scrollToSection("Super Admin")} type="button">View All Queue</button>
+              </section>
+            </div>
+
+            <div className="mt-5 grid gap-5 xl:grid-cols-[1.05fr_1.15fr_1fr]">
+              <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                <h2 className="text-base font-black text-slate-950">Campaign Progress</h2>
+                <div className="mt-4 grid gap-4 md:grid-cols-[0.72fr_1fr]">
+                  <div className="grid place-items-center">
+                    <div className="grid h-36 w-36 place-items-center rounded-full border-[10px] border-blue-100" style={{ borderTopColor: "#1d6fff", borderRightColor: "#1d6fff" }}>
+                      <div className="text-center">
+                        <p className="text-3xl font-black text-slate-950">{healthScore}%</p>
+                        <p className="text-xs font-semibold text-slate-500">Overall Progress</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    {progressRows.map(([label, value, Icon]) => (
+                      <div key={label}>
+                        <div className="mb-1 flex items-center justify-between gap-3 text-xs font-bold text-slate-600">
+                          <span className="flex items-center gap-2"><Icon size={14} />{label}</span>
+                          <span>{value}%</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-slate-100"><div className="h-2 rounded-full bg-blue-600" style={{ width: `${value}%` }} /></div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                <h2 className="text-base font-black text-slate-950">Subscription & Payments</h2>
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <div>
+                    <p className="flex items-center gap-2 text-lg font-black text-slate-950"><Trophy size={18} className="text-amber-600" />{workspaceSubscription.plan} Plan</p>
+                    <dl className="mt-4 space-y-2 text-sm">
+                      <div className="flex justify-between"><dt className="text-slate-500">Status</dt><dd className="font-bold text-emerald-700">{workspaceSubscription.status}</dd></div>
+                      <div className="flex justify-between"><dt className="text-slate-500">Expires</dt><dd className="font-bold text-slate-700">{workspaceSubscription.expiryDate}</dd></div>
+                      <div className="flex justify-between"><dt className="text-slate-500">Monthly Fee</dt><dd className="font-bold text-slate-700">KES {activationInvoice?.amountKes.toLocaleString() ?? "25,000"}</dd></div>
+                    </dl>
+                  </div>
+                  <div className="border-t border-slate-200 pt-4 md:border-l md:border-t-0 md:pl-4 md:pt-0">
+                    <p className="text-sm font-black text-slate-950">Recent Payment</p>
+                    <dl className="mt-4 space-y-2 text-sm">
+                      <div className="flex justify-between"><dt className="text-slate-500">Amount</dt><dd className="font-bold text-slate-700">KES {payments[0]?.amountKes.toLocaleString() ?? "25,000"}</dd></div>
+                      <div className="flex justify-between"><dt className="text-slate-500">Reference</dt><dd className="font-bold text-slate-700">{payments[0]?.reference ?? "PAY-8XJ2K7"}</dd></div>
+                      <div className="flex justify-between"><dt className="text-slate-500">Status</dt><dd className="font-bold text-emerald-700">{payments[0]?.status ?? "Paid"}</dd></div>
+                    </dl>
+                  </div>
+                </div>
+                <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                  <Link className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-blue-600 px-3 text-sm font-bold text-white hover:bg-blue-700" href={paymentUrl}><WalletCards size={16} />Make Payment</Link>
+                  <button className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-slate-200 text-sm font-bold text-slate-700 hover:bg-slate-50" onClick={() => scrollToSection("Subscriptions")} type="button"><ReceiptText size={16} />View Billing</button>
+                </div>
+              </section>
+
+              <div className="grid gap-5">
+                <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-center justify-between"><h2 className="text-base font-black text-slate-950">Live Communications</h2><button className="text-xs font-bold text-blue-700" onClick={() => scrollToSection("Communications")} type="button">View all</button></div>
+                  <div className="mt-4 grid grid-cols-4 gap-3">
+                    {[
+                      ["Team Chat", MessageSquare, "blue"],
+                      ["Voice Room", Radio, "emerald"],
+                      ["Video Meeting", Video, "violet"],
+                      ["Broadcast", RadioTower, "amber"],
+                    ].map(([label, Icon, tone]) => (
+                      <button key={String(label)} className={`rounded-lg border p-3 text-xs font-bold ${
+                        tone === "emerald" ? "border-emerald-100 bg-emerald-50 text-emerald-700"
+                          : tone === "violet" ? "border-violet-100 bg-violet-50 text-violet-700"
+                            : tone === "amber" ? "border-amber-100 bg-amber-50 text-amber-700"
+                              : "border-blue-100 bg-blue-50 text-blue-700"
+                      }`} onClick={() => scrollToSection("Communications")} type="button">
+                        <Icon className="mx-auto mb-2" size={22} />
+                        {String(label)}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                  <h2 className="text-base font-black text-slate-950">Quick Actions</h2>
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    {quickActions.map(([label, Icon, section]) => (
+                      <button key={label} className="flex h-12 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-2 text-xs font-black text-slate-700 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700" onClick={() => scrollToSection(section)} type="button">
+                        <Icon size={16} />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </section>
               </div>
-              <div className="grid min-w-64 grid-cols-2 gap-2 text-sm">
-                <div className="rounded-md bg-slate-50 p-3">
-                  <p className="font-semibold text-slate-500">Election Year</p>
-                  <p className="text-lg font-bold text-slate-950">{displayCampaign.electionYear}</p>
+            </div>
+
+            <div className="mt-5 grid gap-5 xl:grid-cols-[2fr_1fr]">
+              <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="mb-3 flex items-center justify-between"><h2 className="text-base font-black text-slate-950">Recent Activity</h2><button className="text-xs font-bold text-blue-700" onClick={() => scrollToSection("Audit Trail")} type="button">View all</button></div>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[760px] text-left text-sm">
+                    <thead className="border-b border-slate-200 text-xs text-slate-500"><tr><th className="py-2">Activity</th><th>Details</th><th>By</th><th>Time</th><th>Status</th></tr></thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {recentActivityRows.map(([activity, details, by, time, status]) => (
+                        <tr key={`${activity}-${time}`} className="hover:bg-slate-50">
+                          <td className="py-2 font-bold text-slate-700">{activity}</td>
+                          <td className="text-slate-600">{details}</td>
+                          <td className="text-slate-500">{by}</td>
+                          <td className="text-slate-500">{time}</td>
+                          <td><StatusPill label={status} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-                <div className="rounded-md bg-slate-50 p-3">
-                  <p className="font-semibold text-slate-500">Tenant</p>
-                  <p className="text-lg font-bold text-slate-950">Isolated</p>
+              </section>
+
+              <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="flex items-center justify-between"><h2 className="text-base font-black text-slate-950">Field Operations Overview</h2><button className="text-xs font-bold text-blue-700" onClick={() => scrollToSection("Field Operations")} type="button">View map</button></div>
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  {[["Wards Covered", `${summary.coveredWards}/${kenyaGeographySummary.extractedWardEntries}`], ["Field Visits", String(fieldVisits.length)], ["Reports Submitted", String(intelligenceReports.length)], ["Issues Addressed", String(communityIssues.filter((issue) => issue.status === "Addressed").length)]].map(([label, value]) => (
+                    <div key={label} className="rounded-md border border-slate-200 p-3">
+                      <p className="text-xs font-bold text-slate-500">{label}</p>
+                      <p className="mt-1 text-lg font-black text-slate-950">{value}</p>
+                    </div>
+                  ))}
                 </div>
-                <div className="col-span-2 rounded-md bg-slate-50 p-3">
-                  <p className="font-semibold text-slate-500">Party Affiliation</p>
-                  <p className="mt-1 text-sm font-bold text-slate-950">{displayCampaign.politicalParty}</p>
+                <div className="mt-4">
+                  <div className="mb-1 flex justify-between text-sm font-bold text-slate-700"><span>Polling Day Readiness</span><span>{electionSummary.agentCoverage}%</span></div>
+                  <div className="h-2 rounded-full bg-slate-100"><div className="h-2 rounded-full bg-emerald-500" style={{ width: `${electionSummary.agentCoverage}%` }} /></div>
                 </div>
-              </div>
+              </section>
             </div>
           </section>
 
@@ -650,60 +900,6 @@ export default function Home() {
               </div>
             </section>
           ) : null}
-
-          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
-            <StatCard label="Total Supporters" value={String(liveBootstrap?.summary.supporters ?? summary.totalSupporters)} helper={liveBootstrap ? "Live workspace records" : "Captured in demo workspace"} icon={Users} />
-            <StatCard label="Strong Supporters" value={String(summary.strong)} helper="Ready for mobilization" icon={CheckCircle2} />
-            <StatCard label="Undecided Voters" value={String(summary.undecided)} helper="Needs persuasion follow-up" icon={AlertTriangle} />
-            <StatCard label="Volunteers Identified" value={String(liveBootstrap?.summary.volunteers ?? summary.volunteers)} helper={liveBootstrap ? "Live workspace records" : "Available for field work"} icon={Activity} />
-            <StatCard label="Stations Covered" value={String(summary.coveredStations)} helper="Polling station reach" icon={Vote} />
-            <StatCard label="Wards Covered" value={String(summary.coveredWards)} helper="Geography coverage" icon={LandPlot} />
-          </section>
-
-          <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
-            <StatCard label="Active Volunteers" value={String(phaseTwoSummary.activeVolunteers)} helper="Field-ready team members" icon={UserCheck} />
-            <StatCard label="Tasks Completed" value={String(phaseTwoSummary.tasksCompleted)} helper="Closed operational work" icon={ClipboardCheck} />
-            <StatCard label="Coverage %" value={`${phaseTwoSummary.coveragePercent}%`} helper="Composite territory score" icon={Target} />
-            <StatCard label="Open Issues" value={String(phaseTwoSummary.openIssues)} helper="Citizen concerns to resolve" icon={AlertTriangle} />
-            <StatCard label="Upcoming Events" value={String(phaseTwoSummary.upcomingEvents)} helper="Rallies and meetings ahead" icon={CalendarDays} />
-            <StatCard label="Intel Reports" value={String(phaseTwoSummary.intelligenceReports)} helper="Ground reports received" icon={Radio} />
-          </section>
-
-          <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
-            <StatCard label="Stations Reporting" value={`${electionSummary.stationCoverage}%`} helper={`${electionSummary.resultsStations} stations with results`} icon={MonitorDot} />
-            <StatCard label="Turnout" value={`${electionSummary.turnoutPercentage}%`} helper={`${electionSummary.totalTurnout.toLocaleString()} voters reported`} icon={Activity} />
-            <StatCard label="Agent Coverage" value={`${electionSummary.agentCoverage}%`} helper={`${pollingAgents.length} assigned agents`} icon={RadioTower} />
-            <StatCard label="Open Incidents" value={String(electionSummary.openIncidents)} helper="Unresolved election-day cases" icon={Siren} />
-            <StatCard label="Verified Forms" value={`${electionSummary.formCoverage}%`} helper={`${electionSummary.verifiedForms} forms cleared`} icon={FileCheck2} />
-            <StatCard label="Critical Alerts" value={String(electionSummary.criticalAlerts)} helper="Situation room escalations" icon={AlertTriangle} />
-          </section>
-
-          <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
-            <StatCard label="Candidate Workspaces" value={String(governanceSummary.candidates)} helper="Every workspace has one owner" icon={UserCog} />
-            <StatCard label="Health Score" value={`${healthScore}/100`} helper="Volunteers, supporters, coverage, comms, events" icon={Gauge} />
-            <StatCard label="Pending Invites" value={String(governanceSummary.pendingInvites)} helper="Invitation-only onboarding" icon={KeyRound} />
-            <StatCard label="Subscription" value={workspaceSubscription.status} helper={`${workspaceSubscription.plan} plan active`} icon={ReceiptText} />
-            <StatCard label="Failed Logins" value={String(governanceSummary.failedLogins)} helper="Security monitoring enabled" icon={ShieldCheck} />
-            <StatCard label="Paid Revenue" value={`KES ${governanceSummary.paidRevenue.toLocaleString()}`} helper="Commercial framework ready" icon={Building2} />
-          </section>
-
-          <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
-            <StatCard label="AI Actions" value={String(phaseFiveSummary.aiRecommendations)} helper="Ranked strategy recommendations" icon={Brain} />
-            <StatCard label="Donations" value={`KES ${phaseFiveSummary.donationTotal.toLocaleString()}`} helper="Recorded campaign income" icon={HandCoins} />
-            <StatCard label="Expenses" value={`KES ${phaseFiveSummary.expenseTotal.toLocaleString()}`} helper="Approved and pending spend" icon={WalletCards} />
-            <StatCard label="Cash Balance" value={`KES ${phaseFiveSummary.cashBalance.toLocaleString()}`} helper="Demo finance position" icon={ReceiptText} />
-            <StatCard label="Fundraising" value={`${phaseFiveSummary.fundraisingProgress}%`} helper="Progress toward active goals" icon={TrendingUp} />
-            <StatCard label="Competitiveness" value={`${phaseFiveSummary.competitiveness}/100`} helper="Strategic estimate, not certainty" icon={Gauge} />
-          </section>
-
-          <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
-            <StatCard label="Comms Rooms" value={String(communicationsSummary.rooms)} helper={`${communicationsSummary.liveRooms} live, ${communicationsSummary.scheduledRooms} scheduled`} icon={MessageSquare} />
-            <StatCard label="Participants" value={String(communicationsSummary.participants)} helper="Expected across current rooms" icon={Users} />
-            <StatCard label="Messages Sent" value={String(communicationsSummary.deliveredMessages)} helper="Delivered or sent campaign updates" icon={Radio} />
-            <StatCard label="Solco Bridge" value={communicationsSummary.solcoStatus} helper="LiveKit token endpoint prepared" icon={Video} />
-            <StatCard label="Meeting Auth" value="2h" helper="Short-lived room token TTL" icon={ShieldCheck} />
-            <StatCard label="Low Data Mode" value="On" helper="Solco-compatible mobile meetings" icon={Smartphone} />
-          </section>
 
           <section id="communications" className="scroll-mt-24 mt-6 grid gap-4 xl:grid-cols-3">
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
