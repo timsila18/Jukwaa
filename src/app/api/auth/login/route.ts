@@ -49,7 +49,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid login credentials." }, { status: 401 });
   }
 
+  if (!data.session) {
+    return NextResponse.json({ error: "Login could not start a session. Try again." }, { status: 503 });
+  }
+
+  if (!member) {
+    return NextResponse.json({ error: "This login is not attached to an active campaign workspace yet." }, { status: 403 });
+  }
+
   const response = NextResponse.json({ user: data.user, workspace: member, redirectTo: "/" });
-  if (data.session) attachSessionCookies(response, data.session);
+  attachSessionCookies(response, data.session);
   return response;
 }

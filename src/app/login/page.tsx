@@ -2,31 +2,51 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { KeyRound, Smartphone } from "lucide-react";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  function nextPath() {
+    const requested = new URLSearchParams(window.location.search).get("next") || "/";
+    return requested.startsWith("/") && !requested.startsWith("//") ? requested : "/";
+  }
 
   async function submitLogin() {
     setStatus("");
     setError("");
-    const response = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ login, password }),
-    });
-    const payload = await response.json();
-    if (!response.ok) {
-      setError(payload.error ?? "Login failed.");
+    if (!login.trim() || !password) {
+      setError("Enter your phone/email and password to continue.");
       return;
     }
-    setStatus(`Logged in as ${payload.user?.email ?? login}.`);
-    router.push(new URLSearchParams(window.location.search).get("next") || payload.redirectTo || "/");
+
+    setIsSubmitting(true);
+    setStatus("Checking your login...");
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ login, password }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setStatus("");
+        setError(payload.error ?? "Login failed.");
+        return;
+      }
+      setStatus("Login successful. Opening your dashboard...");
+      window.location.assign(payload.redirectTo || nextPath());
+    } catch {
+      setStatus("");
+      setError("Login could not be completed. Check your connection and try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -49,9 +69,9 @@ export default function LoginPage() {
             Password
             <input autoComplete="current-password" className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => setPassword(event.target.value)} placeholder="Enter password" type="password" value={password} />
           </label>
-          <button className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-bold text-white hover:bg-slate-900" type="submit">
+          <button className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-bold text-white hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-400" disabled={isSubmitting} type="submit">
             <Smartphone size={16} />
-            Continue
+            {isSubmitting ? "Signing in..." : "Continue"}
           </button>
         </form>
         {status ? <div className="mt-4 rounded-md bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">{status}</div> : null}
