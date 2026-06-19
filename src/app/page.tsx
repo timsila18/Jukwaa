@@ -410,8 +410,128 @@ export default function Home() {
     ["Kajiado", "2,031 (8.2%)", "#f97316"],
     ["Others", "7,044 (28.3%)", "#d1d5db"],
   ] as const;
+  const workspaceFeatures = {
+    Dashboard: {
+      title: "Campaign Command Center",
+      description: "A full overview of campaign growth, team actions, payments, communications, and field readiness.",
+      cards: [
+        ["Live Metrics", "Supporters, volunteers, agents, tasks, and events in one view.", Gauge],
+        ["Action Queue", "Approvals, incidents, overdue tasks, and new registrations.", AlertTriangle],
+        ["Readiness", "Polling day and field operations progress at a glance.", ShieldCheck],
+      ],
+    },
+    Supporters: {
+      title: "Supporter Management",
+      description: "Register, segment, search, mobilize, and follow up with voters and supporters by geography.",
+      cards: [
+        ["Register Supporters", "Capture name, phone, ward, station, issue, and support level.", Users],
+        ["Duplicate Checks", "Flag repeated phone numbers and names before saving.", ShieldCheck],
+        ["Mobilization Lists", "Filter supporters for calls, SMS, rallies, and door-to-door follow-up.", MessageSquare],
+      ],
+    },
+    Volunteers: {
+      title: "Volunteer Operations",
+      description: "Manage volunteer applications, assignments, task progress, and field performance.",
+      cards: [
+        ["Create Volunteer", "Add field volunteers and assign them to wards or polling stations.", UserCheck],
+        ["Assign Tasks", "Track canvassing, registration drives, and event mobilization work.", ClipboardCheck],
+        ["Performance", "View completed tasks, coverage, and volunteer accountability.", BarChart3],
+      ],
+    },
+    "Polling Agents": {
+      title: "Polling Agent Workspace",
+      description: "Recruit, assign, train, and monitor polling station agents before and during election day.",
+      cards: [
+        ["Agent Register", "Manage agents per station, ward, and constituency.", RadioTower],
+        ["Station Coverage", "See gaps in coverage before polling day.", Vote],
+        ["Incident Escalation", "Let agents report issues, turnout, and form status.", Siren],
+      ],
+    },
+    "Tasks & Field Ops": {
+      title: "Tasks & Field Operations",
+      description: "Coordinate field visits, door-to-door campaigns, incident follow-ups, and operational tasks.",
+      cards: [
+        ["Create Task", "Assign work to volunteers, agents, and coordinators.", CheckCircle2],
+        ["Field Visits", "Record visits, photos, results, and notes from the ground.", Navigation],
+        ["Coverage Map", "Track ward, village, and polling station progress.", LandPlot],
+      ],
+    },
+    Events: {
+      title: "Events Workspace",
+      description: "Plan rallies, town halls, fundraisers, meetings, attendance, and mobilization targets.",
+      cards: [
+        ["Create Event", "Set date, venue, county, constituency, and expected turnout.", CalendarDays],
+        ["Mobilize", "Send teams and supporter lists to fill attendance gaps.", UsersRound],
+        ["Attendance", "Track registrations, check-ins, and post-event follow-up.", BadgeCheck],
+      ],
+    },
+    Communications: {
+      title: "Live Communications",
+      description: "Run team chat, voice rooms, video meetings, broadcasts, and Solco/LiveKit coordination.",
+      cards: [
+        ["Team Chat", "Coordinate campaign teams and field operations.", MessageSquare],
+        ["Voice & Video", "Open live rooms for war-room and field team meetings.", Video],
+        ["Broadcasts", "Prepare announcements, SMS drafts, and WhatsApp-ready updates.", RadioTower],
+      ],
+    },
+    "Issues & Manifesto": {
+      title: "Issues & Manifesto",
+      description: "Track citizen concerns, manifesto promises, responses, and issue resolution progress.",
+      cards: [
+        ["Report Issue", "Capture local issues by ward, village, and category.", AlertTriangle],
+        ["Assign Response", "Route concerns to the right team member for action.", ClipboardCheck],
+        ["Manifesto Link", "Connect issues to campaign pledges and follow-up messages.", HandCoins],
+      ],
+    },
+    "Reports & Analytics": {
+      title: "Reports & Analytics",
+      description: "Export campaign reports, analyze performance, and prepare leadership-ready summaries.",
+      cards: [
+        ["Export Reports", "Download supporter, volunteer, finance, and field reports.", Download],
+        ["Analytics", "Review growth, coverage, turnout, and mobilization trends.", BarChart3],
+        ["Audit Ready", "Keep activity and decision history traceable.", ShieldCheck],
+      ],
+    },
+    "AI Campaign Studio": {
+      title: "AI Campaign Studio",
+      description: "Generate speeches, SMS drafts, reports, strategy briefs, and campaign recommendations.",
+      cards: [
+        ["Strategy Briefs", "Ask AI for ward priorities and campaign risks.", Brain],
+        ["Content Drafts", "Prepare speeches, SMS, and event talking points.", MessageSquare],
+        ["Data Context", "Use campaign records to ground recommendations.", Gauge],
+      ],
+    },
+    "Payments & Billing": {
+      title: "Payments & Billing",
+      description: "Manage subscription status, invoices, M-Pesa confirmation, and workspace activation.",
+      cards: [
+        ["Make Payment", "Use Paybill or payment confirmation to activate access.", WalletCards],
+        ["Admin Approval", "Allow access before payment when approved by admin.", ShieldCheck],
+        ["Invoices", "Track renewals, plans, and billing status.", ReceiptText],
+      ],
+    },
+    "Team & Roles": {
+      title: "Team & Roles",
+      description: "Invite users, assign roles, approve team access, and manage campaign permissions.",
+      cards: [
+        ["Invite Users", "Generate joining codes for campaign team onboarding.", KeyRound],
+        ["Role Control", "Assign owner, manager, coordinator, volunteer, and agent roles.", UsersRound],
+        ["Approvals", "Approve, suspend, or revoke team access.", ShieldCheck],
+      ],
+    },
+    Settings: {
+      title: "Workspace Settings",
+      description: "Manage workspace governance, branding, access rules, security, and ownership details.",
+      cards: [
+        ["Workspace Profile", "Review candidate, party, position, and geography details.", Building2],
+        ["Security", "Track logins, audit events, and sensitive actions.", ShieldCheck],
+        ["Policies", "Open privacy, consent, ownership, and support settings.", Settings],
+      ],
+    },
+  };
   const activeSectionId = sectionTargets[activeSection] ?? sectionTargets.Dashboard;
   const activeSubtitle = activeSection === "Dashboard" ? "Overview of your campaign operations" : `Manage ${activeSection.toLowerCase()} for this workspace`;
+  const activeWorkspaceFeatures = workspaceFeatures[activeSection as keyof typeof workspaceFeatures] ?? workspaceFeatures.Dashboard;
 
   function sectionClass(sectionId: string, baseClassName: string) {
     return activeSectionId === sectionId ? baseClassName : "hidden";
@@ -603,7 +723,7 @@ export default function Home() {
           </div>
         </header>
 
-        <div className="p-4 lg:p-6 xl:p-7">
+        <div className="j-workspace-content p-4 lg:p-6 xl:p-7">
           <section id="dashboard" className={sectionClass("dashboard", "scroll-mt-24")}>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
               {dashboardMetrics.map((metric) => (
@@ -890,6 +1010,42 @@ export default function Home() {
                     Request Admin Approval
                   </Link>
                 </div>
+              </div>
+            </section>
+          ) : null}
+
+          {activeSection !== "Dashboard" ? (
+            <section className="j-workspace-hero mb-5">
+              <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wide text-blue-700">Active workspace</p>
+                  <h2 className="mt-2 text-2xl font-black text-slate-950">{activeWorkspaceFeatures.title}</h2>
+                  <p className="mt-2 max-w-3xl text-base leading-7 text-slate-600">{activeWorkspaceFeatures.description}</p>
+                </div>
+                <button className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-black text-white shadow-sm hover:bg-blue-700" onClick={() => runAction(`${activeSection} primary action opened.`, activeSection)} type="button">
+                  <Plus size={17} />
+                  New {activeSection === "Payments & Billing" ? "Payment" : activeSection.split(" ")[0]}
+                </button>
+              </div>
+              <div className="mt-5 grid gap-3 md:grid-cols-3">
+                {activeWorkspaceFeatures.cards.map((card) => {
+                  const title = String(card[0]);
+                  const description = String(card[1]);
+                  const FeatureIcon = card[2] as typeof Users;
+                  return (
+                    <div key={title} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                      <div className="flex items-start gap-3">
+                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-blue-50 text-blue-700 ring-1 ring-blue-100">
+                          <FeatureIcon size={19} />
+                        </span>
+                        <span>
+                          <span className="block text-base font-black text-slate-950">{title}</span>
+                          <span className="mt-1 block text-sm leading-6 text-slate-600">{description}</span>
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </section>
           ) : null}

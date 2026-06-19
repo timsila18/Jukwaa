@@ -263,6 +263,53 @@ textarea {
     box-shadow: var(--jukwaa-shadow-card);
     overflow: hidden;
   }
+
+  .j-workspace-hero {
+    border: 1px solid rgb(191 219 254);
+    border-radius: 0.5rem;
+    background:
+      linear-gradient(135deg, #ffffff 0%, #f8fbff 58%, #edf6ff 100%);
+    padding: 1.25rem;
+    box-shadow: var(--jukwaa-shadow-card);
+  }
+
+  .j-workspace-content section:not(#dashboard) {
+    color: #10213a;
+  }
+
+  .j-workspace-content section:not(#dashboard) h2 {
+    font-size: 1.0625rem;
+    line-height: 1.5rem;
+  }
+
+  .j-workspace-content section:not(#dashboard) .text-xs {
+    font-size: 0.8125rem !important;
+    line-height: 1.25rem !important;
+  }
+
+  .j-workspace-content section:not(#dashboard) .text-sm {
+    font-size: 0.9375rem !important;
+    line-height: 1.5rem !important;
+  }
+
+  .j-workspace-content section:not(#dashboard) .text-slate-500,
+  .j-workspace-content section:not(#dashboard) .text-slate-400 {
+    color: #475569 !important;
+  }
+
+  .j-workspace-content section:not(#dashboard) .text-slate-600 {
+    color: #334155 !important;
+  }
+
+  .j-workspace-content section:not(#dashboard) table th {
+    font-size: 0.8125rem;
+    color: #475569;
+  }
+
+  .j-workspace-content section:not(#dashboard) table td {
+    font-size: 0.9375rem;
+    line-height: 1.5rem;
+  }
 }
 
 :root.dark .bg-white,
