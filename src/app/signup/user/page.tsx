@@ -26,6 +26,8 @@ export default function UserSignupPage() {
   const [joinStatus, setJoinStatus] = useState("");
   const [error, setError] = useState("");
   const [joinError, setJoinError] = useState("");
+  const [isInviting, setIsInviting] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
 
   function update(key: keyof typeof form, value: string) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -38,19 +40,30 @@ export default function UserSignupPage() {
   async function createInvitation() {
     setStatus("");
     setError("");
-    const response = await fetch("/api/team/invite", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
-    const payload = await response.json();
-    if (!response.ok) {
-      setError(payload.error ?? "Could not create invitation.");
-      return;
+    setIsInviting(true);
+    setStatus("Creating invitation...");
+    try {
+      const response = await fetch("/api/team/invite", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setStatus("");
+        setError(payload.error ?? "Could not create invitation. Login as a campaign admin and try again.");
+        return;
+      }
+      setInviteCode(payload.invitationCode);
+      setJoinUrl(`${window.location.origin}${payload.joinUrl}`);
+      setStatus(`Invitation created. Give this joining code to ${form.fullName}.`);
+    } catch {
+      setStatus("");
+      setError("Invitation could not be created. Check your connection and try again.");
+    } finally {
+      setIsInviting(false);
     }
-    setInviteCode(payload.invitationCode);
-    setJoinUrl(`${window.location.origin}${payload.joinUrl}`);
-    setStatus(`Invitation created. Give this joining code to ${form.fullName}.`);
   }
 
   async function joinWorkspace() {
@@ -60,21 +73,33 @@ export default function UserSignupPage() {
       setJoinError("Passwords do not match.");
       return;
     }
-    const response = await fetch("/api/auth/join", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        joinCode: joinForm.joinCode,
-        login: joinForm.login,
-        password: joinForm.password,
-      }),
-    });
-    const payload = await response.json();
-    if (!response.ok) {
-      setJoinError(payload.error ?? "Could not join workspace.");
-      return;
+    setIsJoining(true);
+    setJoinStatus("Creating your password...");
+    try {
+      const response = await fetch("/api/auth/join", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          joinCode: joinForm.joinCode,
+          login: joinForm.login,
+          password: joinForm.password,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setJoinStatus("");
+        setJoinError(payload.error ?? "Could not join workspace.");
+        return;
+      }
+      setJoinStatus(`Password created. Opening your dashboard...`);
+      window.location.assign(payload.redirectTo || "/");
+    } catch {
+      setJoinStatus("");
+      setJoinError("Could not join workspace. Check your connection and try again.");
+    } finally {
+      setIsJoining(false);
     }
-    setJoinStatus(`Password created. You can now login with ${payload.login}.`);
   }
 
   return (
@@ -103,9 +128,9 @@ export default function UserSignupPage() {
             Geography assignment
             <input className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => update("geography", event.target.value)} placeholder="All campaign, constituency, ward, village, station" value={form.geography} />
           </label>
-          <button className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-bold text-white hover:bg-slate-900 md:col-span-2" type="submit">
+          <button className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-bold text-white hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-400 md:col-span-2" disabled={isInviting} type="submit">
             <KeyRound size={16} />
-            Create User Invitation
+            {isInviting ? "Creating invitation..." : "Create User Invitation"}
           </button>
         </form>
         {status ? <div className="mt-4 rounded-md bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">{status}</div> : null}
@@ -146,9 +171,9 @@ export default function UserSignupPage() {
             Confirm password
             <input autoComplete="new-password" className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => updateJoin("confirmPassword", event.target.value)} placeholder="Repeat password" type="password" value={joinForm.confirmPassword} />
           </label>
-          <button className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-bold text-white hover:bg-slate-800" type="submit">
+          <button className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-bold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400" disabled={isJoining} type="submit">
             <KeyRound size={16} />
-            Create Password
+            {isJoining ? "Creating password..." : "Create Password"}
           </button>
         </form>
         {joinStatus ? <div className="mt-4 rounded-md bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">{joinStatus}</div> : null}

@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { UserCog } from "lucide-react";
 import { candidatePositionScopes, partyAffiliationOptions } from "@/lib/demo-data";
 
@@ -27,7 +26,6 @@ const positionGeography: Record<string, { county: boolean; constituency: boolean
 };
 
 export default function CandidateSignupPage() {
-  const router = useRouter();
   const [form, setForm] = useState({
     fullName: "",
     phoneNumber: "",
@@ -46,6 +44,7 @@ export default function CandidateSignupPage() {
   });
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const geography = positionGeography[form.position] ?? positionGeography.MP;
 
   function update(key: keyof typeof form, value: string) {
@@ -80,24 +79,35 @@ export default function CandidateSignupPage() {
       setError("Ward is required for this position.");
       return;
     }
-    const response = await fetch("/api/onboarding/candidate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
-    const payload = await response.json();
-    if (!response.ok) {
-      setError(payload.error ?? "Could not create candidate workspace.");
-      return;
+    setIsSubmitting(true);
+    setStatus("Creating candidate workspace...");
+    try {
+      const response = await fetch("/api/onboarding/candidate", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setStatus("");
+        setError(payload.error ?? "Could not create candidate workspace. Try again or contact support.");
+        return;
+      }
+      setStatus(`Workspace created. Redirecting to payment for account ${payload.accountReference}.`);
+      const params = new URLSearchParams({
+        applicationId: payload.applicationId ?? "",
+        accountReference: payload.accountReference ?? "",
+        phoneNumber: form.phoneNumber,
+        amountKes: String(payload.amountDueKes ?? ""),
+      });
+      window.location.assign(`/payment/confirm?${params.toString()}`);
+    } catch {
+      setStatus("");
+      setError("Candidate signup could not be completed. Check your connection and try again.");
+    } finally {
+      setIsSubmitting(false);
     }
-    setStatus(`Workspace created. Redirecting to payment for account ${payload.accountReference}.`);
-    const params = new URLSearchParams({
-      applicationId: payload.applicationId ?? "",
-      accountReference: payload.accountReference ?? "",
-      phoneNumber: form.phoneNumber,
-      amountKes: String(payload.amountDueKes ?? ""),
-    });
-    router.push(`/payment/confirm?${params.toString()}`);
   }
 
   return (
@@ -148,7 +158,7 @@ export default function CandidateSignupPage() {
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900 md:col-span-2">
             Payment activation: after registration, the candidate pays via the configured M-Pesa Paybill. Admin verifies payment and activates the workspace.
           </div>
-          <button className="h-11 rounded-md bg-slate-950 px-4 text-sm font-bold text-white hover:bg-slate-900 md:col-span-2" type="submit">Create Candidate Workspace</button>
+          <button className="h-11 rounded-md bg-slate-950 px-4 text-sm font-bold text-white hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-400 md:col-span-2" disabled={isSubmitting} type="submit">{isSubmitting ? "Creating workspace..." : "Create Candidate Workspace"}</button>
         </form>
         {status ? <div className="mt-4 rounded-md bg-emerald-50 p-3 text-sm font-semibold text-emerald-700">{status}</div> : null}
         {error ? <div className="mt-4 rounded-md bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</div> : null}
