@@ -27,6 +27,7 @@ export type SupabaseLooseSingleResult = {
 export type SupabaseLooseQuery = {
   select: (columns?: string) => SupabaseLooseQuery;
   insert: (values: unknown) => SupabaseLooseQuery;
+  upsert: (values: unknown, options?: { onConflict?: string; ignoreDuplicates?: boolean }) => SupabaseLooseQuery;
   update: (values: unknown) => SupabaseLooseQuery;
   delete: () => SupabaseLooseQuery;
   eq: (column: string, value: unknown) => SupabaseLooseQuery;

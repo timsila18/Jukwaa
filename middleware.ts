@@ -16,6 +16,8 @@ const publicPaths = [
   "/api/auth/logout",
   "/api/auth/forgot",
   "/api/auth/reset",
+  "/api/admin/bootstrap",
+  "/api/system/health",
   "/api/onboarding/candidate",
   "/api/onboarding/payment",
   "/api/payments/mpesa/callback",

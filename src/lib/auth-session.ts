@@ -95,16 +95,16 @@ export async function getSessionContext(request: Request): Promise<SessionContex
     .eq("status", "Active")
     .maybeSingle();
 
-  if (!member) return null;
-  if (member.status !== "Active") return null;
+  if (!member && !platformAdmin) return null;
+  if (member && member.status !== "Active" && !platformAdmin) return null;
 
   return {
     userId: data.user.id,
-    email: data.user.email ?? member.email ?? null,
-    tenantId: member.tenant_id,
-    candidateId: member.candidate_id,
-    memberId: member.id,
-    role: member.role as WorkspaceRole,
+    email: data.user.email ?? member?.email ?? null,
+    tenantId: member?.tenant_id ?? "",
+    candidateId: member?.candidate_id ?? "",
+    memberId: member?.id ?? "",
+    role: (member?.role ?? "Admin") as WorkspaceRole,
     isPlatformAdmin: Boolean(platformAdmin),
   };
 }

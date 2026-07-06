@@ -2,10 +2,10 @@ import { NextRequest } from "next/server";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
-import { reportRows } from "@/lib/demo-data";
 import { requireSession, requireWorkspaceAccess } from "@/lib/auth-session";
+import { getLiveWorkspaceSnapshot, reportRowsFromSnapshot } from "@/lib/live-dashboard";
 
-function csvEscape(value: string | number) {
+function csvEscape(value: unknown) {
   const text = String(value);
   return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
@@ -19,7 +19,8 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const format = searchParams.get("format") ?? "csv";
   const report = searchParams.get("report") ?? "supporters-by-ward";
-  const rows = reportRows(report);
+  const snapshot = await getLiveWorkspaceSnapshot(auth.session, access.access);
+  const rows = reportRowsFromSnapshot(snapshot, report);
   const headers = Object.keys(rows[0] ?? { name: "", value: 0 });
   const filename = `jukwaa-${report}`;
 

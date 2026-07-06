@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getLooseSupabaseAdmin } from "@/lib/supabase";
 import { shortCode, writeAudit } from "@/lib/server-workflows";
 import { enforceRateLimit, requestKey } from "@/lib/rate-limit";
-import { requireSession, requireWorkspaceAccess } from "@/lib/auth-session";
+import { requireSession } from "@/lib/auth-session";
 
 const workflowSchemas = {
   supporter: z.object({
@@ -75,7 +75,7 @@ const workflowSchemas = {
 type WorkflowName = keyof typeof workflowSchemas;
 
 const workflowRoles: Record<WorkflowName, string[]> = {
-  supporter: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Village Coordinator", "Volunteer", "Data Clerk", "Admin"],
+  supporter: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Village Coordinator", "Volunteer", "Polling Agent", "Data Clerk", "Admin"],
   volunteer: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Admin"],
   task: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Admin"],
   issue: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Village Coordinator", "Volunteer", "Polling Agent", "Admin"],
@@ -112,8 +112,6 @@ export async function POST(request: Request, context: { params: Promise<{ workfl
 
   const auth = await requireSession(request);
   if (auth.response) return auth.response;
-  const access = await requireWorkspaceAccess(auth.session);
-  if (access.response) return access.response;
   if (!workflowRoles[name].includes(auth.session.role) && !auth.session.isPlatformAdmin) {
     return NextResponse.json({ error: "You do not have permission for this workflow." }, { status: 403 });
   }
@@ -290,7 +288,10 @@ export async function POST(request: Request, context: { params: Promise<{ workfl
     return NextResponse.json({ id: updated.id, status: data.status });
   }
 
-  const { data: inserted, error } = await supabase.from(table).insert(payload).select("id").single();
+  const selectColumns = name === "supporter"
+    ? "id, full_name, phone_number, support_level, key_issue, volunteer_interest, created_at"
+    : "id";
+  const { data: inserted, error } = await supabase.from(table).insert(payload).select(selectColumns).single();
   if (error || !inserted) {
     return NextResponse.json({ error: `Could not save ${name}.`, detail: error?.message }, { status: 500 });
   }
@@ -304,5 +305,10 @@ export async function POST(request: Request, context: { params: Promise<{ workfl
     newValue: payload,
   });
 
-  return NextResponse.json({ id: inserted.id, status: "Saved", reference: shortCode("JUK") });
+  return NextResponse.json({
+    id: inserted.id,
+    status: "Saved",
+    reference: shortCode("JUK"),
+    supporter: name === "supporter" ? inserted : undefined,
+  });
 }

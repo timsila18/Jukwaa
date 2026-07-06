@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { UserCog } from "lucide-react";
 import { candidatePositionScopes, partyAffiliationOptions } from "@/lib/demo-data";
+import { constituenciesForCounty, kenyaCounties, wardsForConstituency } from "@/lib/kenya-geography";
 
 const positionValues: Record<string, string> = {
   president: "Presidential",
@@ -46,6 +47,8 @@ export default function CandidateSignupPage() {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const geography = positionGeography[form.position] ?? positionGeography.MP;
+  const constituencies = constituenciesForCounty(form.county);
+  const wards = wardsForConstituency(form.constituency);
 
   function update(key: keyof typeof form, value: string) {
     setForm((current) => {
@@ -56,6 +59,11 @@ export default function CandidateSignupPage() {
         if (!scope.constituency) next.constituency = "";
         if (!scope.ward) next.ward = "";
       }
+      if (key === "county") {
+        next.constituency = "";
+        next.ward = "";
+      }
+      if (key === "constituency") next.ward = "";
       return next;
     });
   }
@@ -136,9 +144,9 @@ export default function CandidateSignupPage() {
             </select>
           </label>
           <div className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm leading-6 text-sky-900 md:col-span-2">{geography.helper}</div>
-          {geography.county ? <label className="block text-sm font-semibold text-slate-700">County<input className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => update("county", event.target.value)} value={form.county} /></label> : null}
-          {geography.constituency ? <label className="block text-sm font-semibold text-slate-700">Constituency<input className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => update("constituency", event.target.value)} value={form.constituency} /></label> : null}
-          {geography.ward ? <label className="block text-sm font-semibold text-slate-700">Ward<input className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => update("ward", event.target.value)} value={form.ward} /></label> : null}
+          {geography.county ? <label className="block text-sm font-semibold text-slate-700">County<select className="mt-1 h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => update("county", event.target.value)} required value={form.county}><option value="">Select county</option>{kenyaCounties.map((county) => <option key={county}>{county}</option>)}</select></label> : null}
+          {geography.constituency ? <label className="block text-sm font-semibold text-slate-700">Constituency<select className="mt-1 h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-sky-500 disabled:bg-slate-100" disabled={!form.county || constituencies.length === 0} onChange={(event) => update("constituency", event.target.value)} required value={form.constituency}><option value="">{form.county && constituencies.length === 0 ? "Constituencies being added for this county" : "Select constituency"}</option>{constituencies.map((constituency) => <option key={constituency}>{constituency}</option>)}</select></label> : null}
+          {geography.ward ? <label className="block text-sm font-semibold text-slate-700">Ward<select className="mt-1 h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-sky-500 disabled:bg-slate-100" disabled={!form.constituency || wards.length === 0} onChange={(event) => update("ward", event.target.value)} required value={form.ward}><option value="">{form.constituency && wards.length === 0 ? "Wards being added for this constituency" : "Select ward"}</option>{wards.map((ward) => <option key={ward}>{ward}</option>)}</select></label> : null}
           <label className="block text-sm font-semibold text-slate-700">Campaign name<input className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => update("campaignName", event.target.value)} value={form.campaignName} /></label>
           <label className="block text-sm font-semibold text-slate-700">Campaign slogan<input className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => update("slogan", event.target.value)} value={form.slogan} /></label>
           <label className="block text-sm font-semibold text-slate-700">

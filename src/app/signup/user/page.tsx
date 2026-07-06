@@ -2,18 +2,18 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Copy, KeyRound, LockKeyhole, UserCheck } from "lucide-react";
+import { Copy, KeyRound, LockKeyhole, MessageCircle, UserCheck } from "lucide-react";
 import { roles } from "@/lib/demo-data";
 
 export default function UserSignupPage() {
-  const [form, setForm] = useState({
+  const [form, setForm] = useState(() => ({
     fullName: "",
     phoneNumber: "",
     email: "",
     joinCode: "",
-    role: "Volunteer",
+    role: typeof window === "undefined" ? "Volunteer" : (new URLSearchParams(window.location.search).get("role") || "Volunteer"),
     geography: "",
-  });
+  }));
   const [joinForm, setJoinForm] = useState(() => ({
     joinCode: typeof window === "undefined" ? "" : (new URLSearchParams(window.location.search).get("code") ?? "").toUpperCase(),
     login: "",
@@ -22,6 +22,7 @@ export default function UserSignupPage() {
   }));
   const [inviteCode, setInviteCode] = useState("");
   const [joinUrl, setJoinUrl] = useState("");
+  const [whatsappUrl, setWhatsappUrl] = useState("");
   const [status, setStatus] = useState("");
   const [joinStatus, setJoinStatus] = useState("");
   const [error, setError] = useState("");
@@ -57,7 +58,8 @@ export default function UserSignupPage() {
       }
       setInviteCode(payload.invitationCode);
       setJoinUrl(`${window.location.origin}${payload.joinUrl}`);
-      setStatus(`Invitation created. Give this joining code to ${form.fullName}.`);
+      setWhatsappUrl(payload.whatsappUrl ?? "");
+      setStatus(payload.emailStatus === "Sent" ? `Invitation created and emailed to ${form.fullName}.` : `Invitation created. Send the joining code to ${form.fullName}.`);
     } catch {
       setStatus("");
       setError("Invitation could not be created. Check your connection and try again.");
@@ -143,6 +145,7 @@ export default function UserSignupPage() {
               <Copy size={15} />
               Copy code
             </button>
+            {whatsappUrl ? <a className="mt-3 ml-2 inline-flex h-10 items-center gap-2 rounded-md bg-emerald-600 px-3 text-sm font-bold text-white hover:bg-emerald-700" href={whatsappUrl} rel="noreferrer" target="_blank"><MessageCircle size={15} />Send via WhatsApp</a> : null}
           </div>
         ) : null}
         {error ? <div className="mt-4 rounded-md bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</div> : null}

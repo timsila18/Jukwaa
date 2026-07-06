@@ -49,6 +49,20 @@ async function cleanupFailedWorkspace(tenantId?: string, userId?: string) {
   ]);
 }
 
+function isConnectionFailure(error?: { message?: string } | null) {
+  return Boolean(error?.message?.toLowerCase().includes("fetch failed"));
+}
+
+function databaseUnavailable(detail?: string) {
+  return NextResponse.json(
+    {
+      error: "JUKWAA database connection is unavailable. Please contact support to verify the production database configuration.",
+      detail,
+    },
+    { status: 503 },
+  );
+}
+
 export async function POST(request: Request) {
   const limited = await enforceRateLimit(requestKey(request, "candidate-onboarding"), 8, 60_000);
   if (!limited.allowed) {
@@ -57,7 +71,10 @@ export async function POST(request: Request) {
 
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json({ error: "Candidate registration details are incomplete." }, { status: 400 });
+    return NextResponse.json({
+      error: "Candidate registration details are incomplete.",
+      fields: parsed.error.issues.map((issue) => ({ field: issue.path.join("."), message: issue.message })),
+    }, { status: 400 });
   }
 
   const supabase = getLooseSupabaseAdmin();
@@ -80,7 +97,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Ward is required for this position." }, { status: 400 });
   }
 
-  const slug = slugify(data.campaignName || data.fullName);
+  const baseSlug = slugify(data.campaignName || data.fullName) || "candidate-workspace";
+  const slug = slugify(`${baseSlug}-${shortCode("ws")}`);
   const authEmail = data.email ? data.email.toLowerCase() : loginEmail(data.phoneNumber);
   const accountReference = `JUKWAA-${shortCode(slug.toUpperCase().slice(0, 10) || "CAND")}`;
   const amountDue = planPricing[data.plan];
@@ -92,6 +110,7 @@ export async function POST(request: Request) {
     .single();
 
   if (tenantError || !tenant) {
+    if (isConnectionFailure(tenantError)) return databaseUnavailable(tenantError?.message);
     return NextResponse.json({ error: "Could not create candidate workspace tenant.", detail: tenantError?.message }, { status: 409 });
   }
 
@@ -118,10 +137,11 @@ export async function POST(request: Request) {
 
   if (candidateError || !candidate) {
     await cleanupFailedWorkspace(tenant.id);
+    if (isConnectionFailure(candidateError)) return databaseUnavailable(candidateError?.message);
     return NextResponse.json({ error: "Could not create candidate record.", detail: candidateError?.message }, { status: 500 });
   }
 
-  await supabase.from("campaign_settings").insert({
+  const { error: settingsError } = await supabase.from("campaign_settings").insert({
     tenant_id: tenant.id,
     candidate_id: candidate.id,
     campaign_name: data.campaignName,
@@ -134,6 +154,12 @@ export async function POST(request: Request) {
     election_year: 2027,
     active_status: "Draft",
   });
+
+  if (settingsError) {
+    await cleanupFailedWorkspace(tenant.id);
+    if (isConnectionFailure(settingsError)) return databaseUnavailable(settingsError.message);
+    return NextResponse.json({ error: "Could not create campaign settings.", detail: settingsError.message }, { status: 500 });
+  }
 
   const { data: createdUser, error: userError } = await authAdmin.auth.admin.createUser({
     email: authEmail,
@@ -153,6 +179,7 @@ export async function POST(request: Request) {
 
   if (userError || !createdUser.user) {
     await cleanupFailedWorkspace(tenant.id);
+    if (isConnectionFailure(userError)) return databaseUnavailable(userError?.message);
     return NextResponse.json({ error: "Workspace records were created, but candidate login could not be created. Contact support.", detail: userError?.message }, { status: 409 });
   }
 
@@ -168,10 +195,11 @@ export async function POST(request: Request) {
 
   if (memberError || !member) {
     await cleanupFailedWorkspace(tenant.id, createdUser.user.id);
+    if (isConnectionFailure(memberError)) return databaseUnavailable(memberError?.message);
     return NextResponse.json({ error: "Candidate login was created, but workspace membership failed. Please try again.", detail: memberError?.message }, { status: 500 });
   }
 
-  const { data: subscription } = await supabase.from("workspace_subscriptions").insert({
+  const { data: subscription, error: subscriptionError } = await supabase.from("workspace_subscriptions").insert({
     tenant_id: tenant.id,
     candidate_id: candidate.id,
     plan: data.plan,
@@ -184,18 +212,30 @@ export async function POST(request: Request) {
     storage_limit_gb: data.plan === "Starter" ? 10 : data.plan === "Professional" ? 100 : 500,
   }).select("id").single();
 
+  if (subscriptionError || !subscription) {
+    await cleanupFailedWorkspace(tenant.id, createdUser.user.id);
+    if (isConnectionFailure(subscriptionError)) return databaseUnavailable(subscriptionError?.message);
+    return NextResponse.json({ error: "Could not create workspace subscription.", detail: subscriptionError?.message }, { status: 500 });
+  }
+
   const invoiceNumber = `JUK-${new Date().getFullYear()}-${shortCode("INV")}`;
-  await supabase.from("invoices").insert({
+  const { error: invoiceError } = await supabase.from("invoices").insert({
     tenant_id: tenant.id,
     candidate_id: candidate.id,
-    subscription_id: subscription?.id,
+    subscription_id: subscription.id,
     invoice_number: invoiceNumber,
     amount_kes: amountDue,
     status: "Issued",
     due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
   });
 
-  const { data: application } = await supabase.from("candidate_onboarding_applications").insert({
+  if (invoiceError) {
+    await cleanupFailedWorkspace(tenant.id, createdUser.user.id);
+    if (isConnectionFailure(invoiceError)) return databaseUnavailable(invoiceError.message);
+    return NextResponse.json({ error: "Could not create activation invoice.", detail: invoiceError.message }, { status: 500 });
+  }
+
+  const { data: application, error: applicationError } = await supabase.from("candidate_onboarding_applications").insert({
     full_name: data.fullName,
     phone_number: data.phoneNumber,
     email: data.email || null,
@@ -214,17 +254,23 @@ export async function POST(request: Request) {
     payment_reference: accountReference,
   }).select("id").single();
 
+  if (applicationError || !application) {
+    await cleanupFailedWorkspace(tenant.id, createdUser.user.id);
+    if (isConnectionFailure(applicationError)) return databaseUnavailable(applicationError?.message);
+    return NextResponse.json({ error: "Could not create onboarding application.", detail: applicationError?.message }, { status: 500 });
+  }
+
   await writeAudit({
     tenantId: tenant.id,
     candidateId: candidate.id,
     action: "Create",
     module: "Candidate Onboarding",
-    recordId: application?.id,
+    recordId: application.id,
     newValue: { campaignName: data.campaignName, plan: data.plan, accountReference, memberId: member?.id },
   });
 
   const response = NextResponse.json({
-    applicationId: application?.id,
+    applicationId: application.id,
     tenantId: tenant.id,
     candidateId: candidate.id,
     status: "Payment Pending",
@@ -232,7 +278,7 @@ export async function POST(request: Request) {
     accountReference,
     paybillNumber: process.env.MPESA_PAYBILL_NUMBER || "CONFIGURE_PAYBILL",
     redirectTo: `/payment/confirm?${new URLSearchParams({
-      applicationId: application?.id ?? "",
+      applicationId: application.id,
       accountReference,
       phoneNumber: data.phoneNumber,
       amountKes: String(amountDue),
@@ -243,8 +289,8 @@ export async function POST(request: Request) {
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (url && key) {
     const client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
-    const signedIn = await client.auth.signInWithPassword({ email: authEmail, password: data.password });
-    if (signedIn.data.session) attachSessionCookies(response, signedIn.data.session);
+    const signedIn = await client.auth.signInWithPassword({ email: authEmail, password: data.password }).catch(() => null);
+    if (signedIn?.data.session) attachSessionCookies(response, signedIn.data.session);
   }
 
   return response;
