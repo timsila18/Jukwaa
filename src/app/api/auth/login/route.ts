@@ -32,7 +32,11 @@ export async function POST(request: Request) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password: parsed.data.password });
 
   const admin = getLooseSupabaseAdmin();
-  const { data: member } = await admin.from("campaign_members").select("tenant_id, candidate_id, id").eq("email", email).maybeSingle();
+  const { data: member } = await admin
+    .from("campaign_members")
+    .select("tenant_id, candidate_id, id")
+    .or(`email.eq.${email},user_id.eq.${data.user?.id ?? "00000000-0000-0000-0000-000000000000"}`)
+    .maybeSingle();
   if (member) {
     await admin.from("login_history").insert({
       tenant_id: member.tenant_id,
@@ -54,6 +58,19 @@ export async function POST(request: Request) {
   }
 
   if (!member) {
+    const { data: platformAdmin } = await admin
+      .from("platform_admins")
+      .select("id")
+      .eq("status", "Active")
+      .or(`email.eq.${email},user_id.eq.${data.user.id}`)
+      .maybeSingle();
+
+    if (platformAdmin) {
+      const response = NextResponse.json({ user: data.user, workspace: null, redirectTo: "/admin/saas" });
+      attachSessionCookies(response, data.session);
+      return response;
+    }
+
     return NextResponse.json({ error: "This login is not attached to an active campaign workspace yet." }, { status: 403 });
   }
 
