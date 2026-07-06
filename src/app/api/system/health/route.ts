@@ -17,7 +17,7 @@ async function checkSupabaseReachability(url?: string) {
       cache: "no-store",
       signal: AbortSignal.timeout(5000),
     });
-    return { ok: response.ok, status: response.status };
+    return { ok: response.status < 500, status: response.status };
   } catch (error) {
     return { ok: false, reason: error instanceof Error ? error.message : "Supabase reachability check failed" };
   }
