@@ -238,6 +238,7 @@ const getServerSnapshot = () => false;
 type LiveBootstrap = {
   workspace: {
     candidateId: string;
+    email?: string | null;
     role: string;
     isPlatformAdmin: boolean;
     member?: {
@@ -408,6 +409,13 @@ function readableNameFromContact(value?: string | null) {
       .join(" ");
   }
   return trimmed;
+}
+
+function usablePersonName(value?: string | null) {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) return "";
+  const blocked = ["campaign user", "user", "team member", "invited user", "invited team member"];
+  return blocked.includes(trimmed.toLowerCase()) ? "" : trimmed;
 }
 
 function emptyState(message: string) {
@@ -628,9 +636,10 @@ export default function Home() {
   const visibleNavItems = navItems.filter((item) => allowedNavLabels.includes(item.label));
   const isOwnerAccount = currentRole === "Candidate" || currentRole === "Admin" || liveBootstrap?.workspace.isPlatformAdmin;
   const currentMemberName =
-    currentMember?.full_name?.trim()
+    usablePersonName(currentMember?.full_name)
     || readableNameFromContact(currentMember?.phone_number)
     || readableNameFromContact(currentMember?.email)
+    || readableNameFromContact(liveBootstrap?.workspace.email)
     || (isOwnerAccount ? referenceCandidateName : `${currentRole} Member`);
   const profileSection = allowedNavLabels.includes("Team & Roles") ? "Team & Roles" : "Dashboard";
   const accountSection = isOwnerAccount ? "Candidate Management" : profileSection;

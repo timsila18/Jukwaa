@@ -58,7 +58,7 @@ export default function LoginPage() {
             <KeyRound size={20} />
           </div>
           <h1 className="mt-4 text-2xl font-bold text-slate-950">Login to JUKWAA</h1>
-          <p className="mt-2 text-sm leading-6 text-slate-600">Candidates and invited campaign users can sign in with phone or email.</p>
+          <p className="mt-2 text-sm leading-6 text-slate-600">Candidates and invited team members can sign in with phone or email.</p>
         </div>
         <form className="mt-6 space-y-4" onSubmit={(event) => { event.preventDefault(); void submitLogin(); }}>
           <label className="block text-sm font-semibold text-slate-700">
@@ -78,7 +78,7 @@ export default function LoginPage() {
         {error ? <div className="mt-4 rounded-md bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</div> : null}
         <div className="mt-5 grid gap-2 text-sm">
           <Link className="rounded-md border border-slate-200 bg-slate-50 p-3 font-semibold text-slate-700 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-800" href="/signup/candidate">Create candidate workspace</Link>
-          <Link className="rounded-md border border-slate-200 bg-slate-50 p-3 font-semibold text-slate-700 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-800" href="/signup/user">Join as invited campaign user</Link>
+          <Link className="rounded-md border border-slate-200 bg-slate-50 p-3 font-semibold text-slate-700 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-800" href="/signup/user">Join as invited team member</Link>
           <Link className="rounded-md border border-slate-200 bg-slate-50 p-3 font-semibold text-slate-700 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-800" href="/forgot-password">Forgot password</Link>
         </div>
       </section>

@@ -7,6 +7,7 @@ export type LiveSnapshot = {
     tenantId: string;
     candidateId: string;
     memberId: string;
+    email?: string | null;
     role: string;
     isPlatformAdmin: boolean;
     member?: DbRow | null;
@@ -63,6 +64,7 @@ type SnapshotSession = {
   tenantId: string;
   candidateId: string;
   memberId: string;
+  email?: string | null;
   role: string;
   isPlatformAdmin: boolean;
 };
