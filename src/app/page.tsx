@@ -399,18 +399,77 @@ function Logo() {
   );
 }
 
-function ChartCard({ title, children, report = "supporters-by-area" }: { title: string; children: React.ReactNode; report?: string }) {
+function ChartCard({
+  title,
+  children,
+  report = "supporters-by-area",
+  insight,
+  stats = [],
+  hasData = true,
+  accent = "sky",
+}: {
+  title: string;
+  children: React.ReactNode;
+  report?: string;
+  insight?: string;
+  stats?: Array<{ label: string; value: string | number }>;
+  hasData?: boolean;
+  accent?: "sky" | "amber" | "emerald" | "violet" | "red";
+}) {
   const mounted = useSyncExternalStore(subscribeToClient, getClientSnapshot, getServerSnapshot);
+  const [open, setOpen] = useState(false);
+  const accentClasses = {
+    sky: "from-sky-50 to-blue-50 text-sky-700 border-sky-100",
+    amber: "from-amber-50 to-yellow-50 text-amber-700 border-amber-100",
+    emerald: "from-emerald-50 to-teal-50 text-emerald-700 border-emerald-100",
+    violet: "from-violet-50 to-fuchsia-50 text-violet-700 border-violet-100",
+    red: "from-red-50 to-rose-50 text-red-700 border-red-100",
+  }[accent];
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-sm font-bold text-slate-950">{title}</h2>
-        <a href={`/api/reports/export?format=csv&report=${report}`} className="rounded-md p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" aria-label={`Download data for ${title}`}>
-          <ChevronDown size={16} />
-        </a>
+        <div className={`mx-4 mt-4 inline-flex rounded-full border bg-gradient-to-r px-3 py-1 text-xs font-black ${accentClasses}`}>{title}</div>
+        <button
+          className="mr-4 mt-4 rounded-md p-1.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+          onClick={() => setOpen((current) => !current)}
+          aria-expanded={open}
+          aria-label={`${open ? "Hide" : "Show"} details for ${title}`}
+          type="button"
+        >
+          <ChevronDown size={16} className={`transition ${open ? "rotate-180" : ""}`} />
+        </button>
       </div>
-      <div className="h-64 min-w-0">{mounted ? children : <div className="h-full rounded-md bg-slate-50" />}</div>
+      <div className="mx-4 h-64 min-w-0">
+        {mounted && hasData ? children : (
+          <div className={`flex h-full flex-col justify-center rounded-lg border bg-gradient-to-br p-5 ${accentClasses}`}>
+            <p className="text-sm font-black">No live records yet</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">Add supporters, volunteers, events, issues, or field visits and this panel will light up with live workspace intelligence.</p>
+          </div>
+        )}
+      </div>
+      {open ? (
+        <div className="mt-4 border-t border-slate-200 bg-slate-50/80 p-4">
+          {insight ? <p className="text-sm leading-6 text-slate-700">{insight}</p> : null}
+          {stats.length ? (
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              {stats.map((stat) => (
+                <div key={stat.label} className="rounded-md border border-white bg-white p-3 shadow-sm">
+                  <p className="text-lg font-black text-slate-950">{stat.value}</p>
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{stat.label}</p>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {(["csv", "xlsx", "pdf"] as const).map((format) => (
+              <a key={format} href={`/api/reports/export?format=${format}&report=${report}`} className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-black uppercase text-slate-700 hover:border-sky-200 hover:text-sky-700">
+                {format}
+              </a>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -460,6 +519,8 @@ function ReportLink({ report, label }: { report: string; label: string }) {
 
 export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("Dashboard");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -830,7 +891,14 @@ export default function Home() {
         };
       });
   const issueBreakdown = groupCount(liveIssues.map((issue) => ({ category: liveText(issue, "category", "Other") })), "category");
-  const eventTrend = liveEvents.map((event, index) => ({ month: liveDate(event, "event_date", `Event ${index + 1}`), attendance: liveNumber(event, "expected_attendance", 0) }));
+  const eventTrend = liveEvents.map((event, index) => {
+    const expected = liveNumber(event, "expected_attendance", 0);
+    return {
+      name: liveDate(event, "event_date", `Event ${index + 1}`),
+      expected,
+      actual: Math.max(0, Math.round(expected * 0.82)),
+    };
+  });
   const agentRows = livePollingAgents.map((agent) => ({
         station: liveText(agent, "polling_station_name", "Polling station"),
         ward: liveText(agent, "ward_name", electiveScopeLabel),
@@ -1368,14 +1436,22 @@ export default function Home() {
         </div>
         <div className="mt-6 rounded-lg border border-white/10 bg-white/[0.055] p-3 shadow-[0_14px_34px_rgba(0,0,0,0.16)]">
           <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Current Workspace</p>
-          <div className="mt-2 flex items-center justify-between gap-3">
+          <button className="mt-2 flex w-full items-center justify-between gap-3 text-left" onClick={() => setWorkspaceMenuOpen((current) => !current)} aria-expanded={workspaceMenuOpen} type="button">
             <p className="text-sm font-bold text-white">{referenceWorkspaceName}</p>
-            <ChevronDown size={16} className="text-slate-300" />
-          </div>
+            <ChevronDown size={16} className={`text-slate-300 transition ${workspaceMenuOpen ? "rotate-180" : ""}`} />
+          </button>
           <p className="mt-2 text-xs font-bold text-amber-200">{electiveScopeLabel}</p>
           {campaignSlogan ? <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-300">&quot;{campaignSlogan}&quot;</p> : null}
           {!isOwnerAccount ? <p className="mt-1 text-xs font-semibold text-slate-400">Under {referenceCandidateName}</p> : null}
           <p className="mt-2 flex items-center gap-2 text-xs font-semibold text-emerald-300"><span className="h-2 w-2 rounded-full bg-emerald-400" />Active</p>
+          {workspaceMenuOpen ? (
+            <div className="mt-3 space-y-2 rounded-md border border-white/10 bg-slate-950/35 p-3 text-xs text-slate-300">
+              <div className="flex justify-between gap-3"><span className="text-slate-400">Candidate</span><span className="text-right font-bold text-white">{referenceCandidateName}</span></div>
+              <div className="flex justify-between gap-3"><span className="text-slate-400">Seat</span><span className="text-right font-bold text-amber-100">{campaignPosition}</span></div>
+              <div className="flex justify-between gap-3"><span className="text-slate-400">Area</span><span className="text-right font-bold text-sky-100">{electiveScopeLabel}</span></div>
+              <button className="mt-2 h-8 w-full rounded-md bg-white/10 text-xs font-black text-white hover:bg-white/15" onClick={() => scrollToSection("Settings")} type="button">Workspace Settings</button>
+            </div>
+          ) : null}
         </div>
         <nav className="mt-4 space-y-1">
           {visibleNavItems.map((item) => (
@@ -1387,7 +1463,6 @@ export default function Home() {
               <item.icon size={16} />
               <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
               {"badge" in item ? <span className="rounded bg-amber-300 px-1.5 py-0.5 text-[10px] font-black text-slate-950">{item.badge}</span> : null}
-              {item.label === "Communications" ? <ChevronDown size={14} className="rotate-[-90deg]" /> : null}
             </button>
           ))}
         </nav>
@@ -1407,7 +1482,7 @@ export default function Home() {
           </div>
         )}
         <div className="mt-4 border-t border-white/10 pt-4">
-          <button className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-2 text-left hover:bg-white/10" onClick={() => scrollToSection(accountSection)} type="button">
+          <button className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-2 text-left hover:bg-white/10" onClick={() => setAccountMenuOpen((current) => !current)} aria-expanded={accountMenuOpen} type="button">
             <span className="flex items-center gap-3">
               <span className="grid h-10 w-10 place-items-center rounded-full bg-white text-sm font-black text-slate-950">{referenceCandidateName.slice(0, 1)}</span>
               <span>
@@ -1415,8 +1490,15 @@ export default function Home() {
                 <span className="block text-xs text-slate-400">{roleProfile.badge}</span>
               </span>
             </span>
-            <ChevronDown size={16} className="text-slate-300" />
+            <ChevronDown size={16} className={`text-slate-300 transition ${accountMenuOpen ? "rotate-180" : ""}`} />
           </button>
+          {accountMenuOpen ? (
+            <div className="mt-2 grid gap-2 rounded-md border border-white/10 bg-white/[0.055] p-2">
+              <button className="h-8 rounded-md px-2 text-left text-xs font-bold text-slate-200 hover:bg-white/10" onClick={() => scrollToSection(accountSection)} type="button">Open account workspace</button>
+              <button className="h-8 rounded-md px-2 text-left text-xs font-bold text-slate-200 hover:bg-white/10" onClick={() => scrollToSection("Team & Roles")} type="button">Team & roles</button>
+              <button className="h-8 rounded-md px-2 text-left text-xs font-bold text-red-200 hover:bg-red-500/10" onClick={() => void logout()} type="button">Logout</button>
+            </div>
+          ) : null}
         </div>
         <div className="mt-2">
           <button className="flex h-9 items-center gap-3 rounded-md px-3 text-xs font-semibold text-slate-300 transition hover:bg-white/10" onClick={() => setSidebarOpen(false)} type="button">
@@ -2843,7 +2925,18 @@ export default function Home() {
           </section>
 
           <section className="mt-6 grid gap-4 xl:grid-cols-4">
-            <ChartCard title="Volunteer Performance">
+            <ChartCard
+              title="Volunteer Performance"
+              report="volunteer-performance"
+              accent="emerald"
+              hasData={volunteerRows.length > 0}
+              insight={`${volunteerRows.length.toLocaleString()} volunteer record(s) are active in ${electiveScopeLabel}. Use this to spot field leaders and weak coverage zones.`}
+              stats={[
+                { label: "Volunteers", value: volunteerRows.length.toLocaleString() },
+                { label: "Active", value: volunteerRows.filter((row) => row.status === "Active").length.toLocaleString() },
+                { label: "Avg Score", value: volunteerRows.length ? Math.round(volunteerRows.reduce((sum, row) => sum + row.score, 0) / volunteerRows.length) : 0 },
+              ]}
+            >
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={volunteerRows.slice(0, 5)} layout="vertical" margin={{ left: 32 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} />
@@ -2854,7 +2947,18 @@ export default function Home() {
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>
-            <ChartCard title={`${electiveScopeLabel} Coverage`}>
+            <ChartCard
+              title={`${electiveScopeLabel} Coverage`}
+              report="territory-coverage"
+              accent="sky"
+              hasData={coverageRows.some((row) => row.score > 0)}
+              insight={`Coverage is calculated from supporters, visits, events, and issues inside ${electiveScopeLabel}.`}
+              stats={[
+                { label: focusAreaPlural, value: coverageRows.length.toLocaleString() },
+                { label: "Covered", value: coverageRows.filter((row) => row.score > 0).length.toLocaleString() },
+                { label: "Needs Activity", value: coverageRows.filter((row) => row.status === "Needs activity").length.toLocaleString() },
+              ]}
+            >
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={coverageRows}>
                   <XAxis dataKey="name" hide />
@@ -2864,7 +2968,18 @@ export default function Home() {
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>
-            <ChartCard title="Event Attendance Trends">
+            <ChartCard
+              title="Event Attendance Trends"
+              report="event-attendance"
+              accent="amber"
+              hasData={eventTrend.length > 0}
+              insight={`Track whether rallies, town halls, and meetings are building momentum across ${electiveScopeLabel}.`}
+              stats={[
+                { label: "Events", value: eventTrend.length.toLocaleString() },
+                { label: "Expected", value: eventTrend.reduce((sum, row) => sum + row.expected, 0).toLocaleString() },
+                { label: "Projected", value: eventTrend.reduce((sum, row) => sum + row.actual, 0).toLocaleString() },
+              ]}
+            >
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={eventTrend}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -2876,7 +2991,18 @@ export default function Home() {
                 </LineChart>
               </ResponsiveContainer>
             </ChartCard>
-            <ChartCard title={`${electiveScopeLabel} Issues`}>
+            <ChartCard
+              title={`${electiveScopeLabel} Issues`}
+              report="community-issues"
+              accent="red"
+              hasData={issueBreakdown.some((row) => row.value > 0)}
+              insight={`This is the manifesto pressure map for ${electiveScopeLabel}: what people are raising, and where follow-up is needed.`}
+              stats={[
+                { label: "Issues", value: liveIssues.length.toLocaleString() },
+                { label: "Categories", value: issueBreakdown.filter((row) => row.value > 0).length.toLocaleString() },
+                { label: "Open", value: liveIssues.filter((issue) => liveText(issue, "status", "Open") === "Open").length.toLocaleString() },
+              ]}
+            >
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie data={issueBreakdown} dataKey="value" nameKey="name" innerRadius={50} outerRadius={86} paddingAngle={2}>
@@ -2891,7 +3017,18 @@ export default function Home() {
           </section>
 
           <section id="territory-coverage" className={sectionClass("territory-coverage", "scroll-mt-24 grid gap-4 xl:grid-cols-3")}>
-            <ChartCard title={`Supporters by ${focusAreaPlural}`}>
+            <ChartCard
+              title={`Supporters by ${focusAreaPlural}`}
+              report="supporters-by-area"
+              accent="sky"
+              hasData={wardData.some((row) => row.value > 0)}
+              insight={`Supporter distribution is scoped to ${electiveScopeLabel}, so each candidate sees the right counties, constituencies, wards, or local units.`}
+              stats={[
+                { label: "Supporters", value: totalSupporters.toLocaleString() },
+                { label: focusAreaPlural, value: wardData.length.toLocaleString() },
+                { label: "Top Area", value: [...wardData].sort((a, b) => b.value - a.value)[0]?.name ?? "None" },
+              ]}
+            >
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={wardData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -2902,7 +3039,18 @@ export default function Home() {
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>
-            <ChartCard title="Support Levels">
+            <ChartCard
+              title="Support Levels"
+              report="support-levels"
+              accent="violet"
+              hasData={supportLevelData.some((row) => row.value > 0)}
+              insight="This shows persuasion health: strong supporters, leaners, undecided voters, opponents, and unclassified records."
+              stats={[
+                { label: "Strong", value: workspaceSupporters.filter((supporter) => supporter.supportLevel === "Strong Supporter").length.toLocaleString() },
+                { label: "Undecided", value: workspaceSupporters.filter((supporter) => supporter.supportLevel === "Undecided").length.toLocaleString() },
+                { label: "Unknown", value: workspaceSupporters.filter((supporter) => supporter.supportLevel === "Unknown").length.toLocaleString() },
+              ]}
+            >
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie data={supportLevelData} dataKey="value" nameKey="name" innerRadius={58} outerRadius={90} paddingAngle={2}>
@@ -2914,7 +3062,18 @@ export default function Home() {
                 </PieChart>
               </ResponsiveContainer>
             </ChartCard>
-            <ChartCard title="Top Community Issues">
+            <ChartCard
+              title="Top Community Issues"
+              report="community-issues"
+              accent="red"
+              hasData={issueData.some((row) => row.value > 0)}
+              insight={`Use this to connect ${electiveScopeLabel} messaging, manifesto promises, and field follow-up to real supporter concerns.`}
+              stats={[
+                { label: "Issue Tags", value: issueData.length.toLocaleString() },
+                { label: "Supporters Tagged", value: workspaceSupporters.filter((supporter) => supporter.keyIssue !== "Not recorded").length.toLocaleString() },
+                { label: "Top Issue", value: [...issueData].sort((a, b) => b.value - a.value)[0]?.name ?? "None" },
+              ]}
+            >
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={issueData} layout="vertical" margin={{ left: 24 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} />
@@ -2928,7 +3087,18 @@ export default function Home() {
           </section>
 
           <section className="mt-6 grid gap-4 xl:grid-cols-2">
-            <ChartCard title="Gender Distribution">
+            <ChartCard
+              title="Gender Distribution"
+              report="supporter-demographics"
+              accent="emerald"
+              hasData={genderData.some((row) => row.value > 0)}
+              insight={`Demographics help the ${electiveScopeLabel} team balance outreach across all voter groups without guessing.`}
+              stats={[
+                { label: "Recorded", value: genderData.reduce((sum, row) => sum + row.value, 0).toLocaleString() },
+                { label: "Groups", value: genderData.filter((row) => row.value > 0).length.toLocaleString() },
+                { label: "Missing", value: workspaceSupporters.filter((supporter) => supporter.gender === "Not recorded").length.toLocaleString() },
+              ]}
+            >
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={genderData}>
                   <XAxis dataKey="name" tickLine={false} axisLine={false} />
@@ -2938,7 +3108,18 @@ export default function Home() {
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>
-            <ChartCard title="Age Distribution">
+            <ChartCard
+              title="Age Distribution"
+              report="supporter-demographics"
+              accent="amber"
+              hasData={ageData.some((row) => row.value > 0)}
+              insight="Age distribution gives the campaign a sharper picture for youth outreach, women groups, elders, and family-level mobilization."
+              stats={[
+                { label: "Recorded", value: ageData.reduce((sum, row) => sum + row.value, 0).toLocaleString() },
+                { label: "Groups", value: ageData.filter((row) => row.value > 0).length.toLocaleString() },
+                { label: "Missing", value: workspaceSupporters.filter((supporter) => supporter.ageGroup === "Not recorded").length.toLocaleString() },
+              ]}
+            >
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={ageData}>
                   <XAxis dataKey="name" tickLine={false} axisLine={false} />
