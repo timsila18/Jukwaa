@@ -240,6 +240,19 @@ type LiveBootstrap = {
     candidateId: string;
     role: string;
     isPlatformAdmin: boolean;
+    member?: {
+      id?: string;
+      full_name?: string | null;
+      email?: string | null;
+      phone_number?: string | null;
+      role?: string | null;
+      status?: string | null;
+      county_name?: string | null;
+      constituency_name?: string | null;
+      ward_name?: string | null;
+      village_name?: string | null;
+      polling_station_name?: string | null;
+    } | null;
     access?: {
       allowed: boolean;
       status: string;
@@ -341,10 +354,12 @@ type LiveSupporter = {
 type ElectoralFocusArea = {
   label: string;
   chartName: string;
-  level: "country" | "county" | "constituency" | "ward";
+  level: "country" | "county" | "constituency" | "ward" | "local" | "pollingStation";
   countyName: string;
   constituencyName: string;
   wardName: string;
+  localName?: string;
+  pollingStationName?: string;
 };
 
 function normalizeSupporter(record: LiveBootstrap["supporters"][number]): LiveSupporter {
@@ -590,13 +605,14 @@ export default function Home() {
   const campaignPosition = liveBootstrap?.campaign?.position_targeted || campaign.positionTargeted;
   const campaignSlogan = liveBootstrap?.campaign?.slogan || candidateBranding.slogan;
   const commercialAccess = liveBootstrap?.workspace.access;
+  const currentMember = liveBootstrap?.workspace.member;
   const referenceCandidateName = liveBootstrap?.campaign?.candidate_name || "Campaign Owner";
-  const referenceWorkspaceName = liveBootstrap?.campaign?.campaign_name || "Campaign Workspace";
   const currentRole = liveBootstrap?.workspace.role || "Candidate";
   const roleProfile = roleProfiles[currentRole] ?? roleProfiles.Candidate;
   const allowedNavLabels = roleNavItems[currentRole] ?? roleNavItems.Candidate;
   const visibleNavItems = navItems.filter((item) => allowedNavLabels.includes(item.label));
   const isOwnerAccount = currentRole === "Candidate" || currentRole === "Admin" || liveBootstrap?.workspace.isPlatformAdmin;
+  const currentMemberName = currentMember?.full_name || (isOwnerAccount ? referenceCandidateName : "Campaign User");
   const profileSection = allowedNavLabels.includes("Team & Roles") ? "Team & Roles" : "Dashboard";
   const accountSection = isOwnerAccount ? "Candidate Management" : profileSection;
   const paymentUrl = `/payment/confirm?accountReference=${encodeURIComponent(liveBootstrap?.workspace.candidateId ? `JUKWAA-${liveBootstrap.workspace.candidateId.slice(0, 8).toUpperCase()}` : "JUKWAA-WORKSPACE")}&amountKes=45000`;
@@ -605,6 +621,7 @@ export default function Home() {
   const isCountyRace = ["governor", "senator", "women representative", "woman representative", "women rep", "woman rep"].some((position) => normalizedPosition.includes(position));
   const isMcaRace = normalizedPosition.includes("mca");
   const scopeLevel: ElectoralFocusArea["level"] = isNationalRace ? "country" : isCountyRace ? "county" : isMcaRace ? "ward" : "constituency";
+  const analysisLevel: ElectoralFocusArea["level"] = isNationalRace ? "county" : isCountyRace ? "constituency" : isMcaRace ? "local" : "ward";
   const electiveScopeLabel = isNationalRace
     ? "Kenya"
     : isCountyRace
@@ -612,6 +629,25 @@ export default function Home() {
       : isMcaRace
         ? `${campaignWard || supporterWard || "Ward"} Ward`
         : `${campaignConstituency || "Constituency"} Constituency`;
+  const candidateDescriptor = `${campaignPosition} candidate for ${electiveScopeLabel}`;
+  const personalWorkspaceTitle = isOwnerAccount ? (liveBootstrap?.campaign?.campaign_name || `${referenceCandidateName} Campaign`) : `${currentMemberName} Workspace`;
+  const personalWorkspaceSubtitle = isOwnerAccount
+    ? `${referenceCandidateName}, ${candidateDescriptor}`
+    : `${currentMemberName}, ${currentRole} for ${referenceCandidateName}, ${candidateDescriptor}`;
+  const memberAssignmentLabel = [
+    currentMember?.polling_station_name,
+    currentMember?.village_name,
+    currentMember?.ward_name,
+    currentMember?.constituency_name,
+    currentMember?.county_name,
+  ].find((value) => typeof value === "string" && value.trim()) || electiveScopeLabel;
+  const geographyLadder = isNationalRace
+    ? ["Kenya", "Counties", "Constituencies", "Wards", "Local Units"]
+    : isCountyRace
+      ? [`${campaignCounty || "County"} County`, "Constituencies", "Wards", "Local Units"]
+      : isMcaRace
+        ? [`${campaignWard || "Ward"} Ward`, "Local Units", "Polling Stations"]
+        : [`${campaignConstituency || "Constituency"} Constituency`, "Wards", "Local Units"];
   const focusAreas: ElectoralFocusArea[] = (() => {
     if (scopeLevel === "country") {
       return kenyaCounties.map((countyName) => ({ label: countyName, chartName: countyName, level: "county", countyName, constituencyName: "", wardName: "" }));
@@ -621,7 +657,21 @@ export default function Home() {
     }
     if (scopeLevel === "ward" && normalizedPosition.includes("mca") && campaignConstituency) {
       const wardName = campaignWard || wardsForConstituency(campaignConstituency)[0] || "";
-      return [{ label: wardName || campaignConstituency, chartName: wardName || campaignConstituency, level: "ward", countyName: campaignCounty || countyForConstituency(campaignConstituency), constituencyName: campaignConstituency, wardName }];
+      const localUnits = workspaceSupporters
+        .filter((supporter) => !wardName || supporter.ward === wardName || supporter.ward === "Not assigned")
+        .map((supporter) => supporter.pollingStation)
+        .filter((value) => value && value !== "Not assigned");
+      const uniqueLocalUnits = Array.from(new Set(localUnits));
+      return (uniqueLocalUnits.length ? uniqueLocalUnits : ["Local Units", "Polling Stations"]).map((localName) => ({
+        label: localName,
+        chartName: localName,
+        level: localName === "Polling Stations" ? "pollingStation" : "local",
+        countyName: campaignCounty || countyForConstituency(campaignConstituency),
+        constituencyName: campaignConstituency,
+        wardName,
+        localName,
+        pollingStationName: localName,
+      }));
     }
     if (campaignConstituency) {
       const countyName = campaignCounty || countyForConstituency(campaignConstituency);
@@ -636,8 +686,8 @@ export default function Home() {
   })();
   const effectiveFocusArea = focusAreas.find((area) => area.label === supporterWard) ?? focusAreas[0] ?? { label: "", chartName: "", level: scopeLevel, countyName: campaignCounty, constituencyName: campaignConstituency, wardName: "" };
   const effectiveSupporterWard = effectiveFocusArea.wardName || supporterWard || "";
-  const focusAreaPlural = scopeLevel === "country" ? "counties" : scopeLevel === "county" ? "constituencies" : scopeLevel === "ward" ? "local units" : "wards";
-  const focusAreaSingular = scopeLevel === "country" ? "County" : scopeLevel === "county" ? "Constituency" : scopeLevel === "ward" ? "Local unit" : "Ward";
+  const focusAreaPlural = analysisLevel === "county" ? "counties" : analysisLevel === "constituency" ? "constituencies" : analysisLevel === "local" ? "local units" : "wards";
+  const focusAreaSingular = analysisLevel === "county" ? "County" : analysisLevel === "constituency" ? "Constituency" : analysisLevel === "local" ? "Local unit" : "Ward";
   const selectedLocationPayload = {
     countyName: effectiveFocusArea.countyName || campaignCounty,
     constituencyName: effectiveFocusArea.constituencyName || campaignConstituency,
@@ -838,7 +888,7 @@ export default function Home() {
   }, [name, phone, workspaceSupporters]);
 
   const supportLevelData = groupCount(workspaceSupporters, "supportLevel");
-  const focusDataKey = scopeLevel === "country" ? "county" : scopeLevel === "county" ? "constituency" : scopeLevel === "ward" ? "pollingStation" : "ward";
+  const focusDataKey = analysisLevel === "county" ? "county" : analysisLevel === "constituency" ? "constituency" : analysisLevel === "local" ? "pollingStation" : "ward";
   const liveFocusCounts = groupCount(workspaceSupporters, focusDataKey).filter((row) => row.name !== "Not assigned" && row.name !== "Not recorded");
   const wardData = liveFocusCounts.length
     ? liveFocusCounts
@@ -865,23 +915,26 @@ export default function Home() {
           if (area.level === "county") return supporter.county === area.countyName || supporter.county === area.label;
           if (area.level === "constituency") return supporter.constituency === area.constituencyName || supporter.constituency === area.label;
           if (area.level === "ward") return supporter.ward === area.wardName || supporter.ward === area.label || supporter.pollingStation === area.label;
+          if (area.level === "local" || area.level === "pollingStation") return supporter.pollingStation === area.pollingStationName || supporter.pollingStation === area.label || supporter.ward === area.wardName;
           return true;
         }).length;
         const areaVisits = liveFieldVisits.filter((visit) => {
           if (area.level === "constituency") return liveText(visit, "constituency_name", "") === area.constituencyName || liveText(visit, "constituency_name", "") === area.label;
           if (area.level === "ward") return liveText(visit, "ward_name", "") === area.wardName || liveText(visit, "ward_name", "") === area.label;
+          if (area.level === "local" || area.level === "pollingStation") return liveText(visit, "polling_station_name", "") === area.pollingStationName || liveText(visit, "village_name", "") === area.localName || liveText(visit, "ward_name", "") === area.wardName;
           return liveText(visit, "county_name", "") === area.countyName || liveText(visit, "county_name", "") === area.label;
         }).length;
         const areaIssues = liveIssues.filter((issue) => {
           if (area.level === "constituency") return liveText(issue, "constituency_name", "") === area.constituencyName || liveText(issue, "constituency_name", "") === area.label;
           if (area.level === "ward") return liveText(issue, "ward_name", "") === area.wardName || liveText(issue, "ward_name", "") === area.label;
+          if (area.level === "local" || area.level === "pollingStation") return liveText(issue, "polling_station_name", "") === area.pollingStationName || liveText(issue, "village_name", "") === area.localName || liveText(issue, "ward_name", "") === area.wardName;
           return liveText(issue, "county_name", "") === area.countyName || liveText(issue, "county_name", "") === area.label;
         }).length;
         const score = Math.min(100, Math.round(areaSupporters * 8 + areaVisits * 18 + areaIssues * 10));
         return {
           name: area.chartName,
           ward: area.wardName || area.constituencyName || area.countyName || area.label,
-          village: area.level === "county" ? "County campaign unit" : area.level === "constituency" ? "Constituency campaign unit" : campaignConstituency || electiveScopeLabel,
+          village: area.level === "county" ? "County campaign unit" : area.level === "constituency" ? "Constituency campaign unit" : area.level === "local" || area.level === "pollingStation" ? `${area.wardName || electiveScopeLabel} ground unit` : campaignConstituency || electiveScopeLabel,
           score,
           status: score >= 70 ? "Well covered" : score >= 35 ? "Moderately covered" : "Needs activity",
           supporters: areaSupporters,
@@ -940,10 +993,17 @@ export default function Home() {
     {
       id: "candidate-owner",
       name: referenceCandidateName,
-      role: currentRole,
+      role: "Candidate",
       geography: electiveScopeLabel,
       status: commercialAccess?.allowed ? "Active" : commercialAccess?.status || "Pending Access",
     },
+    !isOwnerAccount ? {
+      id: String(currentMember?.id || "current-member"),
+      name: currentMemberName,
+      role: currentRole,
+      geography: memberAssignmentLabel,
+      status: currentMember?.status || "Active",
+    } : null,
     ...workspaceInvitations.map((invite) => ({
       id: invite.id,
       name: invite.invitedName,
@@ -965,7 +1025,7 @@ export default function Home() {
       geography: liveText(agent, "polling_station_name", liveText(agent, "ward_name", electiveScopeLabel)),
       status: liveText(agent, "status", "Pending"),
     })),
-  ];
+  ].filter(Boolean) as Array<{ id: string; name: string; role: string; geography: string; status: string }>;
   const workspaceAuditRows = liveAuditLogs.map((event) => ({
     id: String(event.id),
     action: liveText(event, "action", "Workspace action"),
@@ -1039,7 +1099,7 @@ export default function Home() {
   }
 
   const readinessLabel = currentRole === "Campaign Manager" ? "Manager Execution Readiness" : currentRole === "Polling Agent" ? "Station Readiness" : currentRole === "Volunteer" ? "Field Readiness" : "Campaign Readiness";
-  const readinessHelper = currentRole === "Campaign Manager" ? "Your team execution cockpit under the candidate workspace." : currentRole === "Polling Agent" ? "Focus on station tasks, incidents, turnout, and results." : currentRole === "Volunteer" ? "Focus on field tasks, supporters, issues, and visits." : "You are making great progress.";
+  const readinessHelper = currentRole === "Campaign Manager" ? `Your execution cockpit for ${referenceCandidateName}'s ${electiveScopeLabel} campaign.` : currentRole === "Polling Agent" ? `Focus on ${memberAssignmentLabel} station tasks, incidents, turnout, and results.` : currentRole === "Volunteer" ? `Focus on field tasks, supporters, issues, and visits in ${memberAssignmentLabel}.` : !isOwnerAccount ? `Your ${currentRole} tools are scoped to ${memberAssignmentLabel}.` : "You are making great progress.";
   useEffect(() => {
     if (!allowedNavLabels.includes(activeSection)) {
       queueMicrotask(() => setActiveSection("Dashboard"));
@@ -1209,7 +1269,7 @@ export default function Home() {
     },
   };
   const activeSectionId = sectionTargets[activeSection] ?? sectionTargets.Dashboard;
-  const activeSubtitle = activeSection === "Dashboard" ? `${electiveScopeLabel} campaign operations` : `Manage ${activeSection.toLowerCase()} for ${electiveScopeLabel}`;
+  const activeSubtitle = activeSection === "Dashboard" ? personalWorkspaceSubtitle : `Manage ${activeSection.toLowerCase()} as ${currentRole} for ${referenceCandidateName}`;
   const activeWorkspaceFeatures = workspaceFeatures[activeSection as keyof typeof workspaceFeatures] ?? workspaceFeatures.Dashboard;
 
   function sectionClass(sectionId: string, baseClassName: string) {
@@ -1437,7 +1497,7 @@ export default function Home() {
         <div className="mt-6 rounded-lg border border-white/10 bg-white/[0.055] p-3 shadow-[0_14px_34px_rgba(0,0,0,0.16)]">
           <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Current Workspace</p>
           <button className="mt-2 flex w-full items-center justify-between gap-3 text-left" onClick={() => setWorkspaceMenuOpen((current) => !current)} aria-expanded={workspaceMenuOpen} type="button">
-            <p className="text-sm font-bold text-white">{referenceWorkspaceName}</p>
+            <p className="text-sm font-bold text-white">{personalWorkspaceTitle}</p>
             <ChevronDown size={16} className={`text-slate-300 transition ${workspaceMenuOpen ? "rotate-180" : ""}`} />
           </button>
           <p className="mt-2 text-xs font-bold text-amber-200">{electiveScopeLabel}</p>
@@ -1484,10 +1544,10 @@ export default function Home() {
         <div className="mt-4 border-t border-white/10 pt-4">
           <button className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-2 text-left hover:bg-white/10" onClick={() => setAccountMenuOpen((current) => !current)} aria-expanded={accountMenuOpen} type="button">
             <span className="flex items-center gap-3">
-              <span className="grid h-10 w-10 place-items-center rounded-full bg-white text-sm font-black text-slate-950">{referenceCandidateName.slice(0, 1)}</span>
+              <span className="grid h-10 w-10 place-items-center rounded-full bg-white text-sm font-black text-slate-950">{currentMemberName.slice(0, 1)}</span>
               <span>
-                <span className="block text-sm font-bold text-white">{referenceCandidateName}</span>
-                <span className="block text-xs text-slate-400">{roleProfile.badge}</span>
+                <span className="block text-sm font-bold text-white">{currentMemberName}</span>
+                <span className="block text-xs text-slate-400">{currentRole}</span>
               </span>
             </span>
             <ChevronDown size={16} className={`text-slate-300 transition ${accountMenuOpen ? "rotate-180" : ""}`} />
@@ -1535,10 +1595,10 @@ export default function Home() {
                 <span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-emerald-500 text-[10px] font-black text-white">{openMessageCount}</span>
               </button>
               <button className="hidden h-10 items-center gap-3 rounded-md border-l border-slate-200 pl-3 text-left sm:inline-flex" onClick={() => scrollToSection(accountSection)} type="button">
-                <span className="grid h-9 w-9 place-items-center rounded-full bg-slate-100 text-sm font-black text-slate-700 ring-1 ring-slate-200">{referenceCandidateName.slice(0, 1)}</span>
+                <span className="grid h-9 w-9 place-items-center rounded-full bg-slate-100 text-sm font-black text-slate-700 ring-1 ring-slate-200">{currentMemberName.slice(0, 1)}</span>
                 <span>
-                  <span className="block text-sm font-black text-slate-950">{referenceCandidateName}</span>
-                  <span className="block text-xs font-semibold text-slate-600">{roleProfile.badge}</span>
+                  <span className="block text-sm font-black text-slate-950">{currentMemberName}</span>
+                  <span className="block text-xs font-semibold text-slate-600">{currentRole}</span>
                 </span>
                 <ChevronDown size={16} className="text-slate-700" />
               </button>
@@ -1571,13 +1631,22 @@ export default function Home() {
               <div className="grid gap-5 lg:grid-cols-[1.1fr_1fr_1.45fr] lg:items-center">
                 <div>
                   <span className="rounded-full bg-white px-3 py-1 text-xs font-black uppercase tracking-wide text-blue-700 ring-1 ring-blue-100">{roleProfile.badge}</span>
-                  <h2 className="mt-3 text-2xl font-black tracking-tight text-slate-950">{referenceWorkspaceName}</h2>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{campaignPosition} focus for {electiveScopeLabel}. {campaignSlogan ? `Slogan: "${campaignSlogan}"` : roleProfile.subtitle}</p>
+                  <h2 className="mt-3 text-2xl font-black tracking-tight text-slate-950">{personalWorkspaceTitle}</h2>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{personalWorkspaceSubtitle}. {campaignSlogan ? `Slogan: "${campaignSlogan}"` : roleProfile.subtitle}</p>
                   <div className="mt-3 flex flex-wrap gap-2">
+                    <span className="rounded-md bg-slate-950 px-2.5 py-1 text-xs font-black text-white">{currentRole}</span>
+                    {!isOwnerAccount ? <span className="rounded-md bg-sky-100 px-2.5 py-1 text-xs font-black text-sky-800">Assigned: {memberAssignmentLabel}</span> : null}
                     {campaignCounty ? <span className="rounded-md bg-white px-2.5 py-1 text-xs font-black text-slate-700 ring-1 ring-slate-200">{campaignCounty} County</span> : null}
                     {campaignConstituency ? <span className="rounded-md bg-white px-2.5 py-1 text-xs font-black text-slate-700 ring-1 ring-slate-200">{campaignConstituency} Constituency</span> : null}
                     {campaignWard ? <span className="rounded-md bg-white px-2.5 py-1 text-xs font-black text-slate-700 ring-1 ring-slate-200">{campaignWard} Ward</span> : null}
                     <span className="rounded-md bg-amber-100 px-2.5 py-1 text-xs font-black text-amber-800">{focusAreas.length || focusWards.length} focus {focusAreaPlural}</span>
+                  </div>
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                    {geographyLadder.map((step, index) => (
+                      <span key={`${step}-${index}`} className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-black ${index === 0 ? "bg-blue-700 text-white" : "bg-white text-slate-700 ring-1 ring-slate-200"}`}>
+                        {index + 1}. {step}
+                      </span>
+                    ))}
                   </div>
                 </div>
                 <div className="border-slate-200 lg:border-l lg:pl-6">
@@ -1775,10 +1844,15 @@ export default function Home() {
                   </>
                 ) : (
                   <>
-                    <h2 className="text-base font-black text-slate-950">{roleProfile.badge} Scope</h2>
-                    <div className="mt-4 rounded-lg bg-slate-50 p-4">
-                      <p className="text-sm font-bold text-slate-950">Under {referenceCandidateName}&apos;s campaign</p>
-                      <p className="mt-2 text-sm leading-6 text-slate-600">This is your working account for assigned campaign duties. Billing, ownership, and candidate profile controls remain with the candidate/admin account.</p>
+                    <h2 className="text-base font-black text-slate-950">{currentRole} Scope</h2>
+                    <div className="mt-4 rounded-lg border border-sky-100 bg-gradient-to-br from-sky-50 to-white p-4">
+                      <p className="text-sm font-bold text-slate-950">{currentMemberName} working for {referenceCandidateName}</p>
+                      <p className="mt-2 text-sm leading-6 text-slate-600">{personalWorkspaceSubtitle}. Your primary assignment is {memberAssignmentLabel}. Billing, ownership, and candidate profile controls remain with the candidate/admin account.</p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {allowedNavLabels.slice(0, 6).map((label) => (
+                          <span key={label} className="rounded-md bg-white px-2 py-1 text-[11px] font-black text-sky-800 ring-1 ring-sky-100">{label}</span>
+                        ))}
+                      </div>
                     </div>
                     <div className="mt-4 grid gap-2 sm:grid-cols-2">
                       <button className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white hover:bg-slate-900" onClick={() => scrollToSection(profileSection)} type="button"><UserCog size={16} />My Role Tools</button>
@@ -2186,7 +2260,7 @@ export default function Home() {
                 <ReportLink report="donations" label="Donations" />
               </div>
               <div className="mt-4 space-y-3">
-                {emptyState(`No live donations have been recorded for ${referenceWorkspaceName} yet.`)}
+                {emptyState(`No live donations have been recorded for ${personalWorkspaceTitle} yet.`)}
               </div>
             </div>
 
@@ -2196,7 +2270,7 @@ export default function Home() {
                 <ReportLink report="expenses" label="Expenses" />
               </div>
               <div className="mt-4 space-y-3">
-                {emptyState(`No live expenses have been entered for ${referenceWorkspaceName} yet.`)}
+                {emptyState(`No live expenses have been entered for ${personalWorkspaceTitle} yet.`)}
               </div>
             </div>
 
@@ -2218,7 +2292,7 @@ export default function Home() {
                     <p className="mt-2 text-xs text-slate-500">Remaining KES {row.remaining.toLocaleString()}</p>
                   </div>
                 ))}
-                {budgetRows.length === 0 ? emptyState(`No budget records have been entered for ${referenceWorkspaceName} yet.`) : null}
+                {budgetRows.length === 0 ? emptyState(`No budget records have been entered for ${personalWorkspaceTitle} yet.`) : null}
               </div>
             </div>
           </section>
@@ -2248,7 +2322,7 @@ export default function Home() {
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <h2 className="text-sm font-bold text-slate-950">Transaction Logs</h2>
               <div className="mt-4 space-y-3">
-                {emptyState(`No live M-Pesa transactions have been recorded for ${referenceWorkspaceName} yet.`)}
+                {emptyState(`No live M-Pesa transactions have been recorded for ${personalWorkspaceTitle} yet.`)}
               </div>
             </div>
 
@@ -2318,7 +2392,7 @@ export default function Home() {
                 <ReportLink report="documents" label="Documents" />
               </div>
               <div className="mt-4 space-y-3">
-                {emptyState(`No campaign documents have been uploaded for ${referenceWorkspaceName} yet.`)}
+                {emptyState(`No campaign documents have been uploaded for ${personalWorkspaceTitle} yet.`)}
               </div>
             </div>
 
@@ -2363,7 +2437,7 @@ export default function Home() {
                   constituency: electiveScopeLabel,
                   verificationStatus: liveBootstrap?.campaign?.active_status || "Active",
                   biography: campaignSlogan || `Candidate workspace for ${electiveScopeLabel}.`,
-                  campaignName: referenceWorkspaceName,
+                  campaignName: personalWorkspaceTitle,
                   activeStatus: commercialAccess?.allowed ? "Workspace active" : commercialAccess?.status || "Awaiting activation",
                   phoneNumber: "Login account contact",
                   politicalParty: liveBootstrap?.campaign?.political_party || "Not recorded",
@@ -2631,7 +2705,7 @@ export default function Home() {
                 <ReportLink report="payments" label="Payments" />
               </div>
               <div className="mt-4 space-y-3">
-                {emptyState(`No payment records have been received for ${referenceWorkspaceName} yet.`)}
+                {emptyState(`No payment records have been received for ${personalWorkspaceTitle} yet.`)}
                 <p className="text-xs text-slate-500">{liveBootstrap?.summary.payments ?? 0} live payment records tracked for this workspace.</p>
               </div>
             </div>
@@ -3612,7 +3686,7 @@ export default function Home() {
                     <span className="text-xs font-bold text-sky-700">{user.status}</span>
                   </div>
                 ))}
-                {workspaceUserRows.length === 0 ? emptyState(`No users have been added for ${referenceWorkspaceName} yet.`) : null}
+                {workspaceUserRows.length === 0 ? emptyState(`No users have been added for ${personalWorkspaceTitle} yet.`) : null}
               </div>
             </div>
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -3624,7 +3698,7 @@ export default function Home() {
                     <p className="text-xs text-slate-500">{event.user} at {event.timestamp}</p>
                   </div>
                 ))}
-                {workspaceAuditRows.length === 0 ? emptyState(`No audit events have been recorded for ${referenceWorkspaceName} yet.`) : null}
+                {workspaceAuditRows.length === 0 ? emptyState(`No audit events have been recorded for ${personalWorkspaceTitle} yet.`) : null}
               </div>
             </div>
           </section>

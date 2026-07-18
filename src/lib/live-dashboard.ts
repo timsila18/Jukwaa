@@ -9,6 +9,7 @@ export type LiveSnapshot = {
     memberId: string;
     role: string;
     isPlatformAdmin: boolean;
+    member?: DbRow | null;
     access?: {
       allowed: boolean;
       status: string;
@@ -124,6 +125,33 @@ async function withAreaNames(tenantId: string, rows: DbRow[]) {
   });
 }
 
+function scopedRowsForMember(rows: DbRow[], member: DbRow | null | undefined, role: string, isPlatformAdmin: boolean) {
+  if (isPlatformAdmin || ["Candidate", "Campaign Manager", "Admin", "Media Team", "Data Clerk"].includes(role) || !member) return rows;
+
+  const assignedStation = String(member.assigned_polling_station_id ?? "");
+  const assignedVillage = String(member.assigned_village_id ?? "");
+  const assignedWard = String(member.assigned_ward_id ?? "");
+  const assignedConstituency = String(member.assigned_constituency_id ?? "");
+  const assignedCounty = String(member.assigned_county_id ?? "");
+
+  if (!assignedStation && !assignedVillage && !assignedWard && !assignedConstituency && !assignedCounty) return rows;
+
+  return rows.filter((row) => {
+    const rowStation = String(row.polling_station_id ?? row.assigned_polling_station_id ?? "");
+    const rowVillage = String(row.village_id ?? row.assigned_village_id ?? "");
+    const rowWard = String(row.ward_id ?? row.assigned_ward_id ?? "");
+    const rowConstituency = String(row.constituency_id ?? row.assigned_constituency_id ?? "");
+    const rowCounty = String(row.county_id ?? row.assigned_county_id ?? "");
+
+    if (assignedStation) return rowStation === assignedStation;
+    if (assignedVillage) return rowVillage === assignedVillage || rowStation === assignedStation;
+    if (assignedWard) return rowWard === assignedWard || rowVillage === assignedVillage || rowStation === assignedStation;
+    if (assignedConstituency) return rowConstituency === assignedConstituency || rowWard === assignedWard || rowVillage === assignedVillage || rowStation === assignedStation;
+    if (assignedCounty) return rowCounty === assignedCounty || rowConstituency === assignedConstituency || rowWard === assignedWard;
+    return true;
+  });
+}
+
 export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?: LiveSnapshot["workspace"]["access"]): Promise<LiveSnapshot> {
   const tenantId = session.tenantId;
   const candidateId = session.candidateId;
@@ -145,6 +173,7 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
     auditLogs,
     invitations,
     pollingResults,
+    memberResult,
     settingsResult,
     candidateResult,
     solcoResult,
@@ -176,6 +205,7 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
     fetchRows("workspace_audit_logs", tenantId, "id, action, module, record_id, created_at", 50),
     fetchRows("invitations", tenantId, "id, invited_name, invited_phone, invited_email, role, status, expiry_date, created_at", 100),
     fetchRows("polling_results", tenantId, "id, candidate_name, votes, rejected_votes, total_votes, verification_status, created_at", 100),
+    admin.from("campaign_members").select("id, full_name, email, phone_number, role, status, assigned_country_id, assigned_county_id, assigned_constituency_id, assigned_ward_id, assigned_village_id, assigned_polling_station_id").eq("id", session.memberId || "00000000-0000-0000-0000-000000000000").limit(1).maybeSingle(),
     admin.from("campaign_settings").select("campaign_name, candidate_name, position_targeted, political_party, county, constituency, election_year, slogan, active_status").eq("tenant_id", tenantId).limit(1).maybeSingle(),
     admin.from("candidates").select("full_name, campaign_name, position_contesting, political_party, county, constituency, ward, slogan, active_status").eq("id", candidateId).limit(1).maybeSingle(),
     admin.from("solco_integrations").select("workspace_url, livekit_url_label, token_endpoint, meeting_path, status").eq("tenant_id", tenantId).eq("candidate_id", candidateId).limit(1).maybeSingle(),
@@ -195,16 +225,32 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
   ]);
 
   const livekitConfigured = Boolean(process.env.LIVEKIT_URL && process.env.LIVEKIT_API_KEY && process.env.LIVEKIT_API_SECRET);
-  const [namedSupporters, namedVolunteers, namedPollingAgents, namedFieldVisits, namedIssues] = await Promise.all([
-    withAreaNames(tenantId, supporters),
-    withAreaNames(tenantId, volunteers),
-    withAreaNames(tenantId, pollingAgents),
-    withAreaNames(tenantId, fieldVisits),
-    withAreaNames(tenantId, issues),
+  const member = memberResult.data as DbRow | null;
+  const scopedSupporters = scopedRowsForMember(supporters, member, session.role, session.isPlatformAdmin);
+  const scopedVolunteers = scopedRowsForMember(volunteers, member, session.role, session.isPlatformAdmin);
+  const scopedPollingAgents = scopedRowsForMember(pollingAgents, member, session.role, session.isPlatformAdmin);
+  const scopedFieldVisits = scopedRowsForMember(fieldVisits, member, session.role, session.isPlatformAdmin);
+  const scopedIssues = scopedRowsForMember(issues, member, session.role, session.isPlatformAdmin);
+  const [namedSupporters, namedVolunteers, namedPollingAgents, namedFieldVisits, namedIssues, namedMembers] = await Promise.all([
+    withAreaNames(tenantId, scopedSupporters),
+    withAreaNames(tenantId, scopedVolunteers),
+    withAreaNames(tenantId, scopedPollingAgents),
+    withAreaNames(tenantId, scopedFieldVisits),
+    withAreaNames(tenantId, scopedIssues),
+    withAreaNames(tenantId, member ? [member] : []),
   ]);
+  const scopedSummary = ["Candidate", "Campaign Manager", "Admin", "Media Team", "Data Clerk"].includes(session.role) || session.isPlatformAdmin
+    ? null
+    : {
+        supporters: namedSupporters.length,
+        volunteers: namedVolunteers.length,
+        pollingAgents: namedPollingAgents.length,
+        tasks: tasks.length,
+        issues: namedIssues.length,
+      };
 
   return {
-    workspace: { ...session, access },
+    workspace: { ...session, member: namedMembers[0] ?? null, access },
     campaign: {
       ...(candidateResult.data ?? {}),
       ...(settingsResult.data ?? {}),
@@ -213,13 +259,13 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
       ward: (candidateResult.data as DbRow | null)?.ward ?? null,
     },
     summary: {
-      supporters: supporterCount,
-      volunteers: volunteerCount,
-      pollingAgents: pollingAgentCount,
+      supporters: scopedSummary?.supporters ?? supporterCount,
+      volunteers: scopedSummary?.volunteers ?? volunteerCount,
+      pollingAgents: scopedSummary?.pollingAgents ?? pollingAgentCount,
       tasks: taskCount,
       tasksCompleted: taskCompleteCount,
       tasksOverdue: taskOverdueCount,
-      issues: issueCount,
+      issues: scopedSummary?.issues ?? issueCount,
       events: eventCount,
       payments,
       invitations: invitationCount,
