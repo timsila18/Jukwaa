@@ -62,17 +62,28 @@ export async function POST(request: Request) {
 
   const model = process.env.OPENAI_MODEL ?? "gpt-4.1-mini";
   const snapshot = await getLiveWorkspaceSnapshot(auth.session, access.access);
+  const campaignPosition = String(snapshot.campaign?.position_targeted ?? snapshot.campaign?.position_contesting ?? "").toLowerCase();
+  const areaField = campaignPosition.includes("president") || campaignPosition.includes("referendum")
+    ? "county_name"
+    : ["governor", "senator", "women representative", "woman representative", "women rep", "woman rep"].some((role) => campaignPosition.includes(role))
+      ? "constituency_name"
+      : campaignPosition.includes("mca")
+        ? "polling_station_name"
+        : "ward_name";
   const context = {
     campaign: snapshot.campaign,
     workspaceAccess: snapshot.workspace.access,
     summary: snapshot.summary,
-    supportersByWard: snapshot.supporters.reduce<Record<string, number>>((totals, supporter) => {
-      const ward = String(supporter.ward_name || "Not assigned");
-      totals[ward] = (totals[ward] ?? 0) + 1;
+    supportersByArea: snapshot.supporters.reduce<Record<string, number>>((totals, supporter) => {
+      const area = String(supporter[areaField] || supporter.village_name || supporter.ward_name || "Not assigned");
+      totals[area] = (totals[area] ?? 0) + 1;
       return totals;
     }, {}),
     supporterSegments: snapshot.supporters.slice(0, 80).map((supporter) => ({
+      county: supporter.county_name,
+      constituency: supporter.constituency_name,
       ward: supporter.ward_name,
+      village: supporter.village_name,
       station: supporter.polling_station_name,
       supportLevel: supporter.support_level,
       keyIssue: supporter.key_issue,
@@ -80,6 +91,8 @@ export async function POST(request: Request) {
     })),
     volunteers: snapshot.volunteers.slice(0, 50).map((volunteer) => ({
       name: volunteer.full_name,
+      county: volunteer.county_name,
+      constituency: volunteer.constituency_name,
       ward: volunteer.ward_name,
       status: volunteer.status,
       joined: volunteer.join_date,
@@ -87,6 +100,8 @@ export async function POST(request: Request) {
     issues: snapshot.issues.slice(0, 80).map((issue) => ({
       title: issue.issue_title,
       category: issue.category,
+      county: issue.county_name,
+      constituency: issue.constituency_name,
       ward: issue.ward_name,
       village: issue.village_name,
       priority: issue.priority_level,
@@ -111,7 +126,7 @@ export async function POST(request: Request) {
     body: JSON.stringify({
       model,
       instructions:
-        "You are JUKWAA AI, a concise political campaign intelligence assistant. Use only the provided live workspace context. Ground recommendations in the candidate's actual elective area, wards, supporters, issues, tasks, events, and communications. Give practical next steps, call out missing data, and never present predictions as certainty.",
+        "You are JUKWAA AI, a concise political campaign intelligence assistant. Use only the provided live workspace context. Ground recommendations in the candidate's actual elective area: counties for presidential races, constituencies for governor/senator/women representative races, wards for MP races, and local units or polling stations for MCA races. Give practical next steps, call out missing data, and never present predictions as certainty.",
       input: [
         {
           role: "user",

@@ -47,7 +47,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { accessibleTextColor, validateWorkspaceBranding } from "@/lib/design-system";
-import { wardsForConstituency } from "@/lib/kenya-geography";
+import { constituenciesForCounty, countyForConstituency, kenyaCounties, wardsForConstituency, wardsForCounty, wardsForKenya } from "@/lib/kenya-geography";
 import {
   Bar,
   BarChart,
@@ -301,6 +301,7 @@ type LiveBootstrap = {
     political_party?: string;
     county?: string;
     constituency?: string;
+    ward?: string;
     election_year?: string;
     slogan?: string;
   } | null;
@@ -342,6 +343,8 @@ type LiveBootstrap = {
     volunteer_interest: boolean;
     gender?: string | null;
     age_group?: string | null;
+    county_name?: string | null;
+    constituency_name?: string | null;
     ward_name?: string | null;
     village_name?: string | null;
     polling_station_name?: string | null;
@@ -368,6 +371,8 @@ type LiveSupporter = {
   id: string;
   fullName: string;
   phoneNumber: string;
+  county: string;
+  constituency: string;
   ward: string;
   pollingStation: string;
   supportLevel: SupportLevel;
@@ -377,11 +382,22 @@ type LiveSupporter = {
   ageGroup: string;
 };
 
+type ElectoralFocusArea = {
+  label: string;
+  chartName: string;
+  level: "country" | "county" | "constituency" | "ward";
+  countyName: string;
+  constituencyName: string;
+  wardName: string;
+};
+
 function normalizeSupporter(record: LiveBootstrap["supporters"][number]): LiveSupporter {
   return {
     id: record.id,
     fullName: record.full_name,
     phoneNumber: record.phone_number,
+    county: record.county_name || "Not assigned",
+    constituency: record.constituency_name || "Not assigned",
     ward: record.ward_name || "Not assigned",
     pollingStation: record.polling_station_name || record.village_name || "Not assigned",
     supportLevel: record.support_level,
@@ -427,7 +443,7 @@ function Logo() {
   );
 }
 
-function ChartCard({ title, children, report = "supporters-by-ward" }: { title: string; children: React.ReactNode; report?: string }) {
+function ChartCard({ title, children, report = "supporters-by-area" }: { title: string; children: React.ReactNode; report?: string }) {
   const mounted = useSyncExternalStore(subscribeToClient, getClientSnapshot, getServerSnapshot);
 
   return (
@@ -451,7 +467,7 @@ function PenetrationBadge({ value }: { value: number }) {
 function ExportButton({ type, label }: { type: "csv" | "xlsx" | "pdf"; label: string }) {
   return (
     <a
-      href={`/api/reports/export?format=${type}&report=supporters-by-ward`}
+      href={`/api/reports/export?format=${type}&report=supporters-by-area`}
       className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-800"
     >
       <Download size={15} />
@@ -550,18 +566,52 @@ export default function Home() {
   const usingLiveData = true;
   const campaignCounty = liveBootstrap?.campaign?.county || campaign.county;
   const campaignConstituency = liveBootstrap?.campaign?.constituency || campaign.constituency;
+  const campaignWard = liveBootstrap?.campaign?.ward || "";
   const campaignPosition = liveBootstrap?.campaign?.position_targeted || campaign.positionTargeted;
   const campaignSlogan = liveBootstrap?.campaign?.slogan || candidateBranding.slogan;
-  const focusWards = useMemo(() => campaignConstituency ? wardsForConstituency(campaignConstituency) : [], [campaignConstituency]);
-  const effectiveSupporterWard = supporterWard || focusWards[0] || "";
-  const electiveScopeLabel = campaignPosition === "Presidential" || campaignPosition === "Referendum"
+  const normalizedPosition = campaignPosition.toLowerCase();
+  const isNationalRace = normalizedPosition.includes("president") || normalizedPosition.includes("referendum");
+  const isCountyRace = ["governor", "senator", "women representative", "woman representative", "women rep", "woman rep"].some((position) => normalizedPosition.includes(position));
+  const isMcaRace = normalizedPosition.includes("mca");
+  const scopeLevel: ElectoralFocusArea["level"] = isNationalRace ? "country" : isCountyRace ? "county" : isMcaRace ? "ward" : "constituency";
+  const electiveScopeLabel = isNationalRace
     ? "Kenya"
-    : campaignPosition === "Governor" || campaignPosition === "Senator" || campaignPosition === "Women Representative"
+    : isCountyRace
       ? `${campaignCounty || "County"} County`
-      : campaignPosition === "MCA"
-        ? `${liveBootstrap?.campaign?.constituency || campaignConstituency || "Constituency"} Ward`
+      : isMcaRace
+        ? `${campaignWard || supporterWard || "Ward"} Ward`
         : `${campaignConstituency || "Constituency"} Constituency`;
-  const focusAreaPlural = focusWards.length ? "wards" : campaignConstituency ? "constituency areas" : "campaign areas";
+  const focusAreas: ElectoralFocusArea[] = (() => {
+    if (scopeLevel === "country") {
+      return kenyaCounties.map((countyName) => ({ label: countyName, chartName: countyName, level: "county", countyName, constituencyName: "", wardName: "" }));
+    }
+    if (scopeLevel === "county" && campaignCounty) {
+      return constituenciesForCounty(campaignCounty).map((constituencyName) => ({ label: constituencyName, chartName: constituencyName, level: "constituency", countyName: campaignCounty, constituencyName, wardName: "" }));
+    }
+    if (scopeLevel === "ward" && normalizedPosition.includes("mca") && campaignConstituency) {
+      const wardName = campaignWard || wardsForConstituency(campaignConstituency)[0] || "";
+      return [{ label: wardName || campaignConstituency, chartName: wardName || campaignConstituency, level: "ward", countyName: campaignCounty || countyForConstituency(campaignConstituency), constituencyName: campaignConstituency, wardName }];
+    }
+    if (campaignConstituency) {
+      const countyName = campaignCounty || countyForConstituency(campaignConstituency);
+      return wardsForConstituency(campaignConstituency).map((wardName) => ({ label: wardName, chartName: wardName, level: "ward", countyName, constituencyName: campaignConstituency, wardName }));
+    }
+    return [];
+  })();
+  const focusWards = (() => {
+    if (scopeLevel === "country") return wardsForKenya().map((area) => area.ward);
+    if (scopeLevel === "county" && campaignCounty) return wardsForCounty(campaignCounty).map((area) => area.ward);
+    return campaignConstituency ? wardsForConstituency(campaignConstituency) : [];
+  })();
+  const effectiveFocusArea = focusAreas.find((area) => area.label === supporterWard) ?? focusAreas[0] ?? { label: "", chartName: "", level: scopeLevel, countyName: campaignCounty, constituencyName: campaignConstituency, wardName: "" };
+  const effectiveSupporterWard = effectiveFocusArea.wardName || supporterWard || "";
+  const focusAreaPlural = scopeLevel === "country" ? "counties" : scopeLevel === "county" ? "constituencies" : scopeLevel === "ward" ? "local units" : "wards";
+  const focusAreaSingular = scopeLevel === "country" ? "County" : scopeLevel === "county" ? "Constituency" : scopeLevel === "ward" ? "Local unit" : "Ward";
+  const selectedLocationPayload = {
+    countyName: effectiveFocusArea.countyName || campaignCounty,
+    constituencyName: effectiveFocusArea.constituencyName || campaignConstituency,
+    wardName: effectiveFocusArea.wardName || effectiveSupporterWard,
+  };
   const totalSupporters = liveBootstrap?.summary.supporters ?? workspaceSupporters.length;
   const totalVolunteers = liveBootstrap?.summary.volunteers ?? liveVolunteers.length;
   const totalPollingAgents = liveBootstrap?.summary.pollingAgents ?? livePollingAgents.length;
@@ -737,10 +787,11 @@ export default function Home() {
   }, [name, phone, workspaceSupporters]);
 
   const supportLevelData = groupCount(workspaceSupporters, "supportLevel");
-  const liveWardCounts = groupCount(workspaceSupporters, "ward").filter((row) => row.name !== "Not assigned" && row.name !== "Not recorded");
-  const wardData = liveWardCounts.length
-    ? liveWardCounts
-    : focusWards.map((ward) => ({ name: ward, value: 0 }));
+  const focusDataKey = scopeLevel === "country" ? "county" : scopeLevel === "county" ? "constituency" : scopeLevel === "ward" ? "pollingStation" : "ward";
+  const liveFocusCounts = groupCount(workspaceSupporters, focusDataKey).filter((row) => row.name !== "Not assigned" && row.name !== "Not recorded");
+  const wardData = liveFocusCounts.length
+    ? liveFocusCounts
+    : focusAreas.map((area) => ({ name: area.chartName, value: 0 }));
   const genderData = groupCount(workspaceSupporters, "gender");
   const ageData = groupCount(workspaceSupporters, "ageGroup");
   const issueData = groupCount(workspaceSupporters, "keyIssue").slice(0, 6);
@@ -769,21 +820,34 @@ export default function Home() {
         };
       });
   const coverageRows = usingLiveData
-    ? (focusWards.length ? focusWards : wardData.map((row) => row.name)).map((ward) => {
-        const wardSupporters = workspaceSupporters.filter((supporter) => supporter.ward === ward).length;
-        const wardVisits = liveFieldVisits.filter((visit) => liveText(visit, "ward_name", "") === ward).length;
-        const wardIssues = liveIssues.filter((issue) => liveText(issue, "ward_name", "") === ward).length;
-        const score = Math.min(100, Math.round(wardSupporters * 8 + wardVisits * 18 + wardIssues * 10));
+    ? (focusAreas.length ? focusAreas : wardData.map((row) => ({ label: row.name, chartName: row.name, level: scopeLevel, countyName: "", constituencyName: "", wardName: row.name }))).map((area) => {
+        const areaSupporters = workspaceSupporters.filter((supporter) => {
+          if (area.level === "county") return supporter.county === area.countyName || supporter.county === area.label;
+          if (area.level === "constituency") return supporter.constituency === area.constituencyName || supporter.constituency === area.label;
+          if (area.level === "ward") return supporter.ward === area.wardName || supporter.ward === area.label || supporter.pollingStation === area.label;
+          return true;
+        }).length;
+        const areaVisits = liveFieldVisits.filter((visit) => {
+          if (area.level === "constituency") return liveText(visit, "constituency_name", "") === area.constituencyName || liveText(visit, "constituency_name", "") === area.label;
+          if (area.level === "ward") return liveText(visit, "ward_name", "") === area.wardName || liveText(visit, "ward_name", "") === area.label;
+          return liveText(visit, "county_name", "") === area.countyName || liveText(visit, "county_name", "") === area.label;
+        }).length;
+        const areaIssues = liveIssues.filter((issue) => {
+          if (area.level === "constituency") return liveText(issue, "constituency_name", "") === area.constituencyName || liveText(issue, "constituency_name", "") === area.label;
+          if (area.level === "ward") return liveText(issue, "ward_name", "") === area.wardName || liveText(issue, "ward_name", "") === area.label;
+          return liveText(issue, "county_name", "") === area.countyName || liveText(issue, "county_name", "") === area.label;
+        }).length;
+        const score = Math.min(100, Math.round(areaSupporters * 8 + areaVisits * 18 + areaIssues * 10));
         return {
-          name: ward,
-          ward,
-          village: campaignConstituency || electiveScopeLabel,
+          name: area.chartName,
+          ward: area.wardName || area.constituencyName || area.countyName || area.label,
+          village: area.level === "county" ? "County campaign unit" : area.level === "constituency" ? "Constituency campaign unit" : campaignConstituency || electiveScopeLabel,
           score,
           status: score >= 70 ? "Well covered" : score >= 35 ? "Moderately covered" : "Needs activity",
-          supporters: wardSupporters,
-          visits: wardVisits,
+          supporters: areaSupporters,
+          visits: areaVisits,
           events: liveEvents.length,
-          issues: wardIssues,
+          issues: areaIssues,
         };
       })
     : territoryCoverage().map((row) => ({ ...row, visits: row.activity }));
@@ -919,7 +983,7 @@ export default function Home() {
   const recentActivityRows = [
     ["Supporter Registration", `New supporter activity in ${electiveScopeLabel}`, "Field Agent", "2 min ago", "New"],
     ["Volunteer Application", "Application from Mary Wanjiku", "System", "15 min ago", "Pending"],
-    ["Task Completed", `Door-to-door canvassing in ${focusWards[0] || electiveScopeLabel}`, "Volunteer", "1 hour ago", "Completed"],
+    ["Task Completed", `Door-to-door canvassing in ${effectiveFocusArea.label || electiveScopeLabel}`, "Volunteer", "1 hour ago", "Completed"],
     ["Payment Received", "M-Pesa payment of KES 25,000", "System", "3 hours ago", "Confirmed"],
     ["Incident Reported", `Incident logged inside ${electiveScopeLabel}`, "Agent", "5 hours ago", "Open"],
   ];
@@ -1316,7 +1380,8 @@ export default function Home() {
                   <div className="mt-3 flex flex-wrap gap-2">
                     {campaignCounty ? <span className="rounded-md bg-white px-2.5 py-1 text-xs font-black text-slate-700 ring-1 ring-slate-200">{campaignCounty} County</span> : null}
                     {campaignConstituency ? <span className="rounded-md bg-white px-2.5 py-1 text-xs font-black text-slate-700 ring-1 ring-slate-200">{campaignConstituency} Constituency</span> : null}
-                    <span className="rounded-md bg-amber-100 px-2.5 py-1 text-xs font-black text-amber-800">{focusWards.length} focus wards</span>
+                    {campaignWard ? <span className="rounded-md bg-white px-2.5 py-1 text-xs font-black text-slate-700 ring-1 ring-slate-200">{campaignWard} Ward</span> : null}
+                    <span className="rounded-md bg-amber-100 px-2.5 py-1 text-xs font-black text-amber-800">{focusAreas.length || focusWards.length} focus {focusAreaPlural}</span>
                   </div>
                 </div>
                 <div className="border-slate-200 lg:border-l lg:pl-6">
@@ -1588,7 +1653,7 @@ export default function Home() {
               <section className="j-dashboard-card rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex items-center justify-between"><h2 className="text-base font-black text-slate-950">Field Operations Overview</h2><button className="text-xs font-bold text-blue-700" onClick={() => scrollToSection("Field Operations")} type="button">View map</button></div>
                 <div className="mt-4 grid grid-cols-4 gap-2">
-                  {[["Wards Covered", `${coverageRows.filter((row) => row.score > 0).length} / ${Math.max(coverageRows.length, focusWards.length || 1)}`], ["Field Visits", workspaceFieldVisitRows.length.toLocaleString()], ["Reports Submitted", liveAuditLogs.length.toLocaleString()], ["Issues Logged", workspaceIssueRows.length.toLocaleString()]].map(([label, value]) => (
+                  {[[`${focusAreaSingular}s Covered`, `${coverageRows.filter((row) => row.score > 0).length} / ${Math.max(coverageRows.length, focusAreas.length || focusWards.length || 1)}`], ["Field Visits", workspaceFieldVisitRows.length.toLocaleString()], ["Reports Submitted", liveAuditLogs.length.toLocaleString()], ["Issues Logged", workspaceIssueRows.length.toLocaleString()]].map(([label, value]) => (
                     <div key={label} className="rounded-md border border-slate-200 p-3">
                       <p className="text-xs font-bold text-slate-500">{label}</p>
                       <p className="mt-1 text-lg font-black text-slate-950">{value}</p>
@@ -1837,7 +1902,7 @@ export default function Home() {
                 <div className="mt-3 flex flex-wrap gap-2">
                   {[
                     `Which ${focusAreaPlural} in ${electiveScopeLabel} need attention this week?`,
-                    `Draft a speech paragraph about ${effectiveSupporterWard || electiveScopeLabel} issues.`,
+                    `Draft a speech paragraph about ${effectiveFocusArea.label || effectiveSupporterWard || electiveScopeLabel} issues.`,
                     `Create a WhatsApp update for ${electiveScopeLabel} volunteers.`,
                     `Summarize open manifesto issues by ward.`,
                   ].map((prompt) => (
@@ -2848,7 +2913,7 @@ export default function Home() {
 
             <div id="supporter-form" className="scroll-mt-24 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <h2 className="text-sm font-bold text-slate-950">Quick Add Supporter</h2>
-              <p className="mt-1 text-sm text-slate-500">Capture supporters inside {electiveScopeLabel}. Ward options are loaded from the Kenya register.</p>
+              <p className="mt-1 text-sm text-slate-500">Capture supporters inside {electiveScopeLabel}. Area options follow the candidate&apos;s elective level.</p>
               <div className="mt-4 space-y-3">
                 <label className="block text-sm font-semibold text-slate-700">
                   Full name
@@ -2859,13 +2924,13 @@ export default function Home() {
                   <input value={phone} onChange={(event) => setPhone(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" />
                 </label>
                 <label className="block text-sm font-semibold text-slate-700">
-                  Ward in {campaignConstituency || electiveScopeLabel}
-                  {focusWards.length ? (
-                    <select className="mt-1 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => setSupporterWard(event.target.value)} value={effectiveSupporterWard}>
-                      {focusWards.map((ward) => <option key={ward}>{ward}</option>)}
+                  {focusAreaSingular} in {electiveScopeLabel}
+                  {focusAreas.length ? (
+                    <select className="mt-1 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => setSupporterWard(event.target.value)} value={effectiveFocusArea.label}>
+                      {focusAreas.map((area) => <option key={area.label}>{area.label}</option>)}
                     </select>
                   ) : (
-                    <input value={supporterWard} onChange={(event) => setSupporterWard(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" placeholder="Ward or local area" />
+                    <input value={supporterWard} onChange={(event) => setSupporterWard(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" placeholder={`${focusAreaSingular} or local area`} />
                   )}
                 </label>
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -2900,7 +2965,7 @@ export default function Home() {
                     </label>
                   </div>
                 )}
-                <button disabled={!name.trim() || phone.replace(/\D/g, "").length < 7 || (duplicate && !overrideDuplicate)} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-300" onClick={() => void persistWorkflow("supporter", { fullName: name, phoneNumber: phone, supportLevel, wardName: effectiveSupporterWard, villageName: supporterVillage, pollingStationName: supporterPollingStation, keyIssue: supporterKeyIssue, consentToContact: true, notes: overrideDuplicate ? "Duplicate override approved." : "" }, `${name.trim() || "Supporter"} saved in ${effectiveSupporterWard || electiveScopeLabel}.`, "Supporters")} type="button">
+                <button disabled={!name.trim() || phone.replace(/\D/g, "").length < 7 || (duplicate && !overrideDuplicate)} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-300" onClick={() => void persistWorkflow("supporter", { fullName: name, phoneNumber: phone, supportLevel, ...selectedLocationPayload, villageName: supporterVillage, pollingStationName: supporterPollingStation, keyIssue: supporterKeyIssue, consentToContact: true, notes: overrideDuplicate ? "Duplicate override approved." : "" }, `${name.trim() || "Supporter"} saved in ${effectiveFocusArea.label || effectiveSupporterWard || electiveScopeLabel}.`, "Supporters")} type="button">
                   <Plus size={16} />
                   Save Supporter
                 </button>
@@ -3027,7 +3092,7 @@ export default function Home() {
                   ["Complete Task", CheckCircle2],
                   ["Report Intelligence", Radio],
                 ].map(([label, Icon]) => (
-                  <button key={String(label)} className="flex min-h-20 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-left text-sm font-bold text-slate-800 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-800" onClick={() => void persistWorkflow(String(label) === "Register Supporter" ? "supporter" : String(label) === "Submit Issue" ? "issue" : String(label) === "Submit Field Visit" ? "fieldVisit" : String(label) === "Complete Task" ? "task" : String(label) === "Report Intelligence" ? "supportTicket" : "supportTicket", String(label) === "Register Supporter" ? { fullName: "New supporter", phoneNumber: `+2547${Math.floor(10000000 + Math.random() * 89999999)}`, supportLevel: "Unknown", wardName: effectiveSupporterWard, villageName: supporterVillage, pollingStationName: supporterPollingStation, consentToContact: true } : String(label) === "Submit Issue" ? { title: `New ${electiveScopeLabel} community issue`, category: "Other", priority: "Medium", wardName: effectiveSupporterWard, villageName: supporterVillage, pollingStationName: supporterPollingStation } : String(label) === "Submit Field Visit" ? { visitPurpose: `Field activity in ${effectiveSupporterWard || electiveScopeLabel}`, supportersEngaged: 0, wardName: effectiveSupporterWard, villageName: supporterVillage, pollingStationName: supporterPollingStation } : String(label) === "Complete Task" ? { title: `Follow-up task for ${effectiveSupporterWard || electiveScopeLabel}`, dueDate: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10) } : { title: String(label), description: `Submitted from ${electiveScopeLabel} field action panel.`, priority: "Medium" }, `${String(label)} saved for ${effectiveSupporterWard || electiveScopeLabel}.`, "Field Operations")} type="button">
+                  <button key={String(label)} className="flex min-h-20 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-left text-sm font-bold text-slate-800 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-800" onClick={() => void persistWorkflow(String(label) === "Register Supporter" ? "supporter" : String(label) === "Submit Issue" ? "issue" : String(label) === "Submit Field Visit" ? "fieldVisit" : String(label) === "Complete Task" ? "task" : String(label) === "Report Intelligence" ? "supportTicket" : "supportTicket", String(label) === "Register Supporter" ? { fullName: "New supporter", phoneNumber: `+2547${Math.floor(10000000 + Math.random() * 89999999)}`, supportLevel: "Unknown", ...selectedLocationPayload, villageName: supporterVillage, pollingStationName: supporterPollingStation, consentToContact: true } : String(label) === "Submit Issue" ? { title: `New ${electiveScopeLabel} community issue`, category: "Other", priority: "Medium", ...selectedLocationPayload, villageName: supporterVillage, pollingStationName: supporterPollingStation } : String(label) === "Submit Field Visit" ? { visitPurpose: `Field activity in ${effectiveFocusArea.label || effectiveSupporterWard || electiveScopeLabel}`, supportersEngaged: 0, ...selectedLocationPayload, villageName: supporterVillage, pollingStationName: supporterPollingStation } : String(label) === "Complete Task" ? { title: `Follow-up task for ${effectiveFocusArea.label || effectiveSupporterWard || electiveScopeLabel}`, dueDate: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10) } : { title: String(label), description: `Submitted from ${electiveScopeLabel} field action panel.`, priority: "Medium" }, `${String(label)} saved for ${effectiveFocusArea.label || effectiveSupporterWard || electiveScopeLabel}.`, "Field Operations")} type="button">
                     <span className="grid h-10 w-10 place-items-center rounded-lg bg-white text-sky-700 shadow-sm">
                       <Icon size={20} />
                     </span>
@@ -3129,8 +3194,8 @@ export default function Home() {
                 <h2 className="text-sm font-bold text-slate-950">Community Issues</h2>
                 <ReportLink report="community-issues" label="Issues" />
               </div>
-              <form className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3" onSubmit={(event) => { event.preventDefault(); void persistWorkflow("issue", { title: issueTitle, category: issueCategory, priority: issuePriority, description: issueDescription, wardName: effectiveSupporterWard, villageName: supporterVillage, pollingStationName: supporterPollingStation }, "Issue saved and added to manifesto follow-up.", "Issues & Manifesto").then(() => { setIssueTitle(""); setIssueDescription(""); setIssueCategory("Other"); setIssuePriority("Medium"); }); }}>
-                <h3 className="text-sm font-black text-slate-950">Report Issue in {effectiveSupporterWard || electiveScopeLabel}</h3>
+              <form className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3" onSubmit={(event) => { event.preventDefault(); void persistWorkflow("issue", { title: issueTitle, category: issueCategory, priority: issuePriority, description: issueDescription, ...selectedLocationPayload, villageName: supporterVillage, pollingStationName: supporterPollingStation }, "Issue saved and added to manifesto follow-up.", "Issues & Manifesto").then(() => { setIssueTitle(""); setIssueDescription(""); setIssueCategory("Other"); setIssuePriority("Medium"); }); }}>
+                <h3 className="text-sm font-black text-slate-950">Report Issue in {effectiveFocusArea.label || effectiveSupporterWard || electiveScopeLabel}</h3>
                 <div className="mt-3 grid gap-2">
                   <input className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm" onChange={(event) => setIssueTitle(event.target.value)} placeholder="Issue title" required value={issueTitle} />
                   <div className="grid gap-2 sm:grid-cols-2">
@@ -3237,7 +3302,7 @@ export default function Home() {
                 <ReportLink report="community-issues" label="Community Issues Report" />
                 <ReportLink report="event-attendance" label="Event Attendance Report" />
                 <ReportLink report="ground-intelligence-summary" label="Ground Intelligence Summary" />
-                <ReportLink report="ward-activity" label="Ward Activity Report" />
+                <ReportLink report="ward-activity" label={`${focusAreaSingular} Activity Report`} />
               </div>
             </div>
           </section>

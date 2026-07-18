@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
 
   const searchParams = request.nextUrl.searchParams;
   const format = searchParams.get("format") ?? "csv";
-  const report = searchParams.get("report") ?? "supporters-by-ward";
+  const report = searchParams.get("report") ?? "supporters-by-area";
   const snapshot = await getLiveWorkspaceSnapshot(auth.session, access.access);
   const rows = reportRowsFromSnapshot(snapshot, report);
   const headers = Object.keys(rows[0] ?? { name: "", value: 0 });

@@ -11,6 +11,8 @@ const workflowSchemas = {
     phoneNumber: z.string().trim().min(7),
     supportLevel: z.enum(["Strong Supporter", "Leaning Supporter", "Undecided", "Opponent", "Unknown"]).default("Unknown"),
     keyIssue: z.string().trim().optional().or(z.literal("")),
+    countyName: z.string().trim().optional().or(z.literal("")),
+    constituencyName: z.string().trim().optional().or(z.literal("")),
     wardName: z.string().trim().optional().or(z.literal("")),
     villageName: z.string().trim().optional().or(z.literal("")),
     pollingStationName: z.string().trim().optional().or(z.literal("")),
@@ -32,6 +34,8 @@ const workflowSchemas = {
     title: z.string().trim().min(2),
     category: z.enum(["Roads", "Water", "Education", "Healthcare", "Agriculture", "Youth Employment", "Security", "Electricity", "Business", "Environment", "Other"]).default("Other"),
     description: z.string().trim().optional().or(z.literal("")),
+    countyName: z.string().trim().optional().or(z.literal("")),
+    constituencyName: z.string().trim().optional().or(z.literal("")),
     wardName: z.string().trim().optional().or(z.literal("")),
     villageName: z.string().trim().optional().or(z.literal("")),
     pollingStationName: z.string().trim().optional().or(z.literal("")),
@@ -48,6 +52,8 @@ const workflowSchemas = {
   fieldVisit: z.object({
     visitPurpose: z.string().trim().min(2),
     supportersEngaged: z.coerce.number().int().min(0).default(0),
+    countyName: z.string().trim().optional().or(z.literal("")),
+    constituencyName: z.string().trim().optional().or(z.literal("")),
     wardName: z.string().trim().optional().or(z.literal("")),
     villageName: z.string().trim().optional().or(z.literal("")),
     pollingStationName: z.string().trim().optional().or(z.literal("")),
@@ -153,7 +159,7 @@ async function ensureLocationRow(
   return String(data.id);
 }
 
-async function ensureWorkspaceLocation(tenantId: string, input: { wardName?: string; villageName?: string; pollingStationName?: string }): Promise<LocationScope> {
+async function ensureWorkspaceLocation(tenantId: string, input: { countyName?: string; constituencyName?: string; wardName?: string; villageName?: string; pollingStationName?: string }): Promise<LocationScope> {
   const supabase = getLooseSupabaseAdmin();
   const { data: settings } = await supabase
     .from("campaign_settings")
@@ -162,8 +168,8 @@ async function ensureWorkspaceLocation(tenantId: string, input: { wardName?: str
     .limit(1)
     .maybeSingle();
 
-  const countyName = typeof settings?.county === "string" ? settings.county : "";
-  const constituencyName = typeof settings?.constituency === "string" ? settings.constituency : "";
+  const countyName = input.countyName?.trim() || (typeof settings?.county === "string" ? settings.county : "");
+  const constituencyName = input.constituencyName?.trim() || (typeof settings?.constituency === "string" ? settings.constituency : "");
   const wardName = input.wardName?.trim() ?? "";
   const villageName = input.villageName?.trim() ?? "";
   const pollingStationName = input.pollingStationName?.trim() ?? "";

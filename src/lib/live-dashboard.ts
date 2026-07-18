@@ -87,50 +87,39 @@ function mapRows(rows: DbRow[], key = "id") {
 }
 
 async function withAreaNames(tenantId: string, rows: DbRow[]) {
-  const ids = {
-    county: new Set<string>(),
-    constituency: new Set<string>(),
-    ward: new Set<string>(),
-    village: new Set<string>(),
-    pollingStation: new Set<string>(),
-  };
-
-  for (const row of rows) {
-    if (row.county_id) ids.county.add(String(row.county_id));
-    if (row.constituency_id) ids.constituency.add(String(row.constituency_id));
-    if (row.ward_id) ids.ward.add(String(row.ward_id));
-    if (row.village_id) ids.village.add(String(row.village_id));
-    if (row.polling_station_id || row.assigned_polling_station_id) ids.pollingStation.add(String(row.polling_station_id ?? row.assigned_polling_station_id));
-    if (row.assigned_county_id) ids.county.add(String(row.assigned_county_id));
-    if (row.assigned_constituency_id) ids.constituency.add(String(row.assigned_constituency_id));
-    if (row.assigned_ward_id) ids.ward.add(String(row.assigned_ward_id));
-  }
-
   const admin = getLooseSupabaseAdmin();
   const [counties, constituencies, wards, villages, pollingStations] = await Promise.all([
-    ids.county.size ? admin.from("counties").select("id, name").eq("tenant_id", tenantId) : Promise.resolve({ data: [] }),
-    ids.constituency.size ? admin.from("constituencies").select("id, name").eq("tenant_id", tenantId) : Promise.resolve({ data: [] }),
-    ids.ward.size ? admin.from("wards").select("id, name").eq("tenant_id", tenantId) : Promise.resolve({ data: [] }),
-    ids.village.size ? admin.from("villages").select("id, name").eq("tenant_id", tenantId) : Promise.resolve({ data: [] }),
-    ids.pollingStation.size ? admin.from("polling_stations").select("id, name").eq("tenant_id", tenantId) : Promise.resolve({ data: [] }),
+    admin.from("counties").select("id, name").eq("tenant_id", tenantId).limit(500),
+    admin.from("constituencies").select("id, name, county_id").eq("tenant_id", tenantId).limit(1000),
+    admin.from("wards").select("id, name, constituency_id").eq("tenant_id", tenantId).limit(3000),
+    admin.from("villages").select("id, name, ward_id").eq("tenant_id", tenantId).limit(3000),
+    admin.from("polling_stations").select("id, name, village_id").eq("tenant_id", tenantId).limit(3000),
   ]);
 
-  const countyMap = mapRows((Array.isArray(counties.data) ? counties.data as DbRow[] : []).filter((row) => ids.county.has(String(row.id))));
-  const constituencyMap = mapRows((Array.isArray(constituencies.data) ? constituencies.data as DbRow[] : []).filter((row) => ids.constituency.has(String(row.id))));
-  const wardMap = mapRows((Array.isArray(wards.data) ? wards.data as DbRow[] : []).filter((row) => ids.ward.has(String(row.id))));
-  const villageMap = mapRows((Array.isArray(villages.data) ? villages.data as DbRow[] : []).filter((row) => ids.village.has(String(row.id))));
-  const stationMap = mapRows((Array.isArray(pollingStations.data) ? pollingStations.data as DbRow[] : []).filter((row) => ids.pollingStation.has(String(row.id))));
+  const countyMap = mapRows(Array.isArray(counties.data) ? counties.data as DbRow[] : []);
+  const constituencyMap = mapRows(Array.isArray(constituencies.data) ? constituencies.data as DbRow[] : []);
+  const wardMap = mapRows(Array.isArray(wards.data) ? wards.data as DbRow[] : []);
+  const villageMap = mapRows(Array.isArray(villages.data) ? villages.data as DbRow[] : []);
+  const stationMap = mapRows(Array.isArray(pollingStations.data) ? pollingStations.data as DbRow[] : []);
 
   return rows.map((row) => {
     const stationId = String(row.polling_station_id ?? row.assigned_polling_station_id ?? "");
-    const wardId = String(row.ward_id ?? row.assigned_ward_id ?? "");
+    const station = stationMap.get(stationId);
+    const villageId = String(row.village_id ?? station?.village_id ?? "");
+    const village = villageMap.get(villageId);
+    const wardId = String(row.ward_id ?? row.assigned_ward_id ?? village?.ward_id ?? "");
+    const ward = wardMap.get(wardId);
+    const constituencyId = String(row.constituency_id ?? row.assigned_constituency_id ?? ward?.constituency_id ?? "");
+    const constituency = constituencyMap.get(constituencyId);
+    const countyId = String(row.county_id ?? row.assigned_county_id ?? constituency?.county_id ?? "");
+    const county = countyMap.get(countyId);
     return {
       ...row,
-      county_name: String(countyMap.get(String(row.county_id ?? row.assigned_county_id ?? ""))?.name ?? ""),
-      constituency_name: String(constituencyMap.get(String(row.constituency_id ?? row.assigned_constituency_id ?? ""))?.name ?? ""),
-      ward_name: String(wardMap.get(wardId)?.name ?? ""),
-      village_name: String(villageMap.get(String(row.village_id ?? ""))?.name ?? ""),
-      polling_station_name: String(stationMap.get(stationId)?.name ?? ""),
+      county_name: String(county?.name ?? ""),
+      constituency_name: String(constituency?.name ?? ""),
+      ward_name: String(ward?.name ?? ""),
+      village_name: String(village?.name ?? ""),
+      polling_station_name: String(station?.name ?? ""),
     };
   });
 }
@@ -157,6 +146,7 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
     invitations,
     pollingResults,
     settingsResult,
+    candidateResult,
     solcoResult,
     payments,
     supporterCount,
@@ -187,6 +177,7 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
     fetchRows("invitations", tenantId, "id, invited_name, invited_phone, invited_email, role, status, expiry_date, created_at", 100),
     fetchRows("polling_results", tenantId, "id, candidate_name, votes, rejected_votes, total_votes, verification_status, created_at", 100),
     admin.from("campaign_settings").select("campaign_name, candidate_name, position_targeted, political_party, county, constituency, election_year, slogan, active_status").eq("tenant_id", tenantId).limit(1).maybeSingle(),
+    admin.from("candidates").select("full_name, campaign_name, position_contesting, political_party, county, constituency, ward, slogan, active_status").eq("id", candidateId).limit(1).maybeSingle(),
     admin.from("solco_integrations").select("workspace_url, livekit_url_label, token_endpoint, meeting_path, status").eq("tenant_id", tenantId).eq("candidate_id", candidateId).limit(1).maybeSingle(),
     countRows("workspace_activation_payments", tenantId),
     countRows("supporters", tenantId),
@@ -214,7 +205,13 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
 
   return {
     workspace: { ...session, access },
-    campaign: settingsResult.data ?? null,
+    campaign: {
+      ...(candidateResult.data ?? {}),
+      ...(settingsResult.data ?? {}),
+      candidate_name: (settingsResult.data as DbRow | null)?.candidate_name ?? (candidateResult.data as DbRow | null)?.full_name,
+      position_targeted: (settingsResult.data as DbRow | null)?.position_targeted ?? (candidateResult.data as DbRow | null)?.position_contesting,
+      ward: (candidateResult.data as DbRow | null)?.ward ?? null,
+    },
     summary: {
       supporters: supporterCount,
       volunteers: volunteerCount,
@@ -264,7 +261,27 @@ function groupCount(rows: DbRow[], field: string) {
   return [...counts.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value || a.name.localeCompare(b.name));
 }
 
+function snapshotAreaField(snapshot: LiveSnapshot) {
+  const position = String(snapshot.campaign?.position_targeted ?? snapshot.campaign?.position_contesting ?? "").toLowerCase();
+  if (position.includes("president") || position.includes("referendum")) return "county_name";
+  if (["governor", "senator", "women representative", "woman representative", "women rep", "woman rep"].some((role) => position.includes(role))) return "constituency_name";
+  if (position.includes("mca")) return "polling_station_name";
+  return "ward_name";
+}
+
+function groupByElectiveArea(snapshot: LiveSnapshot) {
+  const field = snapshotAreaField(snapshot);
+  const fallback = field === "polling_station_name" ? "village_name" : field === "constituency_name" ? "county_name" : "ward_name";
+  const counts = new Map<string, number>();
+  for (const row of snapshot.supporters) {
+    const value = String(row[field] || row[fallback] || "Not assigned");
+    counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+  return [...counts.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value || a.name.localeCompare(b.name));
+}
+
 export function reportRowsFromSnapshot(snapshot: LiveSnapshot, report: string): DbRow[] {
+  if (report === "supporters-by-area") return groupByElectiveArea(snapshot);
   if (report === "supporters-by-ward") return groupCount(snapshot.supporters, "ward_name");
   if (report === "supporters-by-polling-station") return groupCount(snapshot.supporters, "polling_station_name");
   if (report === "support-levels") return groupCount(snapshot.supporters, "support_level");
