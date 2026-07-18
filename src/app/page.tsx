@@ -484,9 +484,13 @@ export default function Home() {
   const [roomSchedule, setRoomSchedule] = useState("");
   const [roomParticipants, setRoomParticipants] = useState("0");
   const [messageSubject, setMessageSubject] = useState("");
+  const [messageBody, setMessageBody] = useState("");
+  const [messageRecipients, setMessageRecipients] = useState("");
   const [messageAudience, setMessageAudience] = useState("");
   const [messageChannel, setMessageChannel] = useState("Campaign Chat");
   const [messageStatus, setMessageStatus] = useState("Draft");
+  const [messageSending, setMessageSending] = useState(false);
+  const [messageDeliveryNotice, setMessageDeliveryNotice] = useState("");
   const [actionMessage, setActionMessage] = useState("");
   const [taskTitle, setTaskTitle] = useState("");
   const [taskDescription, setTaskDescription] = useState("");
@@ -608,12 +612,24 @@ export default function Home() {
         id: String(message.id),
         channel: liveText(message, "channel", "Campaign Chat"),
         subject: liveText(message, "subject", "Message"),
+        body: liveText(message, "body", ""),
         sender: "Workspace",
         audience: liveText(message, "audience", "Campaign team"),
         status: liveText(message, "status", "Draft"),
+        deliveryStatus: liveText(message, "delivery_status", "Not Sent"),
+        providerName: liveText(message, "provider_name", ""),
+        deliveryError: liveText(message, "delivery_error", ""),
+        recipientCount: Array.isArray(message.recipient_phones) ? message.recipient_phones.length : 0,
         sentAt: liveDate(message, "sent_at", liveDate(message, "created_at", "")),
       }))
-    : communicationMessages;
+    : communicationMessages.map((message) => ({
+        ...message,
+        body: "",
+        deliveryStatus: message.status,
+        providerName: "",
+        deliveryError: "",
+        recipientCount: 0,
+      }));
   const workspaceAiContentAssets = usingLiveData
     ? liveAiAssets.map((asset) => ({
         id: String(asset.id),
@@ -1200,6 +1216,91 @@ export default function Home() {
       runAction(successMessage, sectionLabel);
     } catch (error) {
       runAction(error instanceof Error ? error.message : "Workflow could not be saved.", sectionLabel);
+    }
+  }
+
+  function parseRecipientPhones(value: string) {
+    return value
+      .split(/[\n,;]+/)
+      .map((recipient) => recipient.trim())
+      .filter(Boolean);
+  }
+
+  function useSupporterPhones() {
+    const phones = workspaceSupporters
+      .map((supporter) => supporter.phoneNumber)
+      .filter((phoneNumber) => phoneNumber.replace(/\D/g, "").length >= 7);
+    setMessageRecipients(Array.from(new Set(phones)).join("\n"));
+    setMessageAudience(`${electiveScopeLabel} supporters`);
+  }
+
+  async function submitCampaignMessage(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessageDeliveryNotice("");
+
+    const recipients = parseRecipientPhones(messageRecipients);
+    const audience = messageAudience || `${electiveScopeLabel} team`;
+
+    if (messageChannel !== "Broadcast SMS" && messageChannel !== "WhatsApp") {
+      await persistWorkflow(
+        "communicationMessage",
+        {
+          channel: messageChannel,
+          subject: messageSubject,
+          body: messageBody,
+          audience,
+          recipientPhones: recipients,
+          status: messageStatus,
+        },
+        "Campaign message saved to the queue.",
+        "Communications",
+      );
+      setMessageSubject("");
+      setMessageBody("");
+      setMessageRecipients("");
+      setMessageStatus("Draft");
+      return;
+    }
+
+    if (!recipients.length) {
+      setMessageDeliveryNotice("Add at least one phone number before sending.");
+      return;
+    }
+
+    setMessageSending(true);
+    try {
+      const response = await fetch("/api/communications/send-message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          channel: messageChannel,
+          subject: messageSubject,
+          body: messageBody,
+          audience,
+          recipients,
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Message could not be sent.");
+      }
+
+      await refreshWorkspace();
+      setMessageSubject("");
+      setMessageBody("");
+      setMessageRecipients("");
+      setMessageAudience("");
+      setMessageStatus("Draft");
+      const deliveryText = payload.message ? `${payload.status}: ${payload.message}` : `Message ${String(payload.status).toLowerCase()}.`;
+      setMessageDeliveryNotice(deliveryText);
+      runAction(deliveryText, "Communications");
+      if (payload.launchUrl) {
+        window.open(payload.launchUrl, "_blank", "noopener,noreferrer");
+      }
+    } catch (error) {
+      setMessageDeliveryNotice(error instanceof Error ? error.message : "Message could not be sent.");
+    } finally {
+      setMessageSending(false);
     }
   }
 
@@ -1822,20 +1923,47 @@ export default function Home() {
                     <button className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white hover:bg-slate-900" type="submit"><Video size={16} />Create Room</button>
                   </div>
                 </form>
-                <form className="rounded-lg border border-slate-200 p-3" onSubmit={(event) => { event.preventDefault(); void persistWorkflow("communicationMessage", { channel: messageChannel, subject: messageSubject, audience: messageAudience || `${electiveScopeLabel} team`, status: messageStatus }, "Campaign message saved to the queue.", "Communications").then(() => { setMessageSubject(""); setMessageAudience(""); setMessageStatus("Draft"); }); }}>
-                  <h3 className="text-sm font-black text-slate-950">Queue Message</h3>
+                <form className="rounded-lg border border-slate-200 p-3" onSubmit={submitCampaignMessage}>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-sm font-black text-slate-950">SMS & WhatsApp Broadcast</h3>
+                    <button className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-black text-sky-700 hover:bg-sky-50" onClick={useSupporterPhones} type="button">
+                      Use supporter phones
+                    </button>
+                  </div>
                   <div className="mt-3 grid gap-2">
                     <input className="h-10 rounded-md border border-slate-200 px-3 text-sm" onChange={(event) => setMessageSubject(event.target.value)} placeholder="Message subject" required value={messageSubject} />
                     <div className="grid gap-2 sm:grid-cols-2">
                       <select className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm" onChange={(event) => setMessageChannel(event.target.value)} value={messageChannel}>
-                        {["Campaign Chat", "Solco Meeting", "Broadcast SMS", "WhatsApp"].map((channel) => <option key={channel}>{channel}</option>)}
+                        {["Broadcast SMS", "WhatsApp", "Campaign Chat", "Solco Meeting"].map((channel) => <option key={channel}>{channel}</option>)}
                       </select>
                       <select className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm" onChange={(event) => setMessageStatus(event.target.value)} value={messageStatus}>
                         {["Draft", "Queued", "Sent", "Delivered"].map((status) => <option key={status}>{status}</option>)}
                       </select>
                     </div>
                     <input className="h-10 rounded-md border border-slate-200 px-3 text-sm" onChange={(event) => setMessageAudience(event.target.value)} placeholder="Audience" value={messageAudience} />
-                    <button className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white hover:bg-slate-900" type="submit"><MessageSquare size={16} />Save Message</button>
+                    <textarea
+                      className="min-h-24 rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-sky-500"
+                      maxLength={1000}
+                      onChange={(event) => setMessageBody(event.target.value)}
+                      placeholder={`Write the message for ${electiveScopeLabel}`}
+                      required
+                      value={messageBody}
+                    />
+                    <textarea
+                      className="min-h-20 rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-sky-500"
+                      onChange={(event) => setMessageRecipients(event.target.value)}
+                      placeholder="+2547... one per line, comma, or semicolon"
+                      value={messageRecipients}
+                    />
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-slate-500">
+                      <span>{parseRecipientPhones(messageRecipients).length.toLocaleString()} recipient(s)</span>
+                      <span>{messageBody.length}/1000 characters</span>
+                    </div>
+                    {messageDeliveryNotice ? <div className="rounded-md bg-sky-50 p-2 text-xs font-bold text-sky-800">{messageDeliveryNotice}</div> : null}
+                    <button disabled={messageSending} className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-400" type="submit">
+                      {messageChannel === "WhatsApp" ? <Smartphone size={16} /> : <MessageSquare size={16} />}
+                      {messageSending ? "Processing" : messageChannel === "Broadcast SMS" || messageChannel === "WhatsApp" ? "Send / Open Composer" : "Save Message"}
+                    </button>
                   </div>
                 </form>
               </div>
@@ -1875,9 +2003,15 @@ export default function Home() {
                         <p className="text-sm font-bold text-slate-950">{message.subject}</p>
                         <p className="text-xs text-slate-500">{message.channel} - {message.audience}</p>
                       </div>
-                      <StatusPill label={message.status} />
+                      <StatusPill label={message.deliveryStatus || message.status} />
                     </div>
-                    <p className="mt-2 text-xs font-semibold text-slate-500">{message.sender} - {message.sentAt}</p>
+                    {message.body ? <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-700">{message.body}</p> : null}
+                    <div className="mt-2 flex flex-wrap gap-2 text-xs font-semibold text-slate-500">
+                      <span>{message.sender} - {message.sentAt || "Not sent"}</span>
+                      <span>{message.recipientCount.toLocaleString()} recipient(s)</span>
+                      {message.providerName ? <span>{message.providerName}</span> : null}
+                    </div>
+                    {message.deliveryError ? <p className="mt-2 rounded-md bg-amber-50 p-2 text-xs font-bold text-amber-800">{message.deliveryError}</p> : null}
                   </div>
                 ))}
                 {workspaceCommunicationMessages.length === 0 ? emptyState("No campaign messages have been queued yet.") : null}

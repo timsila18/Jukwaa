@@ -95,7 +95,9 @@ const workflowSchemas = {
   communicationMessage: z.object({
     channel: z.enum(["Solco Meeting", "Campaign Chat", "Broadcast SMS", "WhatsApp"]).default("Campaign Chat"),
     subject: z.string().trim().min(2),
+    body: z.string().trim().optional().or(z.literal("")),
     audience: z.string().trim().min(2),
+    recipientPhones: z.array(z.string().trim()).default([]),
     status: z.enum(["Draft", "Queued", "Sent", "Delivered"]).default("Draft"),
   }),
   issueStatus: z.object({
@@ -399,7 +401,10 @@ export async function POST(request: Request, context: { params: Promise<{ workfl
       subject: data.subject,
       sender_member_id: auth.session.memberId || null,
       audience: data.audience,
+      body: data.body || null,
+      recipient_phones: data.recipientPhones,
       status: data.status,
+      delivery_status: data.status === "Sent" || data.status === "Delivered" ? data.status : "Not Sent",
       sent_at: data.status === "Sent" || data.status === "Delivered" ? new Date().toISOString() : null,
     };
   }
