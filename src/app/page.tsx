@@ -63,64 +63,19 @@ import {
   YAxis,
 } from "recharts";
 import {
-  auditTrail,
   campaign,
-  campaignEvents,
   communicationMessages,
   communicationRooms,
   candidatePositionScopes,
-  communityIssues,
-  eventAttendanceTrend,
-  electionAlerts,
-  electionForms,
-  electionIncidents,
-  fieldVisits,
-  agentDeploymentRows,
   aiContentAssets,
-  aiStrategyQueue,
-  budgetVarianceRows,
-  campaignDocuments,
   groupCount,
   candidateBranding,
-  candidateProfiles,
-  electionCycles,
   featureEntitlements,
-  fundraisingCampaigns,
-  invitations,
   kenyaGeographySummary,
-  notifications,
-  pollingAnalytics,
-  pollingResults,
   partyAffiliationOptions,
-  pvtQualityQueue,
-  pvtTotals,
   politicalParties,
-  reportRows,
-  roles,
-  securityEvents,
-  supporters,
-  summarizeGovernance,
-  supporterMobilizationAnalytics,
   solcoIntegration,
-  teamHierarchyRows,
-  territoryCoverage,
-  turnoutTrend,
-  users,
-  volunteerPerformance,
-  volunteerTasks,
-  volunteers,
-  workspaceOwnership,
-  workspaceSubscription,
-  invoices,
-  payments,
   platformWorkspaceMetrics,
-  donations,
-  expenses,
-  knowledgeArticles,
-  mpesaPaymentSetting,
-  mpesaTransactions,
-  predictiveInsights,
-  scenarioPlans,
   type SupportLevel,
 } from "@/lib/demo-data";
 
@@ -282,6 +237,7 @@ const getServerSnapshot = () => false;
 
 type LiveBootstrap = {
   workspace: {
+    candidateId: string;
     role: string;
     isPlatformAdmin: boolean;
     access?: {
@@ -303,6 +259,7 @@ type LiveBootstrap = {
     ward?: string;
     election_year?: string;
     slogan?: string;
+    active_status?: string;
   } | null;
   summary: {
     supporters: number;
@@ -545,7 +502,6 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [liveBootstrap, setLiveBootstrap] = useState<LiveBootstrap | null>(null);
   const [liveSupporters, setLiveSupporters] = useState<LiveSupporter[] | null>(null);
-  const governanceSummary = summarizeGovernance();
   const platformMetrics = platformWorkspaceMetrics();
   const brandingReview = useMemo(() => validateWorkspaceBranding(candidateBranding), []);
 
@@ -568,6 +524,17 @@ export default function Home() {
   const campaignWard = liveBootstrap?.campaign?.ward || "";
   const campaignPosition = liveBootstrap?.campaign?.position_targeted || campaign.positionTargeted;
   const campaignSlogan = liveBootstrap?.campaign?.slogan || candidateBranding.slogan;
+  const commercialAccess = liveBootstrap?.workspace.access;
+  const referenceCandidateName = liveBootstrap?.campaign?.candidate_name || "Campaign Owner";
+  const referenceWorkspaceName = liveBootstrap?.campaign?.campaign_name || "Campaign Workspace";
+  const currentRole = liveBootstrap?.workspace.role || "Candidate";
+  const roleProfile = roleProfiles[currentRole] ?? roleProfiles.Candidate;
+  const allowedNavLabels = roleNavItems[currentRole] ?? roleNavItems.Candidate;
+  const visibleNavItems = navItems.filter((item) => allowedNavLabels.includes(item.label));
+  const isOwnerAccount = currentRole === "Candidate" || currentRole === "Admin" || liveBootstrap?.workspace.isPlatformAdmin;
+  const profileSection = allowedNavLabels.includes("Team & Roles") ? "Team & Roles" : "Dashboard";
+  const accountSection = isOwnerAccount ? "Candidate Management" : profileSection;
+  const paymentUrl = `/payment/confirm?accountReference=${encodeURIComponent(liveBootstrap?.workspace.candidateId ? `JUKWAA-${liveBootstrap.workspace.candidateId.slice(0, 8).toUpperCase()}` : "JUKWAA-WORKSPACE")}&amountKes=45000`;
   const normalizedPosition = campaignPosition.toLowerCase();
   const isNationalRace = normalizedPosition.includes("president") || normalizedPosition.includes("referendum");
   const isCountyRace = ["governor", "senator", "women representative", "woman representative", "women rep", "woman rep"].some((position) => normalizedPosition.includes(position));
@@ -620,12 +587,10 @@ export default function Home() {
   const eventsCount = liveBootstrap?.summary.events ?? liveEvents.length;
   const unreadNotificationCount = liveBootstrap?.summary.unreadNotifications ?? liveNotifications.length;
   const openMessageCount = liveBootstrap?.summary.messagesOpen ?? liveMessages.filter((message) => liveText(message, "status") === "Queued" || liveText(message, "status") === "Draft").length;
-  const workspaceNotifications = usingLiveData
-    ? liveNotifications.map((notification) => ({
+  const workspaceNotifications = liveNotifications.map((notification) => ({
         title: liveText(notification, "title", "Notification"),
         detail: liveText(notification, "body", "No details recorded."),
-      }))
-    : notifications;
+      }));
   const workspaceCommunicationRooms = usingLiveData
     ? liveRooms.map((room) => ({
         id: String(room.id),
@@ -658,17 +623,14 @@ export default function Home() {
         status: liveText(asset, "status", "Draft"),
       }))
     : aiContentAssets;
-  const workspacePvtRows = usingLiveData
-    ? livePollingResults.reduce<Array<{ candidate: string; votes: number }>>((rows, result) => {
+  const workspacePvtRows = livePollingResults.reduce<Array<{ candidate: string; votes: number }>>((rows, result) => {
         const candidate = liveText(result, "candidate_name", "Candidate");
         const existing = rows.find((row) => row.candidate === candidate);
         if (existing) existing.votes += liveNumber(result, "votes", 0);
         else rows.push({ candidate, votes: liveNumber(result, "votes", 0) });
         return rows;
-      }, [])
-    : pvtTotals();
-  const workspaceQualityQueue = usingLiveData
-    ? livePollingResults
+      }, []);
+  const workspaceQualityQueue = livePollingResults
         .filter((result) => liveText(result, "verification_status", "Pending") !== "Verified")
         .map((result) => ({
           station: "Polling station",
@@ -676,10 +638,8 @@ export default function Home() {
           uploadedBy: liveText(result, "candidate_name", "Candidate"),
           status: liveText(result, "verification_status", "Pending"),
           flags: `${liveNumber(result, "votes", 0)} votes / ${liveNumber(result, "total_votes", 0)} total votes recorded.`,
-        }))
-    : pvtQualityQueue();
-  const workspaceResultCards = usingLiveData
-    ? livePollingResults.map((result) => ({
+        }));
+  const workspaceResultCards = livePollingResults.map((result) => ({
         id: String(result.id),
         candidate: liveText(result, "candidate_name", "Candidate"),
         pollingStation: "Polling station",
@@ -687,28 +647,22 @@ export default function Home() {
         totalVotes: liveNumber(result, "total_votes", 0),
         rejectedVotes: liveNumber(result, "rejected_votes", 0),
         verificationStatus: liveText(result, "verification_status", "Pending"),
-      }))
-    : pollingResults;
-  const workspaceSecurityEvents = usingLiveData
-    ? liveAuditLogs.map((event) => ({
+      }));
+  const workspaceSecurityEvents = liveAuditLogs.map((event) => ({
         id: String(event.id),
         event: `${liveText(event, "action", "Action")} - ${liveText(event, "module", "Module")}`,
         user: "Workspace member",
         device: "Web",
         ipAddress: "",
         createdAt: liveDate(event, "created_at", ""),
-      }))
-    : securityEvents;
-  const workspaceTaskRows = usingLiveData
-    ? liveTasks.map((task) => ({
+      }));
+  const workspaceTaskRows = liveTasks.map((task) => ({
         id: String(task.id),
         title: liveText(task, "title", "Task"),
         dueDate: liveDate(task, "due_date", ""),
         status: liveText(task, "status", "Pending"),
-      }))
-    : volunteerTasks.map((task) => ({ id: task.id, title: task.title, dueDate: task.dueDate, status: task.status }));
-  const workspaceFieldVisitRows = usingLiveData
-    ? liveFieldVisits.map((visit) => ({
+      }));
+  const workspaceFieldVisitRows = liveFieldVisits.map((visit) => ({
         id: String(visit.id),
         volunteer: liveText(visit, "ward_name", "Field visit"),
         latitude: liveNumber(visit, "latitude", 0),
@@ -716,18 +670,8 @@ export default function Home() {
         description: `${liveText(visit, "visit_purpose", "Field activity")} - ${liveText(visit, "polling_station_name", liveText(visit, "village_name", electiveScopeLabel))}`,
         supportersEngaged: liveNumber(visit, "supporters_engaged", 0),
         dateLabel: liveDate(visit, "visit_date", ""),
-      }))
-    : fieldVisits.map((visit) => ({
-        id: visit.id,
-        volunteer: visit.volunteer,
-        latitude: visit.latitude,
-        longitude: visit.longitude,
-        description: `${visit.visitPurpose} at ${visit.pollingStation}`,
-        supportersEngaged: visit.supportersEngaged,
-        dateLabel: `${visit.date} ${visit.startTime}`,
       }));
-  const workspaceIssueRows = usingLiveData
-    ? liveIssues.map((issue) => ({
+  const workspaceIssueRows = liveIssues.map((issue) => ({
         id: String(issue.id),
         title: liveText(issue, "issue_title", "Community issue"),
         meta: `${liveText(issue, "category", "Other")} - ${liveText(issue, "ward_name", electiveScopeLabel)}${liveText(issue, "village_name", "") ? ` / ${liveText(issue, "village_name", "")}` : ""}`,
@@ -735,15 +679,6 @@ export default function Home() {
         description: liveText(issue, "description", "No description recorded."),
         mentions: liveNumber(issue, "number_of_mentions", 1),
         status: liveText(issue, "status", "Open"),
-      }))
-    : communityIssues.map((issue) => ({
-        id: issue.id,
-        title: issue.title,
-        meta: `${issue.category} - ${issue.ward} / ${issue.village}`,
-        priority: issue.priority,
-        description: issue.description,
-        mentions: issue.mentions,
-        status: issue.status,
       }));
   const workspaceIntelligenceRows = usingLiveData
     ? [
@@ -794,22 +729,13 @@ export default function Home() {
         })),
       ].slice(0, 8)
     : [];
-  const workspaceEventRows = usingLiveData
-    ? liveEvents.map((event) => ({
+  const workspaceEventRows = liveEvents.map((event) => ({
         id: String(event.id),
         title: liveText(event, "title", "Campaign event"),
         meta: `${liveText(event, "type", "Event")} - ${liveDate(event, "event_date", "")}`,
         badge: "Planned",
         venue: liveText(event, "venue", "Venue not recorded"),
         expectedAttendance: liveNumber(event, "expected_attendance", 0),
-      }))
-    : campaignEvents.map((event) => ({
-        id: event.id,
-        title: event.title,
-        meta: `${event.type} - ${event.date} ${event.startTime}`,
-        badge: String(event.actualAttendance || "Planned"),
-        venue: `${event.venue} - organized by ${event.organizer}`,
-        expectedAttendance: event.expectedAttendance,
       }));
   const globalSearchResults = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -844,9 +770,8 @@ export default function Home() {
   const ageData = groupCount(workspaceSupporters, "ageGroup");
   const issueData = groupCount(workspaceSupporters, "keyIssue").slice(0, 6);
   const stationData = groupCount(workspaceSupporters, "pollingStation");
-  const pollingRows = pollingAnalytics();
-  const volunteerRows = usingLiveData
-    ? liveVolunteers.map((volunteer) => ({
+  const pollingRows: Array<{ id: string; name: string; ward: string; registeredVoters: number; identifiedSupporters: number; strong: number; undecided: number; penetration: number }> = [];
+  const volunteerRows = liveVolunteers.map((volunteer) => ({
         name: liveText(volunteer, "full_name", "Volunteer"),
         phoneNumber: liveText(volunteer, "phone_number", ""),
         area: liveText(volunteer, "ward_name", electiveScopeLabel),
@@ -857,18 +782,8 @@ export default function Home() {
         issuesSubmitted: liveIssues.filter((issue) => liveText(issue, "ward_name", "") === liveText(volunteer, "ward_name", "")).length,
         eventsAttended: 0,
         score: liveText(volunteer, "status", "") === "Active" ? 80 : 35,
-      }))
-    : volunteerPerformance().map((row) => {
-        const volunteer = volunteers.find((item) => item.fullName === row.name);
-        return {
-          ...row,
-          phoneNumber: volunteer?.phoneNumber ?? "",
-          assignedSupervisor: volunteer?.assignedSupervisor ?? "",
-          status: volunteer?.status ?? "Unknown",
-        };
-      });
-  const coverageRows = usingLiveData
-    ? (focusAreas.length ? focusAreas : wardData.map((row) => ({ label: row.name, chartName: row.name, level: scopeLevel, countyName: "", constituencyName: "", wardName: row.name }))).map((area) => {
+      }));
+  const coverageRows = (focusAreas.length ? focusAreas : wardData.map((row) => ({ label: row.name, chartName: row.name, level: scopeLevel, countyName: "", constituencyName: "", wardName: row.name }))).map((area) => {
         const areaSupporters = workspaceSupporters.filter((supporter) => {
           if (area.level === "county") return supporter.county === area.countyName || supporter.county === area.label;
           if (area.level === "constituency") return supporter.constituency === area.constituencyName || supporter.constituency === area.label;
@@ -897,27 +812,90 @@ export default function Home() {
           events: liveEvents.length,
           issues: areaIssues,
         };
-      })
-    : territoryCoverage().map((row) => ({ ...row, visits: row.activity }));
-  const issueBreakdown = usingLiveData ? groupCount(liveIssues.map((issue) => ({ category: liveText(issue, "category", "Other") })), "category") : groupCount(communityIssues, "category");
-  const eventTrend = eventAttendanceTrend();
-  const agentRows = usingLiveData
-    ? livePollingAgents.map((agent) => ({
-        station: "Polling station",
-        ward: "Workspace",
+      });
+  const issueBreakdown = groupCount(liveIssues.map((issue) => ({ category: liveText(issue, "category", "Other") })), "category");
+  const eventTrend = liveEvents.map((event, index) => ({ month: liveDate(event, "event_date", `Event ${index + 1}`), attendance: liveNumber(event, "expected_attendance", 0) }));
+  const agentRows = livePollingAgents.map((agent) => ({
+        station: liveText(agent, "polling_station_name", "Polling station"),
+        ward: liveText(agent, "ward_name", electiveScopeLabel),
         agent: liveText(agent, "full_name", "Polling Agent"),
         status: liveText(agent, "status", "Pending"),
         turnout: 0,
         health: liveText(agent, "status", "") === "Active" ? "Green" : "Amber",
-      }))
-    : agentDeploymentRows();
-  const turnoutRows = turnoutTrend();
-  const mobilizationRows = supporterMobilizationAnalytics();
+      }));
+  const turnoutRows: Array<{ interval: string; percentage: number }> = [];
+  const mobilizationRows = wardData.map((row) => ({
+    station: row.name,
+    ward: row.name,
+    strongSupporters: workspaceSupporters.filter((supporter) => supporter.ward === row.name && supporter.supportLevel === "Strong Supporter").length,
+    turnoutPercentage: totalSupporters ? Math.round((row.value / totalSupporters) * 100) : 0,
+    conversionSignal: row.value,
+    recommendation: row.value ? `Follow up with ${row.value} known supporters in ${row.name}.` : `Start supporter capture in ${row.name}.`,
+  }));
   const pvtRows = workspacePvtRows;
   const qualityQueue = workspaceQualityQueue;
-  const hierarchyRows = teamHierarchyRows();
-  const aiRows = usingLiveData
-    ? [
+  const workspaceInvitations = (liveBootstrap?.invitations ?? []).map((invite) => ({
+    id: String(invite.id),
+    invitedName: liveText(invite, "invited_name", "Invited team member"),
+    role: liveText(invite, "role", "Campaign User"),
+    invitedPhone: liveText(invite, "invited_phone", liveText(invite, "invited_email", "No contact recorded")),
+    invitationCode: liveText(invite, "join_code", liveText(invite, "invitation_code", "Join code pending")),
+    expiryDate: liveDate(invite, "expiry_date", "No expiry set"),
+    status: liveText(invite, "status", "Pending"),
+  }));
+  const pendingInvitationId = workspaceInvitations.find((invite) => invite.status === "Pending")?.id;
+  const workspaceElectionRows = [{
+    id: `${liveBootstrap?.workspace.candidateId ?? "candidate"}-${campaignPosition}-${campaignCounty}-${campaignConstituency}-${campaignWard}`,
+    electionName: `${campaignPosition} Campaign ${liveBootstrap?.campaign?.election_year || "2027"}`,
+    electionType: campaignPosition,
+    geography: electiveScopeLabel,
+    status: liveBootstrap?.campaign?.active_status || "Active",
+    electionDate: liveBootstrap?.campaign?.election_year ? `${liveBootstrap.campaign.election_year} election cycle` : "Election cycle not set",
+  }];
+  const workspaceUserRows = [
+    {
+      id: "candidate-owner",
+      name: referenceCandidateName,
+      role: currentRole,
+      geography: electiveScopeLabel,
+      status: commercialAccess?.allowed ? "Active" : commercialAccess?.status || "Pending Access",
+    },
+    ...workspaceInvitations.map((invite) => ({
+      id: invite.id,
+      name: invite.invitedName,
+      role: invite.role,
+      geography: electiveScopeLabel,
+      status: invite.status,
+    })),
+    ...liveVolunteers.map((volunteer) => ({
+      id: `volunteer-${String(volunteer.id)}`,
+      name: liveText(volunteer, "full_name", "Volunteer"),
+      role: "Volunteer",
+      geography: liveText(volunteer, "ward_name", liveText(volunteer, "constituency_name", electiveScopeLabel)),
+      status: liveText(volunteer, "status", "Pending"),
+    })),
+    ...livePollingAgents.map((agent) => ({
+      id: `agent-${String(agent.id)}`,
+      name: liveText(agent, "full_name", "Polling Agent"),
+      role: "Polling Agent",
+      geography: liveText(agent, "polling_station_name", liveText(agent, "ward_name", electiveScopeLabel)),
+      status: liveText(agent, "status", "Pending"),
+    })),
+  ];
+  const workspaceAuditRows = liveAuditLogs.map((event) => ({
+    id: String(event.id),
+    action: liveText(event, "action", "Workspace action"),
+    module: liveText(event, "module", "Workspace"),
+    user: "Workspace member",
+    timestamp: liveDate(event, "created_at", "Live workspace"),
+  }));
+  const hierarchyRows = [
+    { level: "1", role: "Candidate / Owner", name: referenceCandidateName, reportsTo: "Voters in " + electiveScopeLabel, members: 1, status: "Active" },
+    { level: "2", role: "Campaign Managers", name: `${workspaceInvitations.filter((invite) => invite.role.includes("Manager")).length} invited`, reportsTo: referenceCandidateName, members: workspaceInvitations.filter((invite) => invite.role.includes("Manager")).length, status: workspaceInvitations.some((invite) => invite.role.includes("Manager")) ? "Active" : "Open" },
+    { level: "3", role: "Volunteers", name: `${liveVolunteers.length} live records`, reportsTo: "Campaign Manager", members: liveVolunteers.length, status: liveVolunteers.length ? "Active" : "Open" },
+    { level: "4", role: "Polling Agents", name: `${livePollingAgents.length} live records`, reportsTo: "Field Coordinator", members: livePollingAgents.length, status: livePollingAgents.length ? "Active" : "Open" },
+  ];
+  const aiRows = [
         {
           id: "live-supporters",
           title: totalSupporters ? "Grow supporter depth from live records" : "Start by registering supporters",
@@ -942,9 +920,8 @@ export default function Home() {
           category: "Operations",
           source: "Live task board",
         },
-      ]
-    : aiStrategyQueue();
-  const budgetRows = budgetVarianceRows();
+      ];
+  const budgetRows: Array<{ category: string; usedPercent: number; remaining: number }> = [];
 
   useEffect(() => {
     let active = true;
@@ -977,18 +954,6 @@ export default function Home() {
     setLiveSupporters(payload.supporters.map(normalizeSupporter));
   }
 
-  const commercialAccess = liveBootstrap?.workspace.access;
-  const activationInvoice = invoices.find((invoice) => invoice.status !== "Paid") ?? invoices[0];
-  const paymentUrl = `/payment/confirm?accountReference=${encodeURIComponent(mpesaPaymentSetting.accountReferenceFormat)}&phoneNumber=${encodeURIComponent(candidateProfiles[0]?.phoneNumber ?? "")}&amountKes=${activationInvoice?.amountKes ?? 45000}`;
-  const referenceCandidateName = liveBootstrap?.campaign?.candidate_name || "Campaign Owner";
-  const referenceWorkspaceName = liveBootstrap?.campaign?.campaign_name || "Campaign Workspace";
-  const currentRole = liveBootstrap?.workspace.role || "Candidate";
-  const roleProfile = roleProfiles[currentRole] ?? roleProfiles.Candidate;
-  const allowedNavLabels = roleNavItems[currentRole] ?? roleNavItems.Candidate;
-  const visibleNavItems = navItems.filter((item) => allowedNavLabels.includes(item.label));
-  const isOwnerAccount = currentRole === "Candidate" || currentRole === "Admin" || liveBootstrap?.workspace.isPlatformAdmin;
-  const profileSection = allowedNavLabels.includes("Team & Roles") ? "Team & Roles" : "Dashboard";
-  const accountSection = isOwnerAccount ? "Candidate Management" : profileSection;
   const readinessLabel = currentRole === "Campaign Manager" ? "Manager Execution Readiness" : currentRole === "Polling Agent" ? "Station Readiness" : currentRole === "Volunteer" ? "Field Readiness" : "Campaign Readiness";
   const readinessHelper = currentRole === "Campaign Manager" ? "Your team execution cockpit under the candidate workspace." : currentRole === "Polling Agent" ? "Focus on station tasks, incidents, turnout, and results." : currentRole === "Volunteer" ? "Focus on field tasks, supporters, issues, and visits." : "You are making great progress.";
   useEffect(() => {
@@ -1014,8 +979,8 @@ export default function Home() {
     { label: "Supporter Records", value: totalSupporters, icon: Users, tone: "sky", section: "Supporters" },
     { label: "Volunteer Applications", value: totalVolunteers, icon: UserCheck, tone: "gold", section: "Volunteers" },
     { label: "Polling Agent Applications", value: totalPollingAgents, icon: ShieldCheck, tone: "emerald", section: "Polling Agents" },
-    { label: "Open Issues", value: liveBootstrap?.summary.issues ?? communityIssues.length, icon: Siren, tone: "red", section: "Issues & Manifesto" },
-    { label: "Tasks Overdue", value: liveBootstrap?.summary.tasksOverdue ?? volunteerTasks.filter((task) => task.status === "Overdue").length, icon: AlertTriangle, tone: "amber", section: "Tasks & Field Ops" },
+    { label: "Open Issues", value: liveBootstrap?.summary.issues ?? 0, icon: Siren, tone: "red", section: "Issues & Manifesto" },
+    { label: "Tasks Overdue", value: liveBootstrap?.summary.tasksOverdue ?? 0, icon: AlertTriangle, tone: "amber", section: "Tasks & Field Ops" },
   ];
   const progressRows = [
     ["Organization", 85, Building2],
@@ -2005,18 +1970,7 @@ export default function Home() {
                 <ReportLink report="donations" label="Donations" />
               </div>
               <div className="mt-4 space-y-3">
-                {donations.map((donation) => (
-                  <div key={donation.id} className="rounded-lg border border-slate-200 p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-bold text-slate-950">{donation.donorName}</p>
-                        <p className="text-xs text-slate-500">{donation.donorType} - {donation.paymentMethod}</p>
-                      </div>
-                      <span className="text-sm font-bold text-sky-700">KES {donation.amountKes.toLocaleString()}</span>
-                    </div>
-                    <p className="mt-2 text-xs text-slate-500">{donation.phone} - {donation.date}</p>
-                  </div>
-                ))}
+                {emptyState(`No live donations have been recorded for ${referenceWorkspaceName} yet.`)}
               </div>
             </div>
 
@@ -2026,18 +1980,7 @@ export default function Home() {
                 <ReportLink report="expenses" label="Expenses" />
               </div>
               <div className="mt-4 space-y-3">
-                {expenses.map((expense) => (
-                  <div key={expense.id} className="rounded-lg bg-slate-50 p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-bold text-slate-950">{expense.vendor}</p>
-                        <p className="text-xs text-slate-500">{expense.category} - {expense.approvedBy}</p>
-                      </div>
-                      <StatusPill label={expense.status} />
-                    </div>
-                    <p className="mt-2 text-sm font-bold text-slate-950">KES {expense.amountKes.toLocaleString()}</p>
-                  </div>
-                ))}
+                {emptyState(`No live expenses have been entered for ${referenceWorkspaceName} yet.`)}
               </div>
             </div>
 
@@ -2059,6 +2002,7 @@ export default function Home() {
                     <p className="mt-2 text-xs text-slate-500">Remaining KES {row.remaining.toLocaleString()}</p>
                   </div>
                 ))}
+                {budgetRows.length === 0 ? emptyState(`No budget records have been entered for ${referenceWorkspaceName} yet.`) : null}
               </div>
             </div>
           </section>
@@ -2071,7 +2015,7 @@ export default function Home() {
               </div>
               <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
                 <p className="text-sm font-bold text-amber-900">Paybill configuration</p>
-                <p className="mt-1 text-sm text-amber-800">Business number: {mpesaPaymentSetting.paybillNumber}</p>
+                <p className="mt-1 text-sm text-amber-800">Business number: 4080665</p>
                 <p className="mt-1 text-xs text-amber-700">Set the live Paybill in secure production settings before processing real payments.</p>
               </div>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -2079,28 +2023,16 @@ export default function Home() {
                 <Link className="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 hover:bg-slate-50" href="/admin/activation">Activate Workspace</Link>
               </div>
               <div className="mt-4 grid gap-2 text-sm">
-                <div className="rounded-md bg-slate-50 p-3">Account reference: <b>{mpesaPaymentSetting.accountReferenceFormat}</b></div>
-                <div className="rounded-md bg-slate-50 p-3">STK Push: <b>{mpesaPaymentSetting.stkPushReady ? "Ready" : "Pending"}</b></div>
-                <div className="rounded-md bg-slate-50 p-3">Paybill: <b>{mpesaPaymentSetting.paybillReady ? "Ready" : "Pending"}</b></div>
+                <div className="rounded-md bg-slate-50 p-3">Account reference: <b>{liveBootstrap?.workspace.candidateId ? `JUKWAA-${liveBootstrap.workspace.candidateId.slice(0, 8).toUpperCase()}` : "Created after login"}</b></div>
+                <div className="rounded-md bg-slate-50 p-3">STK Push: <b>{liveBootstrap ? "Ready" : "Checking"}</b></div>
+                <div className="rounded-md bg-slate-50 p-3">Paybill: <b>Ready</b></div>
               </div>
             </div>
 
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <h2 className="text-sm font-bold text-slate-950">Transaction Logs</h2>
               <div className="mt-4 space-y-3">
-                {mpesaTransactions.map((transaction) => (
-                  <div key={transaction.id} className="rounded-lg bg-slate-50 p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-bold text-slate-950">{transaction.purpose}</p>
-                        <p className="text-xs text-slate-500">{transaction.method} - {transaction.phone}</p>
-                      </div>
-                      <StatusPill label={transaction.status} />
-                    </div>
-                    <p className="mt-2 text-sm font-bold text-slate-950">KES {transaction.amountKes.toLocaleString()}</p>
-                    <p className="mt-1 font-mono text-xs text-slate-500">{transaction.accountReference}</p>
-                  </div>
-                ))}
+                {emptyState(`No live M-Pesa transactions have been recorded for ${referenceWorkspaceName} yet.`)}
               </div>
             </div>
 
@@ -2110,24 +2042,7 @@ export default function Home() {
                 <ReportLink report="fundraising" label="Fundraising" />
               </div>
               <div className="mt-4 space-y-3">
-                {fundraisingCampaigns.map((item) => {
-                  const progress = Math.round((item.raisedKes / item.goalAmountKes) * 100);
-                  return (
-                    <div key={item.id} className="rounded-lg border border-slate-200 p-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-bold text-slate-950">{item.title}</p>
-                          <p className="text-xs text-slate-500">{item.targetDate}</p>
-                        </div>
-                        <StatusPill label={item.status} />
-                      </div>
-                      <div className="mt-3 h-2 rounded-full bg-slate-100">
-                        <div className="h-2 rounded-full bg-sky-500" style={{ width: `${progress}%` }} />
-                      </div>
-                      <p className="mt-2 text-xs text-slate-500">KES {item.raisedKes.toLocaleString()} of {item.goalAmountKes.toLocaleString()}</p>
-                    </div>
-                  );
-                })}
+                {emptyState(`No fundraising campaigns have been created for ${electiveScopeLabel} yet.`)}
               </div>
             </div>
           </section>
@@ -2139,14 +2054,14 @@ export default function Home() {
                 <ReportLink report="predictive-analytics" label="Forecasts" />
               </div>
               <div className="mt-4 space-y-3">
-                {predictiveInsights.map((insight) => (
+                {aiRows.map((insight) => (
                   <div key={insight.id} className="rounded-lg border border-slate-200 p-3">
                     <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-bold text-slate-950">{insight.metric}</p>
-                      <span className="text-lg font-bold text-sky-700">{insight.estimate}/100</span>
+                      <p className="text-sm font-bold text-slate-950">{insight.title}</p>
+                      <span className="text-lg font-bold text-sky-700">{insight.impactScore}/100</span>
                     </div>
-                    <p className="mt-1 text-sm text-slate-600">{insight.label}</p>
-                    <p className="mt-2 text-xs text-slate-500">{insight.caveat}</p>
+                    <p className="mt-1 text-sm text-slate-600">{insight.description}</p>
+                    <p className="mt-2 text-xs text-slate-500">{insight.source}</p>
                   </div>
                 ))}
               </div>
@@ -2155,13 +2070,7 @@ export default function Home() {
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <h2 className="text-sm font-bold text-slate-950">Scenario Planning</h2>
               <div className="mt-4 space-y-3">
-                {scenarioPlans.map((scenario) => (
-                  <div key={scenario.id} className="rounded-lg bg-slate-50 p-3">
-                    <p className="text-sm font-bold text-slate-950">{scenario.title}</p>
-                    <p className="mt-1 text-xs text-slate-500">Turnout {scenario.turnoutShift > 0 ? "+" : ""}{scenario.turnoutShift}% - Volunteers +{scenario.volunteerIncrease}% - KES {scenario.additionalSpendKes.toLocaleString()}</p>
-                    <p className="mt-2 text-sm text-slate-600">{scenario.projectedImpact}</p>
-                  </div>
-                ))}
+                {emptyState(`No scenario plans have been created from live ${electiveScopeLabel} data yet.`)}
               </div>
             </div>
 
@@ -2193,24 +2102,14 @@ export default function Home() {
                 <ReportLink report="documents" label="Documents" />
               </div>
               <div className="mt-4 space-y-3">
-                {campaignDocuments.map((document) => (
-                  <div key={document.id} className="rounded-lg border border-slate-200 p-3">
-                    <p className="text-sm font-bold text-slate-950">{document.title}</p>
-                    <p className="mt-1 text-xs text-slate-500">{document.category} - {document.version} - {document.permission}</p>
-                  </div>
-                ))}
+                {emptyState(`No campaign documents have been uploaded for ${referenceWorkspaceName} yet.`)}
               </div>
             </div>
 
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <h2 className="text-sm font-bold text-slate-950">Knowledge Center</h2>
               <div className="mt-4 space-y-3">
-                {knowledgeArticles.map((article) => (
-                  <div key={article.id} className="rounded-lg bg-slate-50 p-3">
-                    <p className="text-sm font-bold text-slate-950">{article.title}</p>
-                    <p className="mt-1 text-xs text-slate-500">{article.category} - {article.audience}</p>
-                  </div>
-                ))}
+                {emptyState(`No training articles have been published for this workspace yet.`)}
               </div>
             </div>
 
@@ -2241,7 +2140,18 @@ export default function Home() {
                 </div>
               </div>
               <div className="mt-4 grid gap-3 md:grid-cols-2">
-                {candidateProfiles.map((candidate) => (
+                {[{
+                  id: liveBootstrap?.workspace.candidateId || "current-candidate",
+                  fullName: referenceCandidateName,
+                  positionContesting: campaignPosition,
+                  constituency: electiveScopeLabel,
+                  verificationStatus: liveBootstrap?.campaign?.active_status || "Active",
+                  biography: campaignSlogan || `Candidate workspace for ${electiveScopeLabel}.`,
+                  campaignName: referenceWorkspaceName,
+                  activeStatus: commercialAccess?.allowed ? "Workspace active" : commercialAccess?.status || "Awaiting activation",
+                  phoneNumber: "Login account contact",
+                  politicalParty: liveBootstrap?.campaign?.political_party || "Not recorded",
+                }].map((candidate) => (
                   <div key={candidate.id} className="rounded-lg border border-slate-200 p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
@@ -2319,18 +2229,18 @@ export default function Home() {
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-sm font-bold text-slate-950">Workspace Ownership</h2>
-                <StatusPill label={workspaceOwnership.ownershipStatus} />
+                <StatusPill label={commercialAccess?.allowed ? "Active" : commercialAccess?.status || "Pending"} />
               </div>
               <div className="mt-4 space-y-3">
                 <div className="rounded-lg bg-slate-50 p-3">
                   <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Owner</p>
-                  <p className="mt-1 text-sm font-bold text-slate-950">{workspaceOwnership.candidate}</p>
+                  <p className="mt-1 text-sm font-bold text-slate-950">{referenceCandidateName}</p>
                   <p className="mt-1 text-xs text-slate-500">Candidate cannot be deleted from their workspace.</p>
                 </div>
                 <div className="rounded-lg bg-slate-50 p-3">
                   <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Secondary Owner</p>
-                  <p className="mt-1 text-sm font-bold text-slate-950">{workspaceOwnership.campaignManager}</p>
-                  <p className="mt-1 text-xs text-slate-500">{workspaceOwnership.managerReplacePolicy}</p>
+                  <p className="mt-1 text-sm font-bold text-slate-950">{workspaceInvitations.find((invite) => invite.role.includes("Manager") && invite.status === "Accepted")?.invitedName || "No accepted campaign manager yet"}</p>
+                  <p className="mt-1 text-xs text-slate-500">Invite a campaign manager from Team & Roles when ready.</p>
                 </div>
                 <div className="rounded-lg border border-sky-200 bg-sky-50 p-3">
                   <p className="text-sm font-bold text-sky-900">No Self Registration</p>
@@ -2353,7 +2263,7 @@ export default function Home() {
                 </div>
               </div>
               <div className="mt-4 space-y-3">
-                {invitations.map((invite) => (
+                {workspaceInvitations.map((invite) => (
                   <div key={invite.id} className="rounded-lg border border-slate-200 p-3">
                     <div className="flex items-start justify-between gap-3">
                       <div>
@@ -2365,21 +2275,22 @@ export default function Home() {
                     <p className="mt-2 font-mono text-xs text-slate-500">{invite.invitationCode} - expires {invite.expiryDate}</p>
                   </div>
                 ))}
+                {workspaceInvitations.length === 0 ? emptyState(`No team invitations have been created for ${electiveScopeLabel} yet.`) : null}
               </div>
             </div>
 
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-sm font-bold text-slate-950">Election Management</h2>
-                <StatusPill label={`${governanceSummary.activeCampaigns} Active`} />
+                <StatusPill label={`${workspaceElectionRows.filter((election) => election.status === "Active").length} Active`} />
               </div>
               <div className="mt-4 space-y-3">
-                {electionCycles.map((election) => (
+                {workspaceElectionRows.map((election) => (
                   <div key={election.id} className="rounded-lg bg-slate-50 p-3">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-sm font-bold text-slate-950">{election.electionName}</p>
-                        <p className="text-xs text-slate-500">{election.electionType} - {election.country}</p>
+                        <p className="text-xs text-slate-500">{election.electionType} - {election.geography}</p>
                       </div>
                       <StatusPill label={election.status} />
                     </div>
@@ -2450,7 +2361,7 @@ export default function Home() {
               <h2 className="text-sm font-bold text-slate-950">User Approval Workflow</h2>
               <div className="mt-4 grid gap-3">
                 {["Approve User", "Suspend User", "Deactivate User", "Reactivate User"].map((action) => (
-                  <button key={action} className="flex h-11 items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700 hover:border-sky-200 hover:bg-sky-50 hover:text-sky-800" onClick={() => void persistWorkflow("userStatus", { invitationId: invitations.find((invite) => invite.status === "Pending")?.id, status: action.includes("Approve") ? "Accepted" : action.includes("Reactivate") ? "Pending" : "Revoked" }, `${action} workflow saved to the audit trail.`, "Users")} type="button">
+                  <button key={action} disabled={!pendingInvitationId} className="flex h-11 items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700 hover:border-sky-200 hover:bg-sky-50 hover:text-sky-800 disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void persistWorkflow("userStatus", { invitationId: pendingInvitationId, status: action.includes("Approve") ? "Accepted" : action.includes("Reactivate") ? "Pending" : "Revoked" }, `${action} workflow saved to the audit trail.`, "Users")} type="button">
                     {action}
                     <UserCheck size={16} />
                   </button>
@@ -2468,13 +2379,13 @@ export default function Home() {
               </div>
               <div className="mt-4 rounded-lg bg-slate-50 p-4">
                 <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Current Plan</p>
-                <p className="mt-1 text-2xl font-bold text-slate-950">{workspaceSubscription.plan}</p>
-                <p className="mt-1 text-sm text-slate-500">{workspaceSubscription.startDate} to {workspaceSubscription.expiryDate}</p>
+                <p className="mt-1 text-2xl font-bold text-slate-950">{commercialAccess?.subscriptionStatus || "Workspace Plan"}</p>
+                <p className="mt-1 text-sm text-slate-500">{commercialAccess?.reason || "Subscription and access state comes from the live workspace."}</p>
                 <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
-                  <div className="rounded-md bg-white p-2"><b>{workspaceSubscription.userLimit}</b><br />users</div>
-                  <div className="rounded-md bg-white p-2"><b>{workspaceSubscription.volunteerLimit}</b><br />volunteers</div>
-                  <div className="rounded-md bg-white p-2"><b>{workspaceSubscription.pollingAgentLimit}</b><br />agents</div>
-                  <div className="rounded-md bg-white p-2"><b>{workspaceSubscription.storageGb}GB</b><br />storage</div>
+                  <div className="rounded-md bg-white p-2"><b>{workspaceUserRows.length}</b><br />users</div>
+                  <div className="rounded-md bg-white p-2"><b>{totalVolunteers}</b><br />volunteers</div>
+                  <div className="rounded-md bg-white p-2"><b>{totalPollingAgents}</b><br />agents</div>
+                  <div className="rounded-md bg-white p-2"><b>{commercialAccess?.paymentStatus || "Pending"}</b><br />payment</div>
                 </div>
               </div>
             </div>
@@ -2504,19 +2415,8 @@ export default function Home() {
                 <ReportLink report="payments" label="Payments" />
               </div>
               <div className="mt-4 space-y-3">
-                {payments.map((payment) => (
-                  <div key={payment.id} className="rounded-lg bg-slate-50 p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-bold text-slate-950">{payment.method}</p>
-                        <p className="text-xs text-slate-500">{payment.reference}</p>
-                      </div>
-                      <StatusPill label={payment.status} />
-                    </div>
-                    <p className="mt-2 text-sm font-bold text-slate-950">KES {payment.amountKes.toLocaleString()}</p>
-                  </div>
-                ))}
-                <p className="text-xs text-slate-500">{invoices.length} invoices tracked. Payment processors are framework-only until live billing is enabled.</p>
+                {emptyState(`No payment records have been received for ${referenceWorkspaceName} yet.`)}
+                <p className="text-xs text-slate-500">{liveBootstrap?.summary.payments ?? 0} live payment records tracked for this workspace.</p>
               </div>
             </div>
           </section>
@@ -2624,19 +2524,20 @@ export default function Home() {
                 <ReportLink report="incident" label="Incidents" />
               </div>
               <div className="mt-4 space-y-3">
-                {electionAlerts.map((alert) => (
-                  <div key={alert.id} className="rounded-lg border border-slate-200 p-3">
+                {workspaceIssueRows.filter((issue) => issue.priority === "High" || issue.priority === "Critical").map((issue) => (
+                  <div key={issue.id} className="rounded-lg border border-slate-200 p-3">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-sm font-bold text-slate-950">{alert.title}</p>
-                        <p className="text-xs text-slate-500">{alert.alertType} - {alert.pollingStation}</p>
+                        <p className="text-sm font-bold text-slate-950">{issue.title}</p>
+                        <p className="text-xs text-slate-500">{issue.meta}</p>
                       </div>
-                      <StatusPill label={alert.severity} />
+                      <StatusPill label={issue.priority} />
                     </div>
-                    <p className="mt-2 text-sm text-slate-600">{alert.body}</p>
-                    <p className="mt-2 text-xs font-semibold text-slate-500">{alert.createdAt} - {alert.status}</p>
+                    <p className="mt-2 text-sm text-slate-600">{issue.description}</p>
+                    <p className="mt-2 text-xs font-semibold text-slate-500">{issue.status}</p>
                   </div>
                 ))}
+                {workspaceIssueRows.filter((issue) => issue.priority === "High" || issue.priority === "Critical").length === 0 ? emptyState(`No high-priority situation alerts for ${electiveScopeLabel} yet.`) : null}
               </div>
             </div>
           </section>
@@ -2702,19 +2603,20 @@ export default function Home() {
                 <ReportLink report="incident" label="Incident Report" />
               </div>
               <div className="mt-4 space-y-3">
-                {electionIncidents.map((incident) => (
+                {workspaceIssueRows.map((incident) => (
                   <div key={incident.id} className="rounded-lg border border-slate-200 p-3">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-sm font-bold text-slate-950">{incident.title}</p>
-                        <p className="text-xs text-slate-500">{incident.category} - {incident.pollingStation}</p>
+                        <p className="text-xs text-slate-500">{incident.meta}</p>
                       </div>
-                      <StatusPill label={incident.urgency} />
+                      <StatusPill label={incident.priority} />
                     </div>
                     <p className="mt-2 text-sm text-slate-600">{incident.description}</p>
-                    <p className="mt-2 text-xs font-semibold text-slate-500">{incident.status} - {incident.assignedTo} - {incident.photos} photos / {incident.videos} videos</p>
+                    <p className="mt-2 text-xs font-semibold text-slate-500">{incident.status} - {incident.mentions} mentions</p>
                   </div>
                 ))}
+                {workspaceIssueRows.length === 0 ? emptyState(`No incidents or issues have been reported for ${electiveScopeLabel} yet.`) : null}
               </div>
             </div>
 
@@ -2724,18 +2626,19 @@ export default function Home() {
                 <ReportLink report="results" label="Results" />
               </div>
               <div className="mt-4 space-y-3">
-                {electionForms.map((form) => (
-                  <div key={form.id} className="rounded-lg bg-slate-50 p-3">
+                {qualityQueue.map((form) => (
+                  <div key={`${form.station}-${form.formType}`} className="rounded-lg bg-slate-50 p-3">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-sm font-bold text-slate-950">{form.pollingStation}</p>
+                        <p className="text-sm font-bold text-slate-950">{form.station}</p>
                         <p className="text-xs text-slate-500">{form.formType} - {form.uploadedBy}</p>
                       </div>
-                      <StatusPill label={form.qualityStatus} />
+                      <StatusPill label={form.status} />
                     </div>
-                    <p className="mt-2 text-xs font-semibold text-slate-500">{form.duplicateCheck} - {form.missingFields.length ? form.missingFields.join(", ") : "All required fields present"}</p>
+                    <p className="mt-2 text-xs font-semibold text-slate-500">{form.flags}</p>
                   </div>
                 ))}
+                {qualityQueue.length === 0 ? emptyState("No result forms have been uploaded for validation yet.") : null}
               </div>
             </div>
 
@@ -2800,6 +2703,7 @@ export default function Home() {
                     <p className="mt-2 text-sm text-slate-600">{row.recommendation}</p>
                   </div>
                 ))}
+                {mobilizationRows.length === 0 ? emptyState(`No supporter intelligence is available for ${electiveScopeLabel} yet.`) : null}
               </div>
             </div>
           </section>
@@ -3384,7 +3288,7 @@ export default function Home() {
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <h2 className="text-sm font-bold text-slate-950">Users and Roles</h2>
               <div className="mt-4 space-y-2">
-                {users.map((user) => (
+                {workspaceUserRows.map((user) => (
                   <div key={user.id} className="flex items-center justify-between rounded-md bg-slate-50 p-3">
                     <div>
                       <p className="text-sm font-bold text-slate-950">{user.name}</p>
@@ -3393,17 +3297,19 @@ export default function Home() {
                     <span className="text-xs font-bold text-sky-700">{user.status}</span>
                   </div>
                 ))}
+                {workspaceUserRows.length === 0 ? emptyState(`No users have been added for ${referenceWorkspaceName} yet.`) : null}
               </div>
             </div>
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <h2 className="text-sm font-bold text-slate-950">Audit Trail</h2>
               <div className="mt-4 space-y-3">
-                {auditTrail.map((event) => (
-                  <div key={`${event.user}-${event.timestamp}`} className="border-l-2 border-sky-500 pl-3">
+                {workspaceAuditRows.map((event) => (
+                  <div key={event.id} className="border-l-2 border-sky-500 pl-3">
                     <p className="text-sm font-bold text-slate-950">{event.action} - {event.module}</p>
                     <p className="text-xs text-slate-500">{event.user} at {event.timestamp}</p>
                   </div>
                 ))}
+                {workspaceAuditRows.length === 0 ? emptyState(`No audit events have been recorded for ${referenceWorkspaceName} yet.`) : null}
               </div>
             </div>
           </section>
@@ -3413,7 +3319,7 @@ export default function Home() {
             <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-md bg-slate-50 p-3 text-sm text-slate-600">Country {"->"} County {"->"} Constituency {"->"} Ward {"->"} Village {"->"} Polling Station</div>
               <div className="rounded-md bg-slate-50 p-3 text-sm text-slate-600">Role geography assignment supports constituency, ward, village, and station scoping.</div>
-              <div className="rounded-md bg-slate-50 p-3 text-sm text-slate-600">{roles.length} built-in roles mapped for campaign operations.</div>
+              <div className="rounded-md bg-slate-50 p-3 text-sm text-slate-600">{workspaceUserRows.length} live workspace users mapped for campaign operations.</div>
               <div className="rounded-md bg-slate-50 p-3 text-sm text-slate-600">{issueData.length} live issue groups available for export.</div>
             </div>
           </section>
