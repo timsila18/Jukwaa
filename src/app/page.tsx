@@ -395,6 +395,21 @@ function liveDate(record: LiveRecord | undefined, key: string, fallback = "") {
   return value.slice(0, 16).replace("T", " ");
 }
 
+function readableNameFromContact(value?: string | null) {
+  if (!value) return "";
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (trimmed.includes("@")) {
+    const localPart = trimmed.split("@")[0] ?? "";
+    return localPart
+      .split(/[._-]+/)
+      .filter(Boolean)
+      .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1).toLowerCase())
+      .join(" ");
+  }
+  return trimmed;
+}
+
 function emptyState(message: string) {
   return <div className="rounded-md bg-slate-50 p-3 text-sm font-semibold text-slate-500">{message}</div>;
 }
@@ -612,7 +627,11 @@ export default function Home() {
   const allowedNavLabels = roleNavItems[currentRole] ?? roleNavItems.Candidate;
   const visibleNavItems = navItems.filter((item) => allowedNavLabels.includes(item.label));
   const isOwnerAccount = currentRole === "Candidate" || currentRole === "Admin" || liveBootstrap?.workspace.isPlatformAdmin;
-  const currentMemberName = currentMember?.full_name || (isOwnerAccount ? referenceCandidateName : "Campaign User");
+  const currentMemberName =
+    currentMember?.full_name?.trim()
+    || readableNameFromContact(currentMember?.phone_number)
+    || readableNameFromContact(currentMember?.email)
+    || (isOwnerAccount ? referenceCandidateName : `${currentRole} Member`);
   const profileSection = allowedNavLabels.includes("Team & Roles") ? "Team & Roles" : "Dashboard";
   const accountSection = isOwnerAccount ? "Candidate Management" : profileSection;
   const paymentUrl = `/payment/confirm?accountReference=${encodeURIComponent(liveBootstrap?.workspace.candidateId ? `JUKWAA-${liveBootstrap.workspace.candidateId.slice(0, 8).toUpperCase()}` : "JUKWAA-WORKSPACE")}&amountKes=45000`;
@@ -974,7 +993,7 @@ export default function Home() {
   const workspaceInvitations = (liveBootstrap?.invitations ?? []).map((invite) => ({
     id: String(invite.id),
     invitedName: liveText(invite, "invited_name", "Invited team member"),
-    role: liveText(invite, "role", "Campaign User"),
+    role: liveText(invite, "role", "Team Member"),
     invitedPhone: liveText(invite, "invited_phone", liveText(invite, "invited_email", "No contact recorded")),
     invitationCode: liveText(invite, "join_code", liveText(invite, "invitation_code", "Join code pending")),
     expiryDate: liveDate(invite, "expiry_date", "No expiry set"),

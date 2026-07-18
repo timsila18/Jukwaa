@@ -113,8 +113,8 @@ export default function UserSignupPage() {
           <div className="grid h-11 w-11 place-items-center rounded-lg bg-sky-50 text-sky-700">
             <UserCheck size={20} />
           </div>
-          <h1 className="mt-4 text-2xl font-bold text-slate-950">Create or Invite Campaign User</h1>
-          <p className="mt-2 text-sm leading-6 text-slate-600">Generate a one-time joining code and give it to the user. They create their password once and login normally after that.</p>
+          <h1 className="mt-4 text-2xl font-bold text-slate-950">Create or Invite Team Member</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-600">Generate a one-time joining code and give it to the named team member. They create their password once and login normally after that.</p>
         </div>
         <form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={(event) => { event.preventDefault(); void createInvitation(); }}>
           <label className="block text-sm font-semibold text-slate-700">Full name<input autoComplete="name" className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => update("fullName", event.target.value)} value={form.fullName} /></label>
