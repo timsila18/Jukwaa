@@ -79,6 +79,23 @@ const workflowSchemas = {
     assetType: z.string().trim().default("Campaign Message"),
     audience: z.string().trim().optional().or(z.literal("")),
   }),
+  communicationRoom: z.object({
+    title: z.string().trim().min(2),
+    purpose: z.enum(["Command Briefing", "Volunteer Coordination", "Ward Town Hall", "Candidate Broadcast"]).default("Command Briefing"),
+    audience: z.string().trim().min(2),
+    scheduledAt: z.string().trim().optional().or(z.literal("")),
+    expectedParticipants: z.coerce.number().int().min(0).default(0),
+  }),
+  communicationMessage: z.object({
+    channel: z.enum(["Solco Meeting", "Campaign Chat", "Broadcast SMS", "WhatsApp"]).default("Campaign Chat"),
+    subject: z.string().trim().min(2),
+    audience: z.string().trim().min(2),
+    status: z.enum(["Draft", "Queued", "Sent", "Delivered"]).default("Draft"),
+  }),
+  issueStatus: z.object({
+    issueId: z.string().uuid(),
+    status: z.enum(["Open", "Under Review", "Addressed"]),
+  }),
 } as const;
 
 type WorkflowName = keyof typeof workflowSchemas;
@@ -95,6 +112,9 @@ const workflowRoles: Record<WorkflowName, string[]> = {
   userStatus: ["Candidate", "Campaign Manager", "Admin"],
   supportTicket: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Village Coordinator", "Volunteer", "Polling Agent", "Media Team", "Data Clerk", "Admin"],
   aiContent: ["Candidate", "Campaign Manager", "Media Team", "Admin"],
+  communicationRoom: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Media Team", "Admin"],
+  communicationMessage: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Media Team", "Admin"],
+  issueStatus: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Admin"],
 };
 
 async function firstId(table: string, tenantId: string, column = "id") {
@@ -344,6 +364,53 @@ export async function POST(request: Request, context: { params: Promise<{ workfl
       audience: data.audience || null,
       status: "Draft",
     };
+  }
+
+  if (name === "communicationRoom") {
+    const data = parsed.data as z.infer<typeof workflowSchemas.communicationRoom>;
+    table = "communication_rooms";
+    payload = {
+      tenant_id: workspace.tenantId,
+      candidate_id: workspace.candidateId,
+      title: data.title,
+      livekit_room_name: `${shortCode("jukwaa-room").toLowerCase()}-${data.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 42) || "room"}`,
+      purpose: data.purpose,
+      status: "Scheduled",
+      audience: data.audience,
+      scheduled_at: data.scheduledAt || null,
+      expected_participants: data.expectedParticipants,
+      host_member_id: auth.session.memberId || null,
+    };
+  }
+
+  if (name === "communicationMessage") {
+    const data = parsed.data as z.infer<typeof workflowSchemas.communicationMessage>;
+    table = "communication_messages";
+    payload = {
+      tenant_id: workspace.tenantId,
+      candidate_id: workspace.candidateId,
+      channel: data.channel,
+      subject: data.subject,
+      sender_member_id: auth.session.memberId || null,
+      audience: data.audience,
+      status: data.status,
+      sent_at: data.status === "Sent" || data.status === "Delivered" ? new Date().toISOString() : null,
+    };
+  }
+
+  if (name === "issueStatus") {
+    const data = parsed.data as z.infer<typeof workflowSchemas.issueStatus>;
+    const { data: updated, error } = await supabase
+      .from("community_issues")
+      .update({ status: data.status, updated_at: new Date().toISOString() })
+      .eq("id", data.issueId)
+      .eq("tenant_id", workspace.tenantId)
+      .eq("candidate_id", workspace.candidateId)
+      .select("id")
+      .single();
+    if (error || !updated) return NextResponse.json({ error: "Could not update issue status.", detail: error?.message }, { status: 500 });
+    await writeAudit({ tenantId: workspace.tenantId, candidateId: workspace.candidateId, action: "Update", module: "issueStatus", recordId: updated.id, newValue: data });
+    return NextResponse.json({ id: updated.id, status: "Saved" });
   }
 
   if (name === "userStatus") {

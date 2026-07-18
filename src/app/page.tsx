@@ -506,6 +506,15 @@ export default function Home() {
   const [meetingTokenStatus, setMeetingTokenStatus] = useState("");
   const [meetingTokenError, setMeetingTokenError] = useState("");
   const [meetingTokenLoading, setMeetingTokenLoading] = useState(false);
+  const [roomTitle, setRoomTitle] = useState("");
+  const [roomAudience, setRoomAudience] = useState("");
+  const [roomPurpose, setRoomPurpose] = useState("Command Briefing");
+  const [roomSchedule, setRoomSchedule] = useState("");
+  const [roomParticipants, setRoomParticipants] = useState("0");
+  const [messageSubject, setMessageSubject] = useState("");
+  const [messageAudience, setMessageAudience] = useState("");
+  const [messageChannel, setMessageChannel] = useState("Campaign Chat");
+  const [messageStatus, setMessageStatus] = useState("Draft");
   const [actionMessage, setActionMessage] = useState("");
   const [taskTitle, setTaskTitle] = useState("");
   const [taskDescription, setTaskDescription] = useState("");
@@ -514,6 +523,10 @@ export default function Home() {
   const [eventVenue, setEventVenue] = useState("");
   const [eventDate, setEventDate] = useState("");
   const [eventAttendance, setEventAttendance] = useState("0");
+  const [issueTitle, setIssueTitle] = useState("");
+  const [issueCategory, setIssueCategory] = useState("Other");
+  const [issuePriority, setIssuePriority] = useState("Medium");
+  const [issueDescription, setIssueDescription] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [liveBootstrap, setLiveBootstrap] = useState<LiveBootstrap | null>(null);
   const [liveSupporters, setLiveSupporters] = useState<LiveSupporter[] | null>(null);
@@ -844,6 +857,14 @@ export default function Home() {
     };
   }, []);
 
+  async function refreshWorkspace() {
+    const response = await fetch("/api/dashboard/bootstrap", { credentials: "include" });
+    if (!response.ok) return;
+    const payload = await response.json() as LiveBootstrap;
+    setLiveBootstrap(payload);
+    setLiveSupporters(payload.supporters.map(normalizeSupporter));
+  }
+
   const commercialAccess = liveBootstrap?.workspace.access;
   const activationInvoice = invoices.find((invoice) => invoice.status !== "Paid") ?? invoices[0];
   const paymentUrl = `/payment/confirm?accountReference=${encodeURIComponent(mpesaPaymentSetting.accountReferenceFormat)}&phoneNumber=${encodeURIComponent(candidateProfiles[0]?.phoneNumber ?? "")}&amountKes=${activationInvoice?.amountKes ?? 45000}`;
@@ -1095,6 +1116,9 @@ export default function Home() {
         setSupporterPollingStation("");
         setSupporterKeyIssue("");
         setOverrideDuplicate(false);
+      }
+      if (["communicationRoom", "communicationMessage", "issue", "issueStatus", "fieldVisit", "aiContent", "task", "event"].includes(workflow)) {
+        await refreshWorkspace();
       }
       runAction(successMessage, sectionLabel);
     } catch (error) {
@@ -1704,6 +1728,39 @@ export default function Home() {
                 {meetingTokenStatus ? <div className="mt-3 rounded-md bg-white p-3 text-sm font-semibold text-slate-700">{meetingTokenStatus}</div> : null}
                 {meetingTokenError ? <div className="mt-3 rounded-md bg-red-50 p-3 text-sm font-semibold text-red-700">{meetingTokenError}</div> : null}
               </div>
+              <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                <form className="rounded-lg border border-slate-200 p-3" onSubmit={(event) => { event.preventDefault(); void persistWorkflow("communicationRoom", { title: roomTitle, purpose: roomPurpose, audience: roomAudience || `${electiveScopeLabel} campaign team`, scheduledAt: roomSchedule, expectedParticipants: Number(roomParticipants) }, "Communication room created.", "Communications").then(() => { setRoomTitle(""); setRoomAudience(""); setRoomSchedule(""); setRoomParticipants("0"); }); }}>
+                  <h3 className="text-sm font-black text-slate-950">Create Room</h3>
+                  <div className="mt-3 grid gap-2">
+                    <input className="h-10 rounded-md border border-slate-200 px-3 text-sm" onChange={(event) => setRoomTitle(event.target.value)} placeholder={`${electiveScopeLabel} command room`} required value={roomTitle} />
+                    <select className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm" onChange={(event) => setRoomPurpose(event.target.value)} value={roomPurpose}>
+                      {["Command Briefing", "Volunteer Coordination", "Ward Town Hall", "Candidate Broadcast"].map((purpose) => <option key={purpose}>{purpose}</option>)}
+                    </select>
+                    <input className="h-10 rounded-md border border-slate-200 px-3 text-sm" onChange={(event) => setRoomAudience(event.target.value)} placeholder="Audience" value={roomAudience} />
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <input className="h-10 rounded-md border border-slate-200 px-3 text-sm" onChange={(event) => setRoomSchedule(event.target.value)} type="datetime-local" value={roomSchedule} />
+                      <input className="h-10 rounded-md border border-slate-200 px-3 text-sm" min="0" onChange={(event) => setRoomParticipants(event.target.value)} placeholder="Expected" type="number" value={roomParticipants} />
+                    </div>
+                    <button className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white hover:bg-slate-900" type="submit"><Video size={16} />Create Room</button>
+                  </div>
+                </form>
+                <form className="rounded-lg border border-slate-200 p-3" onSubmit={(event) => { event.preventDefault(); void persistWorkflow("communicationMessage", { channel: messageChannel, subject: messageSubject, audience: messageAudience || `${electiveScopeLabel} team`, status: messageStatus }, "Campaign message saved to the queue.", "Communications").then(() => { setMessageSubject(""); setMessageAudience(""); setMessageStatus("Draft"); }); }}>
+                  <h3 className="text-sm font-black text-slate-950">Queue Message</h3>
+                  <div className="mt-3 grid gap-2">
+                    <input className="h-10 rounded-md border border-slate-200 px-3 text-sm" onChange={(event) => setMessageSubject(event.target.value)} placeholder="Message subject" required value={messageSubject} />
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <select className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm" onChange={(event) => setMessageChannel(event.target.value)} value={messageChannel}>
+                        {["Campaign Chat", "Solco Meeting", "Broadcast SMS", "WhatsApp"].map((channel) => <option key={channel}>{channel}</option>)}
+                      </select>
+                      <select className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm" onChange={(event) => setMessageStatus(event.target.value)} value={messageStatus}>
+                        {["Draft", "Queued", "Sent", "Delivered"].map((status) => <option key={status}>{status}</option>)}
+                      </select>
+                    </div>
+                    <input className="h-10 rounded-md border border-slate-200 px-3 text-sm" onChange={(event) => setMessageAudience(event.target.value)} placeholder="Audience" value={messageAudience} />
+                    <button className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white hover:bg-slate-900" type="submit"><MessageSquare size={16} />Save Message</button>
+                  </div>
+                </form>
+              </div>
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 {workspaceCommunicationRooms.map((room) => (
                   <div key={room.id} className="rounded-lg border border-slate-200 p-3">
@@ -1777,6 +1834,21 @@ export default function Home() {
                 </div>
                 {aiAnswer ? <div className="mt-3 whitespace-pre-wrap rounded-md bg-white p-3 text-sm leading-6 text-slate-700">{aiAnswer}</div> : null}
                 {aiError ? <div className="mt-3 rounded-md bg-red-50 p-3 text-sm font-semibold text-red-700">{aiError}</div> : null}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {[
+                    `Which ${focusAreaPlural} in ${electiveScopeLabel} need attention this week?`,
+                    `Draft a speech paragraph about ${effectiveSupporterWard || electiveScopeLabel} issues.`,
+                    `Create a WhatsApp update for ${electiveScopeLabel} volunteers.`,
+                    `Summarize open manifesto issues by ward.`,
+                  ].map((prompt) => (
+                    <button key={prompt} className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700" onClick={() => setAiQuestion(prompt)} type="button">
+                      {prompt}
+                    </button>
+                  ))}
+                  <button disabled={!aiAnswer.trim()} className="rounded-md bg-slate-950 px-3 py-2 text-xs font-bold text-white hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-300" onClick={() => void persistWorkflow("aiContent", { title: aiQuestion.slice(0, 80), assetType: "AI Strategy Brief", audience: electiveScopeLabel }, "AI answer saved as campaign content.", "AI Campaign Studio")} type="button">
+                    Save AI Draft
+                  </button>
+                </div>
               </form>
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 {aiRows.map((recommendation) => (
@@ -3057,6 +3129,22 @@ export default function Home() {
                 <h2 className="text-sm font-bold text-slate-950">Community Issues</h2>
                 <ReportLink report="community-issues" label="Issues" />
               </div>
+              <form className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3" onSubmit={(event) => { event.preventDefault(); void persistWorkflow("issue", { title: issueTitle, category: issueCategory, priority: issuePriority, description: issueDescription, wardName: effectiveSupporterWard, villageName: supporterVillage, pollingStationName: supporterPollingStation }, "Issue saved and added to manifesto follow-up.", "Issues & Manifesto").then(() => { setIssueTitle(""); setIssueDescription(""); setIssueCategory("Other"); setIssuePriority("Medium"); }); }}>
+                <h3 className="text-sm font-black text-slate-950">Report Issue in {effectiveSupporterWard || electiveScopeLabel}</h3>
+                <div className="mt-3 grid gap-2">
+                  <input className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm" onChange={(event) => setIssueTitle(event.target.value)} placeholder="Issue title" required value={issueTitle} />
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <select className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm" onChange={(event) => setIssueCategory(event.target.value)} value={issueCategory}>
+                      {["Roads", "Water", "Education", "Healthcare", "Agriculture", "Youth Employment", "Security", "Electricity", "Business", "Environment", "Other"].map((category) => <option key={category}>{category}</option>)}
+                    </select>
+                    <select className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm" onChange={(event) => setIssuePriority(event.target.value)} value={issuePriority}>
+                      {["Low", "Medium", "High", "Critical"].map((priority) => <option key={priority}>{priority}</option>)}
+                    </select>
+                  </div>
+                  <textarea className="min-h-20 rounded-md border border-slate-200 bg-white p-3 text-sm" onChange={(event) => setIssueDescription(event.target.value)} placeholder="What residents are saying, pledge link, or action needed" value={issueDescription} />
+                  <button className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white hover:bg-slate-900" type="submit"><AlertTriangle size={16} />Save Issue</button>
+                </div>
+              </form>
               <div className="mt-4 space-y-3">
                 {workspaceIssueRows.map((issue) => (
                   <div key={issue.id} className="rounded-lg border border-slate-200 p-3">
@@ -3069,6 +3157,13 @@ export default function Home() {
                     </div>
                     <p className="mt-2 text-sm text-slate-600">{issue.description}</p>
                     <p className="mt-2 text-xs font-semibold text-slate-500">{issue.mentions} mentions - {issue.status}</p>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                      {(["Open", "Under Review", "Addressed"] as const).map((status) => (
+                        <button key={status} className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700 hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700" onClick={() => void persistWorkflow("issueStatus", { issueId: issue.id, status }, `Issue marked ${status}.`, "Issues & Manifesto")} type="button">
+                          {status}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 ))}
                 {workspaceIssueRows.length === 0 ? emptyState("No community issues have been reported yet.") : null}

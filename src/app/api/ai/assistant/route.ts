@@ -3,22 +3,7 @@ import { z } from "zod";
 import { getLooseSupabaseAdmin } from "@/lib/supabase";
 import { enforceRateLimit, requestKey } from "@/lib/rate-limit";
 import { requireSession, requireWorkspaceAccess } from "@/lib/auth-session";
-import {
-  aiStrategyQueue,
-  budgetVarianceRows,
-  communityIssues,
-  donations,
-  expenses,
-  pollingAnalytics,
-  summarizeCampaign,
-  summarizeElectionOps,
-  summarizePhaseFive,
-  summarizeGovernance,
-  summarizePhaseTwo,
-  supporterMobilizationAnalytics,
-  territoryCoverage,
-  volunteerPerformance,
-} from "@/lib/demo-data";
+import { getLiveWorkspaceSnapshot } from "@/lib/live-dashboard";
 
 const requestSchema = z.object({
   question: z.string().trim().min(3).max(800),
@@ -76,21 +61,45 @@ export async function POST(request: Request) {
   }
 
   const model = process.env.OPENAI_MODEL ?? "gpt-4.1-mini";
+  const snapshot = await getLiveWorkspaceSnapshot(auth.session, access.access);
   const context = {
-    campaign: summarizeCampaign(),
-    fieldOperations: summarizePhaseTwo(),
-    electionDay: summarizeElectionOps(),
-    governance: summarizeGovernance(),
-    enterprise: summarizePhaseFive(),
-    pollingStations: pollingAnalytics().slice(0, 8),
-    volunteerPerformance: volunteerPerformance().slice(0, 6),
-    territoryCoverage: territoryCoverage(),
-    mobilization: supporterMobilizationAnalytics(),
-    communityIssues,
-    aiRecommendations: aiStrategyQueue(),
-    budgets: budgetVarianceRows(),
-    donations,
-    expenses,
+    campaign: snapshot.campaign,
+    workspaceAccess: snapshot.workspace.access,
+    summary: snapshot.summary,
+    supportersByWard: snapshot.supporters.reduce<Record<string, number>>((totals, supporter) => {
+      const ward = String(supporter.ward_name || "Not assigned");
+      totals[ward] = (totals[ward] ?? 0) + 1;
+      return totals;
+    }, {}),
+    supporterSegments: snapshot.supporters.slice(0, 80).map((supporter) => ({
+      ward: supporter.ward_name,
+      station: supporter.polling_station_name,
+      supportLevel: supporter.support_level,
+      keyIssue: supporter.key_issue,
+      volunteerInterest: supporter.volunteer_interest,
+    })),
+    volunteers: snapshot.volunteers.slice(0, 50).map((volunteer) => ({
+      name: volunteer.full_name,
+      ward: volunteer.ward_name,
+      status: volunteer.status,
+      joined: volunteer.join_date,
+    })),
+    issues: snapshot.issues.slice(0, 80).map((issue) => ({
+      title: issue.issue_title,
+      category: issue.category,
+      ward: issue.ward_name,
+      village: issue.village_name,
+      priority: issue.priority_level,
+      status: issue.status,
+      mentions: issue.number_of_mentions,
+    })),
+    tasks: snapshot.tasks.slice(0, 60),
+    events: snapshot.events.slice(0, 40),
+    communications: {
+      rooms: snapshot.communicationRooms.slice(0, 30),
+      messages: snapshot.communicationMessages.slice(0, 30),
+    },
+    aiContent: snapshot.aiContentAssets.slice(0, 30),
   };
 
   const upstream = await fetch("https://api.openai.com/v1/responses", {
@@ -102,7 +111,7 @@ export async function POST(request: Request) {
     body: JSON.stringify({
       model,
       instructions:
-        "You are JUKWAA AI, a concise political campaign intelligence assistant. Use only the provided campaign context. Give practical recommendations, call out uncertainty, and never present predictions as certainty.",
+        "You are JUKWAA AI, a concise political campaign intelligence assistant. Use only the provided live workspace context. Ground recommendations in the candidate's actual elective area, wards, supporters, issues, tasks, events, and communications. Give practical next steps, call out missing data, and never present predictions as certainty.",
       input: [
         {
           role: "user",
