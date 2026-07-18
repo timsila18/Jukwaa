@@ -82,6 +82,59 @@ async function countRows(table: string, tenantId: string, predicate?: (row: DbRo
   return predicate ? rows.filter(predicate).length : rows.length;
 }
 
+function mapRows(rows: DbRow[], key = "id") {
+  return new Map(rows.map((row) => [String(row[key]), row]));
+}
+
+async function withAreaNames(tenantId: string, rows: DbRow[]) {
+  const ids = {
+    county: new Set<string>(),
+    constituency: new Set<string>(),
+    ward: new Set<string>(),
+    village: new Set<string>(),
+    pollingStation: new Set<string>(),
+  };
+
+  for (const row of rows) {
+    if (row.county_id) ids.county.add(String(row.county_id));
+    if (row.constituency_id) ids.constituency.add(String(row.constituency_id));
+    if (row.ward_id) ids.ward.add(String(row.ward_id));
+    if (row.village_id) ids.village.add(String(row.village_id));
+    if (row.polling_station_id || row.assigned_polling_station_id) ids.pollingStation.add(String(row.polling_station_id ?? row.assigned_polling_station_id));
+    if (row.assigned_county_id) ids.county.add(String(row.assigned_county_id));
+    if (row.assigned_constituency_id) ids.constituency.add(String(row.assigned_constituency_id));
+    if (row.assigned_ward_id) ids.ward.add(String(row.assigned_ward_id));
+  }
+
+  const admin = getLooseSupabaseAdmin();
+  const [counties, constituencies, wards, villages, pollingStations] = await Promise.all([
+    ids.county.size ? admin.from("counties").select("id, name").eq("tenant_id", tenantId) : Promise.resolve({ data: [] }),
+    ids.constituency.size ? admin.from("constituencies").select("id, name").eq("tenant_id", tenantId) : Promise.resolve({ data: [] }),
+    ids.ward.size ? admin.from("wards").select("id, name").eq("tenant_id", tenantId) : Promise.resolve({ data: [] }),
+    ids.village.size ? admin.from("villages").select("id, name").eq("tenant_id", tenantId) : Promise.resolve({ data: [] }),
+    ids.pollingStation.size ? admin.from("polling_stations").select("id, name").eq("tenant_id", tenantId) : Promise.resolve({ data: [] }),
+  ]);
+
+  const countyMap = mapRows((Array.isArray(counties.data) ? counties.data as DbRow[] : []).filter((row) => ids.county.has(String(row.id))));
+  const constituencyMap = mapRows((Array.isArray(constituencies.data) ? constituencies.data as DbRow[] : []).filter((row) => ids.constituency.has(String(row.id))));
+  const wardMap = mapRows((Array.isArray(wards.data) ? wards.data as DbRow[] : []).filter((row) => ids.ward.has(String(row.id))));
+  const villageMap = mapRows((Array.isArray(villages.data) ? villages.data as DbRow[] : []).filter((row) => ids.village.has(String(row.id))));
+  const stationMap = mapRows((Array.isArray(pollingStations.data) ? pollingStations.data as DbRow[] : []).filter((row) => ids.pollingStation.has(String(row.id))));
+
+  return rows.map((row) => {
+    const stationId = String(row.polling_station_id ?? row.assigned_polling_station_id ?? "");
+    const wardId = String(row.ward_id ?? row.assigned_ward_id ?? "");
+    return {
+      ...row,
+      county_name: String(countyMap.get(String(row.county_id ?? row.assigned_county_id ?? ""))?.name ?? ""),
+      constituency_name: String(constituencyMap.get(String(row.constituency_id ?? row.assigned_constituency_id ?? ""))?.name ?? ""),
+      ward_name: String(wardMap.get(wardId)?.name ?? ""),
+      village_name: String(villageMap.get(String(row.village_id ?? ""))?.name ?? ""),
+      polling_station_name: String(stationMap.get(stationId)?.name ?? ""),
+    };
+  });
+}
+
 export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?: LiveSnapshot["workspace"]["access"]): Promise<LiveSnapshot> {
   const tenantId = session.tenantId;
   const candidateId = session.candidateId;
@@ -119,12 +172,12 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
     openMessageCount,
     aiContentCount,
   ] = await Promise.all([
-    fetchRows("supporters", tenantId, "id, full_name, phone_number, gender, age_group, support_level, key_issue, volunteer_interest, created_at", 100),
-    fetchRows("volunteers", tenantId, "id, full_name, phone_number, email, status, recruitment_source, join_date, notes, created_at", 100),
-    fetchRows("polling_agents", tenantId, "id, full_name, phone_number, status, last_seen_at, created_at", 100),
+    fetchRows("supporters", tenantId, "id, full_name, phone_number, gender, age_group, county_id, constituency_id, ward_id, village_id, polling_station_id, support_level, key_issue, volunteer_interest, created_at", 100),
+    fetchRows("volunteers", tenantId, "id, full_name, phone_number, email, county_id, constituency_id, ward_id, village_id, status, recruitment_source, join_date, notes, created_at", 100),
+    fetchRows("polling_agents", tenantId, "id, full_name, phone_number, assigned_county_id, assigned_constituency_id, assigned_ward_id, assigned_polling_station_id, status, last_seen_at, created_at", 100),
     fetchRows("volunteer_tasks", tenantId, "id, title, description, status, due_date, created_at", 100),
-    fetchRows("field_visits", tenantId, "id, visit_date, start_time, end_time, visit_purpose, supporters_engaged, notes, latitude, longitude, photos, created_at", 50, "visit_date"),
-    fetchRows("community_issues", tenantId, "id, issue_title, category, description, priority_level, status, number_of_mentions, created_at", 100),
+    fetchRows("field_visits", tenantId, "id, visit_date, start_time, end_time, village_id, polling_station_id, visit_purpose, supporters_engaged, notes, latitude, longitude, photos, created_at", 50, "visit_date"),
+    fetchRows("community_issues", tenantId, "id, issue_title, category, description, ward_id, village_id, polling_station_id, priority_level, status, number_of_mentions, created_at", 100),
     fetchRows("campaign_events", tenantId, "id, title, type, venue, event_date, start_time, expected_attendance, description, created_at", 100, "event_date", true),
     fetchRows("internal_notifications", tenantId, "id, title, body, status, created_at", 50),
     fetchRows("communication_rooms", tenantId, "id, title, livekit_room_name, purpose, status, audience, scheduled_at, expected_participants, created_at", 50, "scheduled_at", false),
@@ -151,6 +204,13 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
   ]);
 
   const livekitConfigured = Boolean(process.env.LIVEKIT_URL && process.env.LIVEKIT_API_KEY && process.env.LIVEKIT_API_SECRET);
+  const [namedSupporters, namedVolunteers, namedPollingAgents, namedFieldVisits, namedIssues] = await Promise.all([
+    withAreaNames(tenantId, supporters),
+    withAreaNames(tenantId, volunteers),
+    withAreaNames(tenantId, pollingAgents),
+    withAreaNames(tenantId, fieldVisits),
+    withAreaNames(tenantId, issues),
+  ]);
 
   return {
     workspace: { ...session, access },
@@ -178,12 +238,12 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
       configured: Boolean(process.env.OPENAI_API_KEY),
     },
     solcoIntegration: solcoResult.data ?? null,
-    supporters,
-    volunteers,
-    pollingAgents,
+    supporters: namedSupporters,
+    volunteers: namedVolunteers,
+    pollingAgents: namedPollingAgents,
     tasks,
-    fieldVisits,
-    issues,
+    fieldVisits: namedFieldVisits,
+    issues: namedIssues,
     events,
     notifications,
     communicationRooms,

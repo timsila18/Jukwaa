@@ -47,6 +47,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { accessibleTextColor, validateWorkspaceBranding } from "@/lib/design-system";
+import { wardsForConstituency } from "@/lib/kenya-geography";
 import {
   Bar,
   BarChart,
@@ -298,6 +299,8 @@ type LiveBootstrap = {
     candidate_name?: string;
     position_targeted?: string;
     political_party?: string;
+    county?: string;
+    constituency?: string;
     election_year?: string;
     slogan?: string;
   } | null;
@@ -339,6 +342,9 @@ type LiveBootstrap = {
     volunteer_interest: boolean;
     gender?: string | null;
     age_group?: string | null;
+    ward_name?: string | null;
+    village_name?: string | null;
+    polling_station_name?: string | null;
     created_at: string;
   }>;
   volunteers?: LiveRecord[];
@@ -376,8 +382,8 @@ function normalizeSupporter(record: LiveBootstrap["supporters"][number]): LiveSu
     id: record.id,
     fullName: record.full_name,
     phoneNumber: record.phone_number,
-    ward: "Not assigned",
-    pollingStation: "Not assigned",
+    ward: record.ward_name || "Not assigned",
+    pollingStation: record.polling_station_name || record.village_name || "Not assigned",
     supportLevel: record.support_level,
     keyIssue: record.key_issue || "Not recorded",
     volunteerInterest: record.volunteer_interest,
@@ -486,6 +492,10 @@ export default function Home() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [supportLevel, setSupportLevel] = useState<SupportLevel>("Unknown");
+  const [supporterWard, setSupporterWard] = useState("");
+  const [supporterVillage, setSupporterVillage] = useState("");
+  const [supporterPollingStation, setSupporterPollingStation] = useState("");
+  const [supporterKeyIssue, setSupporterKeyIssue] = useState("");
   const [overrideDuplicate, setOverrideDuplicate] = useState(false);
   const [selectedParty, setSelectedParty] = useState(campaign.politicalParty);
   const [aiQuestion, setAiQuestion] = useState("Which wards need attention this week?");
@@ -525,6 +535,20 @@ export default function Home() {
   const liveAuditLogs = liveBootstrap?.auditLogs ?? [];
   const livePollingResults = liveBootstrap?.pollingResults ?? [];
   const usingLiveData = true;
+  const campaignCounty = liveBootstrap?.campaign?.county || campaign.county;
+  const campaignConstituency = liveBootstrap?.campaign?.constituency || campaign.constituency;
+  const campaignPosition = liveBootstrap?.campaign?.position_targeted || campaign.positionTargeted;
+  const campaignSlogan = liveBootstrap?.campaign?.slogan || candidateBranding.slogan;
+  const focusWards = useMemo(() => campaignConstituency ? wardsForConstituency(campaignConstituency) : [], [campaignConstituency]);
+  const effectiveSupporterWard = supporterWard || focusWards[0] || "";
+  const electiveScopeLabel = campaignPosition === "Presidential" || campaignPosition === "Referendum"
+    ? "Kenya"
+    : campaignPosition === "Governor" || campaignPosition === "Senator" || campaignPosition === "Women Representative"
+      ? `${campaignCounty || "County"} County`
+      : campaignPosition === "MCA"
+        ? `${liveBootstrap?.campaign?.constituency || campaignConstituency || "Constituency"} Ward`
+        : `${campaignConstituency || "Constituency"} Constituency`;
+  const focusAreaPlural = focusWards.length ? "wards" : campaignConstituency ? "constituency areas" : "campaign areas";
   const totalSupporters = liveBootstrap?.summary.supporters ?? workspaceSupporters.length;
   const totalVolunteers = liveBootstrap?.summary.volunteers ?? liveVolunteers.length;
   const totalPollingAgents = liveBootstrap?.summary.pollingAgents ?? livePollingAgents.length;
@@ -624,10 +648,10 @@ export default function Home() {
   const workspaceFieldVisitRows = usingLiveData
     ? liveFieldVisits.map((visit) => ({
         id: String(visit.id),
-        volunteer: "Field visit",
+        volunteer: liveText(visit, "ward_name", "Field visit"),
         latitude: liveNumber(visit, "latitude", 0),
         longitude: liveNumber(visit, "longitude", 0),
-        description: liveText(visit, "visit_purpose", "Field activity"),
+        description: `${liveText(visit, "visit_purpose", "Field activity")} - ${liveText(visit, "polling_station_name", liveText(visit, "village_name", electiveScopeLabel))}`,
         supportersEngaged: liveNumber(visit, "supporters_engaged", 0),
         dateLabel: liveDate(visit, "visit_date", ""),
       }))
@@ -644,7 +668,7 @@ export default function Home() {
     ? liveIssues.map((issue) => ({
         id: String(issue.id),
         title: liveText(issue, "issue_title", "Community issue"),
-        meta: liveText(issue, "category", "Other"),
+        meta: `${liveText(issue, "category", "Other")} - ${liveText(issue, "ward_name", electiveScopeLabel)}${liveText(issue, "village_name", "") ? ` / ${liveText(issue, "village_name", "")}` : ""}`,
         priority: liveText(issue, "priority_level", "Medium"),
         description: liveText(issue, "description", "No description recorded."),
         mentions: liveNumber(issue, "number_of_mentions", 1),
@@ -700,7 +724,10 @@ export default function Home() {
   }, [name, phone, workspaceSupporters]);
 
   const supportLevelData = groupCount(workspaceSupporters, "supportLevel");
-  const wardData = groupCount(workspaceSupporters, "ward");
+  const liveWardCounts = groupCount(workspaceSupporters, "ward").filter((row) => row.name !== "Not assigned" && row.name !== "Not recorded");
+  const wardData = liveWardCounts.length
+    ? liveWardCounts
+    : focusWards.map((ward) => ({ name: ward, value: 0 }));
   const genderData = groupCount(workspaceSupporters, "gender");
   const ageData = groupCount(workspaceSupporters, "ageGroup");
   const issueData = groupCount(workspaceSupporters, "keyIssue").slice(0, 6);
@@ -710,12 +737,12 @@ export default function Home() {
     ? liveVolunteers.map((volunteer) => ({
         name: liveText(volunteer, "full_name", "Volunteer"),
         phoneNumber: liveText(volunteer, "phone_number", ""),
-        area: "Workspace",
-        assignedSupervisor: "Workspace",
+        area: liveText(volunteer, "ward_name", electiveScopeLabel),
+        assignedSupervisor: liveText(volunteer, "assigned_supervisor_name", "Campaign HQ"),
         status: liveText(volunteer, "status", "Unknown"),
-        supportersRegistered: 0,
+        supportersRegistered: workspaceSupporters.filter((supporter) => supporter.ward === liveText(volunteer, "ward_name", "")).length,
         activitiesCompleted: liveTasks.filter((task) => liveText(task, "status", "") === "Completed").length,
-        issuesSubmitted: 0,
+        issuesSubmitted: liveIssues.filter((issue) => liveText(issue, "ward_name", "") === liveText(volunteer, "ward_name", "")).length,
         eventsAttended: 0,
         score: liveText(volunteer, "status", "") === "Active" ? 80 : 35,
       }))
@@ -729,17 +756,23 @@ export default function Home() {
         };
       });
   const coverageRows = usingLiveData
-    ? liveEvents.slice(0, 6).map((event) => ({
-        name: liveText(event, "title", "Campaign event"),
-        ward: "Workspace",
-        village: liveText(event, "venue", "Venue"),
-        score: Math.min(100, Math.max(10, liveNumber(event, "expected_attendance", 0) ? 60 : 25)),
-        status: liveNumber(event, "expected_attendance", 0) > 0 ? "Moderately covered" : "Needs activity",
-        supporters: 0,
-        visits: 0,
-        events: 1,
-        issues: 0,
-      }))
+    ? (focusWards.length ? focusWards : wardData.map((row) => row.name)).map((ward) => {
+        const wardSupporters = workspaceSupporters.filter((supporter) => supporter.ward === ward).length;
+        const wardVisits = liveFieldVisits.filter((visit) => liveText(visit, "ward_name", "") === ward).length;
+        const wardIssues = liveIssues.filter((issue) => liveText(issue, "ward_name", "") === ward).length;
+        const score = Math.min(100, Math.round(wardSupporters * 8 + wardVisits * 18 + wardIssues * 10));
+        return {
+          name: ward,
+          ward,
+          village: campaignConstituency || electiveScopeLabel,
+          score,
+          status: score >= 70 ? "Well covered" : score >= 35 ? "Moderately covered" : "Needs activity",
+          supporters: wardSupporters,
+          visits: wardVisits,
+          events: liveEvents.length,
+          issues: wardIssues,
+        };
+      })
     : territoryCoverage().map((row) => ({ ...row, visits: row.activity }));
   const issueBreakdown = usingLiveData ? groupCount(liveIssues.map((issue) => ({ category: liveText(issue, "category", "Other") })), "category") : groupCount(communityIssues, "category");
   const eventTrend = eventAttendanceTrend();
@@ -863,11 +896,11 @@ export default function Home() {
     ["Logout", X, "Logout"],
   ] as Array<[string, typeof Users, string]>;
   const recentActivityRows = [
-    ["Supporter Registration", "New supporter in Makueni County", "Field Agent - John M.", "2 min ago", "New"],
+    ["Supporter Registration", `New supporter activity in ${electiveScopeLabel}`, "Field Agent", "2 min ago", "New"],
     ["Volunteer Application", "Application from Mary Wanjiku", "System", "15 min ago", "Pending"],
-    ["Task Completed", "Door-to-door canvassing in Ward 3", "Volunteer - James K.", "1 hour ago", "Completed"],
+    ["Task Completed", `Door-to-door canvassing in ${focusWards[0] || electiveScopeLabel}`, "Volunteer", "1 hour ago", "Completed"],
     ["Payment Received", "M-Pesa payment of KES 25,000", "System", "3 hours ago", "Confirmed"],
-    ["Incident Reported", "Voter intimidation in Polling Station 12", "Agent - Peter O.", "5 hours ago", "Open"],
+    ["Incident Reported", `Incident logged inside ${electiveScopeLabel}`, "Agent", "5 hours ago", "Open"],
   ];
   const countyBreakdown = (wardData.length ? wardData.slice(0, 6) : [{ name: "No records yet", value: 0 }]).map((row, index) => {
     const colors = ["#1d6fff", "#d6a200", "#16a34a", "#7c3aed", "#f97316", "#d1d5db"];
@@ -994,7 +1027,7 @@ export default function Home() {
     },
   };
   const activeSectionId = sectionTargets[activeSection] ?? sectionTargets.Dashboard;
-  const activeSubtitle = activeSection === "Dashboard" ? "Overview of your campaign operations" : `Manage ${activeSection.toLowerCase()} for this workspace`;
+  const activeSubtitle = activeSection === "Dashboard" ? `${electiveScopeLabel} campaign operations` : `Manage ${activeSection.toLowerCase()} for ${electiveScopeLabel}`;
   const activeWorkspaceFeatures = workspaceFeatures[activeSection as keyof typeof workspaceFeatures] ?? workspaceFeatures.Dashboard;
 
   function sectionClass(sectionId: string, baseClassName: string) {
@@ -1058,6 +1091,9 @@ export default function Home() {
         setName("");
         setPhone("");
         setSupportLevel("Unknown");
+        setSupporterVillage("");
+        setSupporterPollingStation("");
+        setSupporterKeyIssue("");
         setOverrideDuplicate(false);
       }
       runAction(successMessage, sectionLabel);
@@ -1134,6 +1170,8 @@ export default function Home() {
             <p className="text-sm font-bold text-white">{referenceWorkspaceName}</p>
             <ChevronDown size={16} className="text-slate-300" />
           </div>
+          <p className="mt-2 text-xs font-bold text-amber-200">{electiveScopeLabel}</p>
+          {campaignSlogan ? <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-300">&quot;{campaignSlogan}&quot;</p> : null}
           {!isOwnerAccount ? <p className="mt-1 text-xs font-semibold text-slate-400">Under {referenceCandidateName}</p> : null}
           <p className="mt-2 flex items-center gap-2 text-xs font-semibold text-emerald-300"><span className="h-2 w-2 rounded-full bg-emerald-400" />Active</p>
         </div>
@@ -1249,8 +1287,13 @@ export default function Home() {
               <div className="grid gap-5 lg:grid-cols-[1.1fr_1fr_1.45fr] lg:items-center">
                 <div>
                   <span className="rounded-full bg-white px-3 py-1 text-xs font-black uppercase tracking-wide text-blue-700 ring-1 ring-blue-100">{roleProfile.badge}</span>
-                  <h2 className="mt-3 text-2xl font-black tracking-tight text-slate-950">{roleProfile.title}</h2>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{roleProfile.subtitle}</p>
+                  <h2 className="mt-3 text-2xl font-black tracking-tight text-slate-950">{referenceWorkspaceName}</h2>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{campaignPosition} focus for {electiveScopeLabel}. {campaignSlogan ? `Slogan: "${campaignSlogan}"` : roleProfile.subtitle}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {campaignCounty ? <span className="rounded-md bg-white px-2.5 py-1 text-xs font-black text-slate-700 ring-1 ring-slate-200">{campaignCounty} County</span> : null}
+                    {campaignConstituency ? <span className="rounded-md bg-white px-2.5 py-1 text-xs font-black text-slate-700 ring-1 ring-slate-200">{campaignConstituency} Constituency</span> : null}
+                    <span className="rounded-md bg-amber-100 px-2.5 py-1 text-xs font-black text-amber-800">{focusWards.length} focus wards</span>
+                  </div>
                 </div>
                 <div className="border-slate-200 lg:border-l lg:pl-6">
                   <p className="text-sm font-bold text-slate-700">{readinessLabel}</p>
@@ -1333,7 +1376,7 @@ export default function Home() {
               </section>
 
               <section className="j-dashboard-card rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                  <h2 className="text-base font-black text-slate-950">Supporters by Area</h2>
+                  <h2 className="text-base font-black text-slate-950">Supporters by {focusAreaPlural} in {electiveScopeLabel}</h2>
                 <div className="mt-4 grid gap-4 md:grid-cols-[0.9fr_1fr] xl:grid-cols-1 2xl:grid-cols-[0.9fr_1fr]">
                   <div className="grid h-56 place-items-center">
                     <div className="grid h-40 w-40 place-items-center rounded-full" style={{ background: "conic-gradient(#1d6fff 0 25%, #d6a200 25% 40%, #16a34a 40% 53%, #7c3aed 53% 68%, #f97316 68% 80%, #d1d5db 80% 100%)" }}>
@@ -1521,7 +1564,7 @@ export default function Home() {
               <section className="j-dashboard-card rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex items-center justify-between"><h2 className="text-base font-black text-slate-950">Field Operations Overview</h2><button className="text-xs font-bold text-blue-700" onClick={() => scrollToSection("Field Operations")} type="button">View map</button></div>
                 <div className="mt-4 grid grid-cols-4 gap-2">
-                  {[["Wards Covered", "42 / 58"], ["Field Visits", "156"], ["Reports Submitted", "89"], ["Issues Resolved", "23"]].map(([label, value]) => (
+                  {[["Wards Covered", `${coverageRows.filter((row) => row.score > 0).length} / ${Math.max(coverageRows.length, focusWards.length || 1)}`], ["Field Visits", workspaceFieldVisitRows.length.toLocaleString()], ["Reports Submitted", liveAuditLogs.length.toLocaleString()], ["Issues Logged", workspaceIssueRows.length.toLocaleString()]].map(([label, value]) => (
                     <div key={label} className="rounded-md border border-slate-200 p-3">
                       <p className="text-xs font-bold text-slate-500">{label}</p>
                       <p className="mt-1 text-lg font-black text-slate-950">{value}</p>
@@ -2588,7 +2631,7 @@ export default function Home() {
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>
-            <ChartCard title="Territory Coverage">
+            <ChartCard title={`${electiveScopeLabel} Coverage`}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={coverageRows}>
                   <XAxis dataKey="name" hide />
@@ -2610,7 +2653,7 @@ export default function Home() {
                 </LineChart>
               </ResponsiveContainer>
             </ChartCard>
-            <ChartCard title="Community Issues Breakdown">
+            <ChartCard title={`${electiveScopeLabel} Issues`}>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie data={issueBreakdown} dataKey="value" nameKey="name" innerRadius={50} outerRadius={86} paddingAngle={2}>
@@ -2625,7 +2668,7 @@ export default function Home() {
           </section>
 
           <section id="territory-coverage" className={sectionClass("territory-coverage", "scroll-mt-24 grid gap-4 xl:grid-cols-3")}>
-            <ChartCard title="Supporters by Ward">
+            <ChartCard title={`Supporters by ${focusAreaPlural}`}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={wardData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -2731,8 +2774,9 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <div id="supporter-form" className="scroll-mt-24 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <h2 className="text-sm font-bold text-slate-950">Quick Add Supporter</h2>
+              <p className="mt-1 text-sm text-slate-500">Capture supporters inside {electiveScopeLabel}. Ward options are loaded from the Kenya register.</p>
               <div className="mt-4 space-y-3">
                 <label className="block text-sm font-semibold text-slate-700">
                   Full name
@@ -2743,10 +2787,34 @@ export default function Home() {
                   <input value={phone} onChange={(event) => setPhone(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" />
                 </label>
                 <label className="block text-sm font-semibold text-slate-700">
+                  Ward in {campaignConstituency || electiveScopeLabel}
+                  {focusWards.length ? (
+                    <select className="mt-1 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => setSupporterWard(event.target.value)} value={effectiveSupporterWard}>
+                      {focusWards.map((ward) => <option key={ward}>{ward}</option>)}
+                    </select>
+                  ) : (
+                    <input value={supporterWard} onChange={(event) => setSupporterWard(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" placeholder="Ward or local area" />
+                  )}
+                </label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block text-sm font-semibold text-slate-700">
+                    Village / estate
+                    <input value={supporterVillage} onChange={(event) => setSupporterVillage(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" placeholder="Optional smaller unit" />
+                  </label>
+                  <label className="block text-sm font-semibold text-slate-700">
+                    Polling station
+                    <input value={supporterPollingStation} onChange={(event) => setSupporterPollingStation(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" placeholder="Optional station" />
+                  </label>
+                </div>
+                <label className="block text-sm font-semibold text-slate-700">
                   Support level
                   <select className="mt-1 h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => setSupportLevel(event.target.value as SupportLevel)} value={supportLevel}>
                     {Object.keys(supportColors).map((level) => <option key={level}>{level}</option>)}
                   </select>
+                </label>
+                <label className="block text-sm font-semibold text-slate-700">
+                  Key issue
+                  <input value={supporterKeyIssue} onChange={(event) => setSupporterKeyIssue(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" placeholder={`Issue in ${effectiveSupporterWard || electiveScopeLabel}`} />
                 </label>
                 {duplicate && (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
@@ -2760,7 +2828,7 @@ export default function Home() {
                     </label>
                   </div>
                 )}
-                <button disabled={!name.trim() || phone.replace(/\D/g, "").length < 7 || (duplicate && !overrideDuplicate)} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-300" onClick={() => void persistWorkflow("supporter", { fullName: name, phoneNumber: phone, supportLevel, consentToContact: true, notes: overrideDuplicate ? "Duplicate override approved." : "" }, `${name.trim() || "Supporter"} saved and added to the list.`, "Supporters")} type="button">
+                <button disabled={!name.trim() || phone.replace(/\D/g, "").length < 7 || (duplicate && !overrideDuplicate)} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-300" onClick={() => void persistWorkflow("supporter", { fullName: name, phoneNumber: phone, supportLevel, wardName: effectiveSupporterWard, villageName: supporterVillage, pollingStationName: supporterPollingStation, keyIssue: supporterKeyIssue, consentToContact: true, notes: overrideDuplicate ? "Duplicate override approved." : "" }, `${name.trim() || "Supporter"} saved in ${effectiveSupporterWard || electiveScopeLabel}.`, "Supporters")} type="button">
                   <Plus size={16} />
                   Save Supporter
                 </button>
@@ -2887,7 +2955,7 @@ export default function Home() {
                   ["Complete Task", CheckCircle2],
                   ["Report Intelligence", Radio],
                 ].map(([label, Icon]) => (
-                  <button key={String(label)} className="flex min-h-20 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-left text-sm font-bold text-slate-800 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-800" onClick={() => void persistWorkflow(String(label) === "Register Supporter" ? "supporter" : String(label) === "Submit Issue" ? "issue" : String(label) === "Submit Field Visit" ? "fieldVisit" : String(label) === "Complete Task" ? "task" : String(label) === "Report Intelligence" ? "supportTicket" : "supportTicket", String(label) === "Register Supporter" ? { fullName: "New supporter", phoneNumber: `+2547${Math.floor(10000000 + Math.random() * 89999999)}`, supportLevel: "Unknown", consentToContact: true } : String(label) === "Submit Issue" ? { title: "New community issue", category: "Other", priority: "Medium" } : String(label) === "Submit Field Visit" ? { visitPurpose: "Field activity", supportersEngaged: 0 } : String(label) === "Complete Task" ? { title: "Follow-up task", dueDate: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10) } : { title: String(label), description: "Submitted from field action panel.", priority: "Medium" }, `${String(label)} saved.`, "Field Operations")} type="button">
+                  <button key={String(label)} className="flex min-h-20 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-left text-sm font-bold text-slate-800 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-800" onClick={() => void persistWorkflow(String(label) === "Register Supporter" ? "supporter" : String(label) === "Submit Issue" ? "issue" : String(label) === "Submit Field Visit" ? "fieldVisit" : String(label) === "Complete Task" ? "task" : String(label) === "Report Intelligence" ? "supportTicket" : "supportTicket", String(label) === "Register Supporter" ? { fullName: "New supporter", phoneNumber: `+2547${Math.floor(10000000 + Math.random() * 89999999)}`, supportLevel: "Unknown", wardName: effectiveSupporterWard, villageName: supporterVillage, pollingStationName: supporterPollingStation, consentToContact: true } : String(label) === "Submit Issue" ? { title: `New ${electiveScopeLabel} community issue`, category: "Other", priority: "Medium", wardName: effectiveSupporterWard, villageName: supporterVillage, pollingStationName: supporterPollingStation } : String(label) === "Submit Field Visit" ? { visitPurpose: `Field activity in ${effectiveSupporterWard || electiveScopeLabel}`, supportersEngaged: 0, wardName: effectiveSupporterWard, villageName: supporterVillage, pollingStationName: supporterPollingStation } : String(label) === "Complete Task" ? { title: `Follow-up task for ${effectiveSupporterWard || electiveScopeLabel}`, dueDate: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10) } : { title: String(label), description: `Submitted from ${electiveScopeLabel} field action panel.`, priority: "Medium" }, `${String(label)} saved for ${effectiveSupporterWard || electiveScopeLabel}.`, "Field Operations")} type="button">
                     <span className="grid h-10 w-10 place-items-center rounded-lg bg-white text-sky-700 shadow-sm">
                       <Icon size={20} />
                     </span>

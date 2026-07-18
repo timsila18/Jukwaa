@@ -11,6 +11,9 @@ const workflowSchemas = {
     phoneNumber: z.string().trim().min(7),
     supportLevel: z.enum(["Strong Supporter", "Leaning Supporter", "Undecided", "Opponent", "Unknown"]).default("Unknown"),
     keyIssue: z.string().trim().optional().or(z.literal("")),
+    wardName: z.string().trim().optional().or(z.literal("")),
+    villageName: z.string().trim().optional().or(z.literal("")),
+    pollingStationName: z.string().trim().optional().or(z.literal("")),
     consentToContact: z.boolean().default(true),
     notes: z.string().trim().optional().or(z.literal("")),
   }),
@@ -29,6 +32,9 @@ const workflowSchemas = {
     title: z.string().trim().min(2),
     category: z.enum(["Roads", "Water", "Education", "Healthcare", "Agriculture", "Youth Employment", "Security", "Electricity", "Business", "Environment", "Other"]).default("Other"),
     description: z.string().trim().optional().or(z.literal("")),
+    wardName: z.string().trim().optional().or(z.literal("")),
+    villageName: z.string().trim().optional().or(z.literal("")),
+    pollingStationName: z.string().trim().optional().or(z.literal("")),
     priority: z.enum(["Low", "Medium", "High", "Critical"]).default("Medium"),
   }),
   event: z.object({
@@ -42,6 +48,9 @@ const workflowSchemas = {
   fieldVisit: z.object({
     visitPurpose: z.string().trim().min(2),
     supportersEngaged: z.coerce.number().int().min(0).default(0),
+    wardName: z.string().trim().optional().or(z.literal("")),
+    villageName: z.string().trim().optional().or(z.literal("")),
+    pollingStationName: z.string().trim().optional().or(z.literal("")),
     notes: z.string().trim().optional().or(z.literal("")),
   }),
   result: z.object({
@@ -93,6 +102,61 @@ async function firstId(table: string, tenantId: string, column = "id") {
   return data?.[column] as string | undefined;
 }
 
+type LocationScope = {
+  countyId?: string;
+  constituencyId?: string;
+  wardId?: string;
+  villageId?: string;
+  pollingStationId?: string;
+};
+
+async function ensureLocationRow(
+  table: string,
+  tenantId: string,
+  name: string,
+  parent: Record<string, string> = {},
+) {
+  if (!name.trim()) return undefined;
+  const supabase = getLooseSupabaseAdmin();
+  let query = supabase.from(table).select("id").eq("tenant_id", tenantId).eq("name", name.trim()).limit(1);
+  for (const [key, value] of Object.entries(parent)) query = query.eq(key, value);
+
+  const { data: existing } = await query.maybeSingle();
+  if (existing?.id) return String(existing.id);
+
+  const { data, error } = await supabase
+    .from(table)
+    .insert({ tenant_id: tenantId, name: name.trim(), ...parent })
+    .select("id")
+    .single();
+  if (error || !data?.id) throw new Error(error?.message ?? `Could not create ${table} location row.`);
+  return String(data.id);
+}
+
+async function ensureWorkspaceLocation(tenantId: string, input: { wardName?: string; villageName?: string; pollingStationName?: string }): Promise<LocationScope> {
+  const supabase = getLooseSupabaseAdmin();
+  const { data: settings } = await supabase
+    .from("campaign_settings")
+    .select("county, constituency")
+    .eq("tenant_id", tenantId)
+    .limit(1)
+    .maybeSingle();
+
+  const countyName = typeof settings?.county === "string" ? settings.county : "";
+  const constituencyName = typeof settings?.constituency === "string" ? settings.constituency : "";
+  const wardName = input.wardName?.trim() ?? "";
+  const villageName = input.villageName?.trim() ?? "";
+  const pollingStationName = input.pollingStationName?.trim() ?? "";
+  const countryId = await ensureLocationRow("countries", tenantId, "Kenya", { code: "KE" });
+  const countyId = countyName && countryId ? await ensureLocationRow("counties", tenantId, countyName, { country_id: countryId }) : undefined;
+  const constituencyId = constituencyName && countyId ? await ensureLocationRow("constituencies", tenantId, constituencyName, { county_id: countyId }) : undefined;
+  const wardId = wardName && constituencyId ? await ensureLocationRow("wards", tenantId, wardName, { constituency_id: constituencyId }) : undefined;
+  const villageId = (villageName || pollingStationName) && wardId ? await ensureLocationRow("villages", tenantId, villageName || "General", { ward_id: wardId }) : undefined;
+  const pollingStationId = pollingStationName && villageId ? await ensureLocationRow("polling_stations", tenantId, pollingStationName, { village_id: villageId }) : undefined;
+
+  return { countyId, constituencyId, wardId, villageId, pollingStationId };
+}
+
 export async function POST(request: Request, context: { params: Promise<{ workflow: string }> }) {
   const limited = await enforceRateLimit(requestKey(request, "workflow"), 60, 60_000);
   if (!limited.allowed) {
@@ -122,12 +186,18 @@ export async function POST(request: Request, context: { params: Promise<{ workfl
 
   if (name === "supporter") {
     const data = parsed.data as z.infer<typeof workflowSchemas.supporter>;
+    const location = await ensureWorkspaceLocation(workspace.tenantId, data);
     table = "supporters";
     payload = {
       tenant_id: workspace.tenantId,
       candidate_id: workspace.candidateId,
       full_name: data.fullName,
       phone_number: data.phoneNumber,
+      county_id: location.countyId ?? null,
+      constituency_id: location.constituencyId ?? null,
+      ward_id: location.wardId ?? null,
+      village_id: location.villageId ?? null,
+      polling_station_id: location.pollingStationId ?? null,
       support_level: data.supportLevel,
       key_issue: data.keyIssue || null,
       consent_to_contact: data.consentToContact,
@@ -169,6 +239,7 @@ export async function POST(request: Request, context: { params: Promise<{ workfl
 
   if (name === "issue") {
     const data = parsed.data as z.infer<typeof workflowSchemas.issue>;
+    const location = await ensureWorkspaceLocation(workspace.tenantId, data);
     table = "community_issues";
     payload = {
       tenant_id: workspace.tenantId,
@@ -176,6 +247,9 @@ export async function POST(request: Request, context: { params: Promise<{ workfl
       issue_title: data.title,
       category: data.category,
       description: data.description || null,
+      ward_id: location.wardId ?? null,
+      village_id: location.villageId ?? null,
+      polling_station_id: location.pollingStationId ?? null,
       priority_level: data.priority,
       status: "Open",
     };
@@ -200,6 +274,7 @@ export async function POST(request: Request, context: { params: Promise<{ workfl
     const data = parsed.data as z.infer<typeof workflowSchemas.fieldVisit>;
     const volunteerId = await firstId("volunteers", workspace.tenantId);
     if (!volunteerId) return NextResponse.json({ error: "Create a volunteer before submitting a field visit." }, { status: 409 });
+    const location = await ensureWorkspaceLocation(workspace.tenantId, data);
     table = "field_visits";
     payload = {
       tenant_id: workspace.tenantId,
@@ -207,6 +282,8 @@ export async function POST(request: Request, context: { params: Promise<{ workfl
       volunteer_id: volunteerId,
       visit_date: new Date().toISOString().slice(0, 10),
       start_time: "09:00",
+      village_id: location.villageId ?? null,
+      polling_station_id: location.pollingStationId ?? null,
       visit_purpose: data.visitPurpose,
       supporters_engaged: data.supportersEngaged,
       notes: data.notes || null,
@@ -309,6 +386,11 @@ export async function POST(request: Request, context: { params: Promise<{ workfl
     id: inserted.id,
     status: "Saved",
     reference: shortCode("JUK"),
-    supporter: name === "supporter" ? inserted : undefined,
+    supporter: name === "supporter" ? {
+      ...inserted,
+      ward_name: (parsed.data as z.infer<typeof workflowSchemas.supporter>).wardName || "",
+      village_name: (parsed.data as z.infer<typeof workflowSchemas.supporter>).villageName || "",
+      polling_station_name: (parsed.data as z.infer<typeof workflowSchemas.supporter>).pollingStationName || "",
+    } : undefined,
   });
 }
