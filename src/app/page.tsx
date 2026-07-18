@@ -81,7 +81,6 @@ import {
   budgetVarianceRows,
   campaignDocuments,
   groupCount,
-  intelligenceReports,
   candidateBranding,
   candidateProfiles,
   electionCycles,
@@ -746,6 +745,55 @@ export default function Home() {
         mentions: issue.mentions,
         status: issue.status,
       }));
+  const workspaceIntelligenceRows = usingLiveData
+    ? [
+        ...liveIssues.slice(0, 6).map((issue) => ({
+          id: `issue-${String(issue.id)}`,
+          title: liveText(issue, "issue_title", `${electiveScopeLabel} issue signal`),
+          category: liveText(issue, "category", "Community Issue"),
+          location: [
+            liveText(issue, "county_name", ""),
+            liveText(issue, "constituency_name", ""),
+            liveText(issue, "ward_name", ""),
+            liveText(issue, "village_name", ""),
+            liveText(issue, "polling_station_name", ""),
+          ].filter(Boolean).join(" / ") || electiveScopeLabel,
+          description: liveText(issue, "description", `Follow up with residents in ${electiveScopeLabel}.`),
+          urgency: liveText(issue, "priority_level", "Medium"),
+          submittedBy: "Field issue desk",
+          createdAt: liveDate(issue, "created_at", "Live workspace"),
+          photos: 0,
+        })),
+        ...liveFieldVisits.slice(0, 4).map((visit) => ({
+          id: `visit-${String(visit.id)}`,
+          title: liveText(visit, "visit_purpose", `${electiveScopeLabel} field activity`),
+          category: "Field Visit",
+          location: [
+            liveText(visit, "county_name", ""),
+            liveText(visit, "constituency_name", ""),
+            liveText(visit, "ward_name", ""),
+            liveText(visit, "village_name", ""),
+            liveText(visit, "polling_station_name", ""),
+          ].filter(Boolean).join(" / ") || electiveScopeLabel,
+          description: `${liveNumber(visit, "supporters_engaged", 0)} supporters engaged. ${liveText(visit, "notes", "No extra notes recorded.")}`,
+          urgency: liveNumber(visit, "supporters_engaged", 0) > 0 ? "Medium" : "Low",
+          submittedBy: "Field team",
+          createdAt: liveDate(visit, "visit_date", liveDate(visit, "created_at", "Live workspace")),
+          photos: Array.isArray(visit.photos) ? visit.photos.length : 0,
+        })),
+        ...liveNotifications.slice(0, 3).map((notification) => ({
+          id: `notification-${String(notification.id)}`,
+          title: liveText(notification, "title", "Campaign notification"),
+          category: "Internal Signal",
+          location: electiveScopeLabel,
+          description: liveText(notification, "body", "No details recorded."),
+          urgency: liveText(notification, "status", "Medium") === "Unread" ? "High" : "Medium",
+          submittedBy: "JUKWAA workspace",
+          createdAt: liveDate(notification, "created_at", "Live workspace"),
+          photos: 0,
+        })),
+      ].slice(0, 8)
+    : [];
   const workspaceEventRows = usingLiveData
     ? liveEvents.map((event) => ({
         id: String(event.id),
@@ -3264,7 +3312,7 @@ export default function Home() {
                 <ReportLink report="ground-intelligence-summary" label="Intel" />
               </div>
               <div className="mt-4 space-y-3">
-                {intelligenceReports.map((report) => (
+                {workspaceIntelligenceRows.map((report) => (
                   <div key={report.id} className="rounded-lg border border-slate-200 p-3">
                     <div className="flex items-start justify-between gap-3">
                       <div>
@@ -3277,6 +3325,7 @@ export default function Home() {
                     <p className="mt-2 text-xs font-semibold text-slate-500">{report.submittedBy} - {report.createdAt} - {report.photos} photos</p>
                   </div>
                 ))}
+                {workspaceIntelligenceRows.length === 0 ? emptyState(`No ground intelligence has been captured for ${electiveScopeLabel} yet.`) : null}
               </div>
             </div>
           </section>
