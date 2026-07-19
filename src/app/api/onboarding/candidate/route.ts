@@ -260,6 +260,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Could not create onboarding application.", detail: applicationError?.message }, { status: 500 });
   }
 
+  await (supabase as unknown as { rpc: (name: string, args: Record<string, unknown>) => Promise<unknown> }).rpc("sync_workspace_polling_stations", {
+    target_tenant: tenant.id,
+    target_position: data.position,
+    target_county: county || null,
+    target_constituency: constituency || null,
+    target_ward: ward || null,
+  }).catch(() => null);
+
   await writeAudit({
     tenantId: tenant.id,
     candidateId: candidate.id,

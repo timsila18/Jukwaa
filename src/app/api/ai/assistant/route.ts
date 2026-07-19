@@ -89,6 +89,21 @@ export async function POST(request: Request) {
       keyIssue: supporter.key_issue,
       volunteerInterest: supporter.volunteer_interest,
     })),
+    pollingStationTargets: snapshot.pollingStations.slice(0, 300).map((station) => {
+      const registeredVoters = typeof station.registered_voters === "number" ? station.registered_voters : 0;
+      const identifiedSupporters = snapshot.supporters.filter((supporter) => String(supporter.polling_station_name ?? "") === String(station.name ?? "")).length;
+      return {
+        station: station.name,
+        county: station.county_name,
+        constituency: station.constituency_name,
+        ward: station.ward_name,
+        centre: station.centre_name,
+        registeredVoters,
+        recommendedSupporterTarget: registeredVoters ? Math.max(25, Math.ceil(registeredVoters * 0.1)) : 0,
+        identifiedSupporters,
+        remainingSupporterTarget: registeredVoters ? Math.max(0, Math.max(25, Math.ceil(registeredVoters * 0.1)) - identifiedSupporters) : 0,
+      };
+    }),
     volunteers: snapshot.volunteers.slice(0, 50).map((volunteer) => ({
       name: volunteer.full_name,
       county: volunteer.county_name,

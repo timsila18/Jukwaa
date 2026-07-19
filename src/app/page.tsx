@@ -336,6 +336,7 @@ type LiveBootstrap = {
   auditLogs?: LiveRecord[];
   invitations?: LiveRecord[];
   pollingResults?: LiveRecord[];
+  pollingStations?: LiveRecord[];
 };
 
 type LiveRecord = Record<string, unknown>;
@@ -603,11 +604,15 @@ export default function Home() {
   const [taskDescription, setTaskDescription] = useState("");
   const [taskDueDate, setTaskDueDate] = useState("");
   const [taskAssignee, setTaskAssignee] = useState("");
+  const [agentPromotionPerson, setAgentPromotionPerson] = useState("");
+  const [agentPromotionStation, setAgentPromotionStation] = useState("");
   const [messageRecipientScope, setMessageRecipientScope] = useState("Team");
   const [messageMemberRecipient, setMessageMemberRecipient] = useState("all-team");
   const [eventTitle, setEventTitle] = useState("");
   const [eventVenue, setEventVenue] = useState("");
+  const [eventType, setEventType] = useState("Community Meeting");
   const [eventDate, setEventDate] = useState("");
+  const [eventStartTime, setEventStartTime] = useState("09:00");
   const [eventAttendance, setEventAttendance] = useState("0");
   const [issueTitle, setIssueTitle] = useState("");
   const [issueCategory, setIssueCategory] = useState("Other");
@@ -633,6 +638,7 @@ export default function Home() {
   const liveAiAssets = liveBootstrap?.aiContentAssets ?? [];
   const liveAuditLogs = liveBootstrap?.auditLogs ?? [];
   const livePollingResults = liveBootstrap?.pollingResults ?? [];
+  const livePollingStations = liveBootstrap?.pollingStations ?? [];
   const usingLiveData = true;
   const campaignCounty = liveBootstrap?.campaign?.county || campaign.county;
   const campaignConstituency = liveBootstrap?.campaign?.constituency || campaign.constituency;
@@ -688,6 +694,18 @@ export default function Home() {
       : isMcaRace
         ? [`${campaignWard || "Ward"} Ward`, "Local Units", "Polling Stations"]
         : [`${campaignConstituency || "Constituency"} Constituency`, "Wards", "Local Units"];
+  const candidatePollingStations = livePollingStations.map((station) => ({
+    id: String(station.id),
+    name: liveText(station, "name", liveText(station, "polling_station_name", "Polling station")),
+    ward: liveText(station, "ward_name", ""),
+    constituency: liveText(station, "constituency_name", campaignConstituency),
+    county: liveText(station, "county_name", campaignCounty),
+    village: liveText(station, "village_name", "Polling Stations"),
+    centre: liveText(station, "centre_name", ""),
+    stationCode: liveText(station, "station_code", ""),
+    registeredVoters: liveNumber(station, "registered_voters", 0),
+    streamCount: liveNumber(station, "stream_count", 0),
+  }));
   const focusAreas: ElectoralFocusArea[] = (() => {
     if (scopeLevel === "country") {
       return kenyaCounties.map((countyName) => ({ label: countyName, chartName: countyName, level: "county", countyName, constituencyName: "", wardName: "" }));
@@ -697,11 +715,14 @@ export default function Home() {
     }
     if (scopeLevel === "ward" && normalizedPosition.includes("mca") && campaignConstituency) {
       const wardName = campaignWard || wardsForConstituency(campaignConstituency)[0] || "";
-      const localUnits = workspaceSupporters
-        .filter((supporter) => !wardName || supporter.ward === wardName || supporter.ward === "Not assigned")
-        .map((supporter) => supporter.pollingStation)
-        .filter((value) => value && value !== "Not assigned");
-      const uniqueLocalUnits = Array.from(new Set(localUnits));
+      const localUnits = candidatePollingStations.length
+        ? candidatePollingStations
+          .filter((station) => !wardName || station.ward === wardName)
+          .map((station) => station.name)
+        : workspaceSupporters
+          .filter((supporter) => !wardName || supporter.ward === wardName || supporter.ward === "Not assigned")
+          .map((supporter) => supporter.pollingStation);
+      const uniqueLocalUnits = Array.from(new Set(localUnits.filter((value) => value && value !== "Not assigned")));
       return (uniqueLocalUnits.length ? uniqueLocalUnits : ["Local Units", "Polling Stations"]).map((localName) => ({
         label: localName,
         chartName: localName,
@@ -733,6 +754,14 @@ export default function Home() {
     constituencyName: effectiveFocusArea.constituencyName || campaignConstituency,
     wardName: effectiveFocusArea.wardName || effectiveSupporterWard,
   };
+  const stationOptionsForCurrentArea = candidatePollingStations.filter((station) => {
+    if (effectiveFocusArea.level === "county") return !effectiveFocusArea.countyName || station.county === effectiveFocusArea.countyName;
+    if (effectiveFocusArea.level === "constituency") return !effectiveFocusArea.constituencyName || station.constituency === effectiveFocusArea.constituencyName;
+    if (effectiveFocusArea.level === "ward") return !effectiveFocusArea.wardName || station.ward === effectiveFocusArea.wardName;
+    if (effectiveFocusArea.level === "local" || effectiveFocusArea.level === "pollingStation") return station.name === effectiveFocusArea.pollingStationName || station.ward === effectiveFocusArea.wardName;
+    return true;
+  });
+  const selectedStationRecord = candidatePollingStations.find((station) => station.name === supporterPollingStation);
   const totalSupporters = liveBootstrap?.summary.supporters ?? workspaceSupporters.length;
   const totalVolunteers = liveBootstrap?.summary.volunteers ?? liveVolunteers.length;
   const totalPollingAgents = liveBootstrap?.summary.pollingAgents ?? livePollingAgents.length;
@@ -953,8 +982,38 @@ export default function Home() {
   const genderData = groupCount(workspaceSupporters, "gender");
   const ageData = groupCount(workspaceSupporters, "ageGroup");
   const issueData = groupCount(workspaceSupporters, "keyIssue").slice(0, 6);
-  const stationData = groupCount(workspaceSupporters, "pollingStation");
-  const pollingRows: Array<{ id: string; name: string; ward: string; registeredVoters: number; identifiedSupporters: number; strong: number; undecided: number; penetration: number }> = [];
+  const pollingRows: Array<{ id: string; name: string; ward: string; registeredVoters: number; identifiedSupporters: number; strong: number; undecided: number; penetration: number; target: number }> = candidatePollingStations.length
+    ? candidatePollingStations.map((station) => {
+        const stationSupporters = workspaceSupporters.filter((supporter) => supporter.pollingStation === station.name);
+        const strong = stationSupporters.filter((supporter) => supporter.supportLevel === "Strong Supporter").length;
+        const undecided = stationSupporters.filter((supporter) => supporter.supportLevel === "Undecided").length;
+        return {
+          id: station.id,
+          name: station.name,
+          ward: station.ward || electiveScopeLabel,
+          registeredVoters: station.registeredVoters,
+          identifiedSupporters: stationSupporters.length,
+          strong,
+          undecided,
+          penetration: station.registeredVoters ? Math.round((stationSupporters.length / station.registeredVoters) * 100) : 0,
+          target: Math.max(25, Math.ceil(station.registeredVoters * 0.1)),
+        };
+      })
+    : groupCount(workspaceSupporters, "pollingStation").map((station) => ({
+        id: station.name,
+        name: station.name,
+        ward: electiveScopeLabel,
+        registeredVoters: 0,
+        identifiedSupporters: station.value,
+        strong: workspaceSupporters.filter((supporter) => supporter.pollingStation === station.name && supporter.supportLevel === "Strong Supporter").length,
+        undecided: workspaceSupporters.filter((supporter) => supporter.pollingStation === station.name && supporter.supportLevel === "Undecided").length,
+        penetration: 0,
+        target: 0,
+      }));
+  const stationData = pollingRows.map((station) => ({ name: station.name, value: station.identifiedSupporters }));
+  const totalRegisteredVoters = pollingRows.reduce((sum, station) => sum + station.registeredVoters, 0);
+  const recommendedSupporterTarget = totalRegisteredVoters ? Math.max(1000, Math.ceil(totalRegisteredVoters * 0.1)) : 0;
+  const remainingSupporterTarget = recommendedSupporterTarget ? Math.max(0, recommendedSupporterTarget - totalSupporters) : 0;
   const volunteerRows = liveVolunteers.map((volunteer) => ({
         name: liveText(volunteer, "full_name", "Volunteer"),
         phoneNumber: liveText(volunteer, "phone_number", ""),
@@ -1084,6 +1143,31 @@ export default function Home() {
     ...memberContactRows.map((contact) => ({ ...contact, assignmentType: "Campaign Member" as const })),
     ...pollingAgentContactRows.map((contact) => ({ ...contact, assignmentType: "Polling Agent" as const })),
   ];
+  const pollingAgentPromotionOptions = [
+    ...workspaceSupporters.map((supporter) => ({
+      id: supporter.id,
+      sourceType: "Supporter" as const,
+      name: supporter.fullName,
+      phone: supporter.phoneNumber,
+      detail: `${supporter.ward} - ${supporter.supportLevel}`,
+    })),
+    ...volunteerContactRows.map((volunteer) => ({
+      id: volunteer.id,
+      sourceType: "Volunteer" as const,
+      name: volunteer.name,
+      phone: volunteer.phone,
+      detail: `${volunteer.geography} - ${volunteer.status}`,
+    })),
+    ...memberContactRows.map((member) => ({
+      id: member.id,
+      sourceType: "Campaign Member" as const,
+      name: member.name,
+      phone: member.phone,
+      detail: `${member.role} - ${member.geography}`,
+    })),
+  ].filter((person, index, rows) => person.phone && rows.findIndex((row) => row.phone === person.phone) === index);
+  const selectedAgentPromotionPerson = pollingAgentPromotionOptions.find((person) => `${person.sourceType}:${person.id}` === agentPromotionPerson) ?? pollingAgentPromotionOptions[0];
+  const selectedAgentPromotionStation = candidatePollingStations.find((station) => station.id === agentPromotionStation) ?? candidatePollingStations[0];
   const workspaceElectionRows = [{
     id: `${liveBootstrap?.workspace.candidateId ?? "candidate"}-${campaignPosition}-${campaignCounty}-${campaignConstituency}-${campaignWard}`,
     electionName: `${campaignPosition} Campaign ${liveBootstrap?.campaign?.election_year || "2027"}`,
@@ -1152,6 +1236,14 @@ export default function Home() {
     { level: "4", role: "Polling Agents", name: `${livePollingAgents.length} live records`, reportsTo: "Field Coordinator", members: livePollingAgents.length, status: livePollingAgents.length ? "Active" : "Open" },
   ];
   const aiRows = [
+        recommendedSupporterTarget ? {
+          id: "registered-voter-target",
+          title: `Recruit at least ${recommendedSupporterTarget.toLocaleString()} supporters`,
+          description: `${electiveScopeLabel} has ${totalRegisteredVoters.toLocaleString()} registered voters across ${pollingRows.length.toLocaleString()} polling station(s). You need about ${remainingSupporterTarget.toLocaleString()} more supporter records to reach the 10% mobilization baseline.`,
+          impactScore: remainingSupporterTarget ? 90 : 72,
+          category: "Mobilization",
+          source: "IEBC polling station register + live supporter CRM",
+        } : null,
         {
           id: "live-supporters",
           title: totalSupporters ? "Grow supporter depth from live records" : "Start by registering supporters",
@@ -1176,7 +1268,7 @@ export default function Home() {
           category: "Operations",
           source: "Live task board",
         },
-      ];
+      ].filter(Boolean) as Array<{ id: string; title: string; description: string; impactScore: number; category: string; source: string }>;
   const budgetRows: Array<{ category: string; usedPercent: number; remaining: number }> = [];
 
   useEffect(() => {
@@ -3274,6 +3366,54 @@ export default function Home() {
           </section>
 
           <section id="election-operations" className={sectionClass("election-operations", "scroll-mt-24 grid gap-4 xl:grid-cols-3")}>
+            <div className="rounded-lg border border-sky-200 bg-sky-50/60 p-4 shadow-sm xl:col-span-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-950">Assign Polling Station Agent</h2>
+                  <p className="mt-1 text-sm text-slate-600">Promote a supporter, volunteer, or campaign team member to a specific polling station inside {electiveScopeLabel}.</p>
+                </div>
+                <StatusPill label={`${candidatePollingStations.length.toLocaleString()} stations synced`} />
+              </div>
+              <form className="mt-4 grid gap-3 lg:grid-cols-[1fr_1fr_auto]" onSubmit={(event) => {
+                event.preventDefault();
+                if (!selectedAgentPromotionPerson || !selectedAgentPromotionStation) return;
+                void persistWorkflow("pollingAgent", {
+                  sourceType: selectedAgentPromotionPerson.sourceType,
+                  sourceId: selectedAgentPromotionPerson.id,
+                  fullName: selectedAgentPromotionPerson.name,
+                  phoneNumber: selectedAgentPromotionPerson.phone,
+                  pollingStationId: selectedAgentPromotionStation.id,
+                }, `${selectedAgentPromotionPerson.name} assigned to ${selectedAgentPromotionStation.name}.`, "Polling Agents").then(() => {
+                  setAgentPromotionPerson("");
+                  setAgentPromotionStation("");
+                });
+              }}>
+                <label className="block text-sm font-semibold text-slate-700">
+                  Person to promote
+                  <select className="mt-1 h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm" onChange={(event) => setAgentPromotionPerson(event.target.value)} value={agentPromotionPerson || (selectedAgentPromotionPerson ? `${selectedAgentPromotionPerson.sourceType}:${selectedAgentPromotionPerson.id}` : "")}>
+                    {pollingAgentPromotionOptions.length ? pollingAgentPromotionOptions.map((person) => (
+                      <option key={`${person.sourceType}:${person.id}`} value={`${person.sourceType}:${person.id}`}>
+                        {person.name} - {person.sourceType} - {person.detail}
+                      </option>
+                    )) : <option value="">Add a supporter, volunteer, or team member first</option>}
+                  </select>
+                </label>
+                <label className="block text-sm font-semibold text-slate-700">
+                  Polling station
+                  <select className="mt-1 h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm" onChange={(event) => setAgentPromotionStation(event.target.value)} value={agentPromotionStation || selectedAgentPromotionStation?.id || ""}>
+                    {candidatePollingStations.length ? candidatePollingStations.map((station) => (
+                      <option key={station.id} value={station.id}>
+                        {station.name} - {station.ward || electiveScopeLabel} - {station.registeredVoters.toLocaleString()} voters
+                      </option>
+                    )) : <option value="">Polling stations are not synced yet</option>}
+                  </select>
+                </label>
+                <button disabled={!selectedAgentPromotionPerson || !selectedAgentPromotionStation} className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-bold text-white hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-300" type="submit">
+                  <RadioTower size={16} />
+                  Assign Agent
+                </button>
+              </form>
+            </div>
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-sm font-bold text-slate-950">Incident Command Center</h2>
@@ -3668,9 +3808,33 @@ export default function Home() {
                   </label>
                   <label className="block text-sm font-semibold text-slate-700">
                     Polling station
-                    <input value={supporterPollingStation} onChange={(event) => setSupporterPollingStation(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" placeholder="Optional station" />
+                    {stationOptionsForCurrentArea.length ? (
+                      <select
+                        value={supporterPollingStation}
+                        onChange={(event) => {
+                          const station = candidatePollingStations.find((row) => row.name === event.target.value);
+                          setSupporterPollingStation(event.target.value);
+                          if (station?.village) setSupporterVillage(station.village);
+                        }}
+                        className="mt-1 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-sky-500"
+                      >
+                        <option value="">Choose polling station</option>
+                        {stationOptionsForCurrentArea.map((station) => (
+                          <option key={station.id} value={station.name}>
+                            {station.name} - {station.registeredVoters.toLocaleString()} voters
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input value={supporterPollingStation} onChange={(event) => setSupporterPollingStation(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" placeholder="Optional station" />
+                    )}
                   </label>
                 </div>
+                {selectedStationRecord ? (
+                  <div className="rounded-lg border border-sky-100 bg-sky-50 p-3 text-xs font-semibold text-sky-900">
+                    {selectedStationRecord.name} has {selectedStationRecord.registeredVoters.toLocaleString()} registered voters. A 10% ground target is {Math.max(25, Math.ceil(selectedStationRecord.registeredVoters * 0.1)).toLocaleString()} identified supporters.
+                  </div>
+                ) : null}
                 <label className="block text-sm font-semibold text-slate-700">
                   Support level
                   <select className="mt-1 h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => setSupportLevel(event.target.value as SupportLevel)} value={supportLevel}>
@@ -3693,7 +3857,7 @@ export default function Home() {
                     </label>
                   </div>
                 )}
-                <button disabled={!name.trim() || phone.replace(/\D/g, "").length < 7 || (duplicate && !overrideDuplicate)} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-300" onClick={() => void persistWorkflow("supporter", { fullName: name, phoneNumber: phone, supportLevel, ...selectedLocationPayload, villageName: supporterVillage, pollingStationName: supporterPollingStation, keyIssue: supporterKeyIssue, consentToContact: true, notes: overrideDuplicate ? "Duplicate override approved." : "" }, `${name.trim() || "Supporter"} saved in ${effectiveFocusArea.label || effectiveSupporterWard || electiveScopeLabel}.`, "Supporters")} type="button">
+                <button disabled={!name.trim() || phone.replace(/\D/g, "").length < 7 || (duplicate && !overrideDuplicate)} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-300" onClick={() => void persistWorkflow("supporter", { fullName: name, phoneNumber: phone, supportLevel, ...selectedLocationPayload, villageName: selectedStationRecord?.village || supporterVillage, pollingStationName: supporterPollingStation, keyIssue: supporterKeyIssue, consentToContact: true, notes: overrideDuplicate ? "Duplicate override approved." : "" }, `${name.trim() || "Supporter"} saved in ${effectiveFocusArea.label || effectiveSupporterWard || electiveScopeLabel}.`, "Supporters")} type="button">
                   <Plus size={16} />
                   Save Supporter
                 </button>
@@ -3725,6 +3889,7 @@ export default function Home() {
                     <th className="px-4 py-3">Polling Station</th>
                     <th className="px-4 py-3">Ward</th>
                     <th className="px-4 py-3">Registered Voters</th>
+                    <th className="px-4 py-3">10% Target</th>
                     <th className="px-4 py-3">Identified</th>
                     <th className="px-4 py-3">Strong</th>
                     <th className="px-4 py-3">Undecided</th>
@@ -3737,6 +3902,7 @@ export default function Home() {
                       <td className="px-4 py-3 font-semibold text-slate-950">{station.name}</td>
                       <td className="px-4 py-3 text-slate-600">{station.ward}</td>
                       <td className="px-4 py-3 text-slate-600">{station.registeredVoters.toLocaleString()}</td>
+                      <td className="px-4 py-3 font-semibold text-sky-700">{station.target.toLocaleString()}</td>
                       <td className="px-4 py-3 text-slate-600">{station.identifiedSupporters}</td>
                       <td className="px-4 py-3 text-slate-600">{station.strong}</td>
                       <td className="px-4 py-3 text-slate-600">{station.undecided}</td>
@@ -3872,7 +4038,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section id="community-issues" className={sectionClass("community-issues", "scroll-mt-24 grid gap-4 xl:grid-cols-3")}>
+          <section id="community-issues" className={activeSectionId === "community-issues" || activeSectionId === "events-rallies" ? "scroll-mt-24 grid gap-4 xl:grid-cols-3" : "hidden"}>
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -3915,13 +4081,34 @@ export default function Home() {
 
             <div id="events-rallies" className="scroll-mt-24 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <h2 className="text-sm font-bold text-slate-950">Create Event</h2>
-              <form className="mt-4 grid gap-2" onSubmit={(event) => { event.preventDefault(); void persistWorkflow("event", { title: eventTitle, venue: eventVenue, eventDate, expectedAttendance: Number(eventAttendance) }, "Campaign event created.", "Events"); }}>
+              <form className="mt-4 grid gap-2" onSubmit={(event) => {
+                event.preventDefault();
+                void persistWorkflow("event", {
+                  title: eventTitle,
+                  type: eventType,
+                  venue: eventVenue,
+                  eventDate,
+                  startTime: eventStartTime,
+                  expectedAttendance: Number(eventAttendance),
+                }, "Campaign event created.", "Events").then(() => {
+                  setEventTitle("");
+                  setEventVenue("");
+                  setEventType("Community Meeting");
+                  setEventDate("");
+                  setEventStartTime("09:00");
+                  setEventAttendance("0");
+                });
+              }}>
                 <input className="h-10 rounded-md border border-slate-200 px-3 text-sm" onChange={(event) => setEventTitle(event.target.value)} placeholder="Event title" required value={eventTitle} />
                 <input className="h-10 rounded-md border border-slate-200 px-3 text-sm" onChange={(event) => setEventVenue(event.target.value)} placeholder="Venue" required value={eventVenue} />
+                <select className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm" onChange={(event) => setEventType(event.target.value)} value={eventType}>
+                  {["Rally", "Town Hall", "Community Meeting", "Fundraiser", "Press Conference", "Volunteer Training"].map((type) => <option key={type}>{type}</option>)}
+                </select>
                 <div className="grid gap-2 sm:grid-cols-2">
                   <input className="h-10 rounded-md border border-slate-200 px-3 text-sm" min={new Date().toISOString().slice(0, 10)} onChange={(event) => setEventDate(event.target.value)} required type="date" value={eventDate} />
-                  <input className="h-10 rounded-md border border-slate-200 px-3 text-sm" min="0" onChange={(event) => setEventAttendance(event.target.value)} placeholder="Expected attendance" type="number" value={eventAttendance} />
+                  <input className="h-10 rounded-md border border-slate-200 px-3 text-sm" onChange={(event) => setEventStartTime(event.target.value)} required type="time" value={eventStartTime} />
                 </div>
+                <input className="h-10 rounded-md border border-slate-200 px-3 text-sm" min="0" onChange={(event) => setEventAttendance(event.target.value)} placeholder="Expected attendance" type="number" value={eventAttendance} />
                 <button className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white hover:bg-slate-900" type="submit"><CalendarDays size={16} />Create Event</button>
               </form>
               <h2 className="mt-6 text-sm font-bold text-slate-950">Volunteer Leaderboard</h2>

@@ -33,6 +33,13 @@ const workflowSchemas = {
     assigneeId: z.string().trim().optional().or(z.literal("")),
     assigneeLabel: z.string().trim().optional().or(z.literal("")),
   }),
+  pollingAgent: z.object({
+    sourceType: z.enum(["Supporter", "Volunteer", "Campaign Member", "Manual"]).default("Manual"),
+    sourceId: z.string().trim().optional().or(z.literal("")),
+    fullName: z.string().trim().min(2),
+    phoneNumber: z.string().trim().min(7),
+    pollingStationId: z.string().uuid(),
+  }),
   issue: z.object({
     title: z.string().trim().min(2),
     category: z.enum(["Roads", "Water", "Education", "Healthcare", "Agriculture", "Youth Employment", "Security", "Electricity", "Business", "Environment", "Other"]).default("Other"),
@@ -118,6 +125,7 @@ const workflowRoles: Record<WorkflowName, string[]> = {
   supporter: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Village Coordinator", "Volunteer", "Polling Agent", "Data Clerk", "Admin"],
   volunteer: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Admin"],
   task: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Admin"],
+  pollingAgent: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Admin"],
   issue: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Village Coordinator", "Volunteer", "Polling Agent", "Admin"],
   event: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Admin"],
   fieldVisit: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Village Coordinator", "Volunteer", "Admin"],
@@ -220,6 +228,30 @@ async function ensureWorkspaceLocation(tenantId: string, input: { countyName?: s
   return { countyId, constituencyId, wardId, villageId, pollingStationId };
 }
 
+async function stationLocationScope(tenantId: string, pollingStationId: string): Promise<LocationScope> {
+  const supabase = getLooseSupabaseAdmin();
+  const { data: station } = await supabase
+    .from("polling_stations")
+    .select("id, village_id")
+    .eq("tenant_id", tenantId)
+    .eq("id", pollingStationId)
+    .limit(1)
+    .maybeSingle();
+  if (!station?.id) throw new Error("Polling station is not in this workspace.");
+
+  const { data: village } = await supabase.from("villages").select("id, ward_id").eq("tenant_id", tenantId).eq("id", station.village_id).limit(1).maybeSingle();
+  const { data: ward } = village?.ward_id ? await supabase.from("wards").select("id, constituency_id").eq("tenant_id", tenantId).eq("id", village.ward_id).limit(1).maybeSingle() : { data: null };
+  const { data: constituency } = ward?.constituency_id ? await supabase.from("constituencies").select("id, county_id").eq("tenant_id", tenantId).eq("id", ward.constituency_id).limit(1).maybeSingle() : { data: null };
+
+  return {
+    countyId: constituency?.county_id ? String(constituency.county_id) : undefined,
+    constituencyId: ward?.constituency_id ? String(ward.constituency_id) : undefined,
+    wardId: village?.ward_id ? String(village.ward_id) : undefined,
+    villageId: station.village_id ? String(station.village_id) : undefined,
+    pollingStationId: String(station.id),
+  };
+}
+
 export async function POST(request: Request, context: { params: Promise<{ workflow: string }> }) {
   const limited = await enforceRateLimit(requestKey(request, "workflow"), 60, 60_000);
   if (!limited.allowed) {
@@ -308,6 +340,44 @@ export async function POST(request: Request, context: { params: Promise<{ workfl
       due_date: data.dueDate,
       status: "Pending",
     };
+  }
+
+  if (name === "pollingAgent") {
+    const data = parsed.data as z.infer<typeof workflowSchemas.pollingAgent>;
+    let location: LocationScope;
+    try {
+      location = await stationLocationScope(workspace.tenantId, data.pollingStationId);
+    } catch (error) {
+      return NextResponse.json({ error: error instanceof Error ? error.message : "Polling station is not in this workspace." }, { status: 400 });
+    }
+
+    payload = {
+      tenant_id: workspace.tenantId,
+      candidate_id: workspace.candidateId,
+      full_name: data.fullName,
+      phone_number: data.phoneNumber,
+      assigned_county_id: location.countyId ?? null,
+      assigned_constituency_id: location.constituencyId ?? null,
+      assigned_ward_id: location.wardId ?? null,
+      assigned_polling_station_id: location.pollingStationId ?? null,
+      reporting_manager: auth.session.memberId || null,
+      status: "Assigned",
+    };
+
+    const { data: existing } = await supabase
+      .from("polling_agents")
+      .select("id")
+      .eq("tenant_id", workspace.tenantId)
+      .eq("phone_number", data.phoneNumber)
+      .limit(1)
+      .maybeSingle();
+    const mutation = existing?.id
+      ? supabase.from("polling_agents").update(payload).eq("tenant_id", workspace.tenantId).eq("id", existing.id).select("id").single()
+      : supabase.from("polling_agents").insert(payload).select("id").single();
+    const { data: saved, error } = await mutation;
+    if (error || !saved) return NextResponse.json({ error: "Could not assign polling agent.", detail: error?.message }, { status: 500 });
+    await writeAudit({ tenantId: workspace.tenantId, candidateId: workspace.candidateId, action: existing?.id ? "Update" : "Create", module: "pollingAgent", recordId: saved.id, newValue: { ...payload, sourceType: data.sourceType, sourceId: data.sourceId || null } });
+    return NextResponse.json({ id: saved.id, status: "Saved" });
   }
 
   if (name === "issue") {

@@ -59,6 +59,7 @@ export type LiveSnapshot = {
   auditLogs: DbRow[];
   invitations: DbRow[];
   pollingResults: DbRow[];
+  pollingStations: DbRow[];
 };
 
 type SnapshotSession = {
@@ -97,7 +98,7 @@ async function withAreaNames(tenantId: string, rows: DbRow[]) {
     admin.from("constituencies").select("id, name, county_id").eq("tenant_id", tenantId).limit(1000),
     admin.from("wards").select("id, name, constituency_id").eq("tenant_id", tenantId).limit(3000),
     admin.from("villages").select("id, name, ward_id").eq("tenant_id", tenantId).limit(3000),
-    admin.from("polling_stations").select("id, name, village_id").eq("tenant_id", tenantId).limit(3000),
+    admin.from("polling_stations").select("id, name, village_id, registered_voters, station_code, centre_code, centre_name, stream_count").eq("tenant_id", tenantId).limit(30000),
   ]);
 
   const countyMap = mapRows(Array.isArray(counties.data) ? counties.data as DbRow[] : []);
@@ -124,6 +125,11 @@ async function withAreaNames(tenantId: string, rows: DbRow[]) {
       ward_name: String(ward?.name ?? ""),
       village_name: String(village?.name ?? ""),
       polling_station_name: String(station?.name ?? ""),
+      registered_voters: station?.registered_voters ?? row.registered_voters ?? 0,
+      station_code: station?.station_code ?? row.station_code ?? "",
+      centre_code: station?.centre_code ?? row.centre_code ?? "",
+      centre_name: station?.centre_name ?? row.centre_name ?? "",
+      stream_count: station?.stream_count ?? row.stream_count ?? 0,
     };
   });
 }
@@ -177,6 +183,7 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
     auditLogs,
     invitations,
     pollingResults,
+    pollingStations,
     memberResult,
     settingsResult,
     candidateResult,
@@ -210,6 +217,7 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
     fetchRows("workspace_audit_logs", tenantId, "id, action, module, record_id, created_at", 50),
     fetchRows("invitations", tenantId, "id, invited_name, invited_phone, invited_email, role, status, expiry_date, created_at", 100),
     fetchRows("polling_results", tenantId, "id, candidate_name, votes, rejected_votes, total_votes, verification_status, created_at", 100),
+    fetchRows("polling_stations", tenantId, "id, name, village_id, registered_voters, station_code, centre_code, centre_name, stream_count, created_at", 30000, "name", true),
     admin.from("campaign_members").select("id, full_name, email, phone_number, role, status, assigned_country_id, assigned_county_id, assigned_constituency_id, assigned_ward_id, assigned_village_id, assigned_polling_station_id").eq("id", session.memberId || "00000000-0000-0000-0000-000000000000").limit(1).maybeSingle(),
     admin.from("campaign_settings").select("campaign_name, candidate_name, position_targeted, political_party, county, constituency, election_year, slogan, active_status").eq("tenant_id", tenantId).limit(1).maybeSingle(),
     admin.from("candidates").select("full_name, campaign_name, position_contesting, political_party, county, constituency, ward, slogan, active_status").eq("id", candidateId).limit(1).maybeSingle(),
@@ -231,12 +239,25 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
 
   const livekitConfigured = Boolean(process.env.LIVEKIT_URL && process.env.LIVEKIT_API_KEY && process.env.LIVEKIT_API_SECRET);
   const member = memberResult.data as DbRow | null;
+  let workspacePollingStations = pollingStations;
+  if (workspacePollingStations.length === 0 && candidateResult.data) {
+    const candidate = candidateResult.data as DbRow;
+    await (admin as unknown as { rpc: (name: string, args: Record<string, unknown>) => Promise<unknown> }).rpc("sync_workspace_polling_stations", {
+      target_tenant: tenantId,
+      target_position: candidate.position_contesting ?? null,
+      target_county: candidate.county ?? null,
+      target_constituency: candidate.constituency ?? null,
+      target_ward: candidate.ward ?? null,
+    }).catch(() => null);
+    workspacePollingStations = await fetchRows("polling_stations", tenantId, "id, name, village_id, registered_voters, station_code, centre_code, centre_name, stream_count, created_at", 30000, "name", true);
+  }
   const scopedSupporters = scopedRowsForMember(supporters, member, session.role, session.isPlatformAdmin);
   const scopedVolunteers = scopedRowsForMember(volunteers, member, session.role, session.isPlatformAdmin);
   const scopedPollingAgents = scopedRowsForMember(pollingAgents, member, session.role, session.isPlatformAdmin);
   const scopedCampaignMembers = scopedRowsForMember(campaignMembers, member, session.role, session.isPlatformAdmin);
   const scopedFieldVisits = scopedRowsForMember(fieldVisits, member, session.role, session.isPlatformAdmin);
   const scopedIssues = scopedRowsForMember(issues, member, session.role, session.isPlatformAdmin);
+  const scopedPollingStations = scopedRowsForMember(workspacePollingStations, member, session.role, session.isPlatformAdmin);
   const [namedSupporters, namedVolunteers, namedPollingAgents, namedFieldVisits, namedIssues, namedCampaignMembers, namedMembers] = await Promise.all([
     withAreaNames(tenantId, scopedSupporters),
     withAreaNames(tenantId, scopedVolunteers),
@@ -246,6 +267,7 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
     withAreaNames(tenantId, scopedCampaignMembers),
     withAreaNames(tenantId, member ? [member] : []),
   ]);
+  const namedPollingStations = await withAreaNames(tenantId, scopedPollingStations);
   const scopedSummary = ["Candidate", "Campaign Manager", "Admin", "Media Team", "Data Clerk"].includes(session.role) || session.isPlatformAdmin
     ? null
     : {
@@ -303,6 +325,7 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
     auditLogs,
     invitations,
     pollingResults,
+    pollingStations: namedPollingStations,
   };
 }
 
@@ -338,6 +361,25 @@ export function reportRowsFromSnapshot(snapshot: LiveSnapshot, report: string): 
   if (report === "supporters-by-area") return groupByElectiveArea(snapshot);
   if (report === "supporters-by-ward") return groupCount(snapshot.supporters, "ward_name");
   if (report === "supporters-by-polling-station") return groupCount(snapshot.supporters, "polling_station_name");
+  if (report === "polling-station-targets") {
+    return snapshot.pollingStations.map((station) => {
+      const stationName = String(station.name ?? "");
+      const registeredVoters = typeof station.registered_voters === "number" ? station.registered_voters : 0;
+      const identifiedSupporters = snapshot.supporters.filter((supporter) => String(supporter.polling_station_name ?? "") === stationName).length;
+      const target = registeredVoters ? Math.max(25, Math.ceil(registeredVoters * 0.1)) : 0;
+      return {
+        pollingStation: stationName,
+        county: station.county_name ?? "",
+        constituency: station.constituency_name ?? "",
+        ward: station.ward_name ?? "",
+        centre: station.centre_name ?? "",
+        registeredVoters,
+        targetSupporters: target,
+        identifiedSupporters,
+        remainingTarget: Math.max(0, target - identifiedSupporters),
+      };
+    });
+  }
   if (report === "support-levels") return groupCount(snapshot.supporters, "support_level");
   if (report === "key-issues-analysis") return groupCount(snapshot.supporters, "key_issue");
   if (report === "volunteer-performance") {
