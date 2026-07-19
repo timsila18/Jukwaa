@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
+import { createHmac, timingSafeEqual } from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import { getLooseSupabaseAdmin, getSupabaseAdmin } from "@/lib/supabase";
 
 export const accessCookie = "jukwaa_access_token";
 export const refreshCookie = "jukwaa_refresh_token";
+export const workspaceSessionCookie = "jukwaa_workspace_session";
 
 export type WorkspaceRole =
   | "Candidate"
@@ -28,6 +30,19 @@ export type SessionContext = {
   memberId: string;
   role: WorkspaceRole;
   isPlatformAdmin: boolean;
+};
+
+export type WorkspaceSessionPayload = {
+  userId: string;
+  email: string | null;
+  fullName?: string | null;
+  phone?: string | null;
+  tenantId: string;
+  candidateId: string;
+  memberId: string;
+  role: WorkspaceRole;
+  isPlatformAdmin?: boolean;
+  exp: number;
 };
 
 export type WorkspaceAccess = {
@@ -71,6 +86,35 @@ function cleanString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function sessionSecret() {
+  return process.env.JUKWAA_SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || "jukwaa-local-session-secret";
+}
+
+function base64UrlEncode(value: string) {
+  return Buffer.from(value).toString("base64url");
+}
+
+function base64UrlDecode(value: string) {
+  return Buffer.from(value, "base64url").toString("utf8");
+}
+
+function signPayload(payload: string) {
+  return createHmac("sha256", sessionSecret()).update(payload).digest("base64url");
+}
+
+function verifySignedPayload(value?: string | null): WorkspaceSessionPayload | null {
+  if (!value) return null;
+  const [payload, signature] = value.split(".");
+  if (!payload || !signature) return null;
+  const expected = signPayload(payload);
+  const expectedBuffer = Buffer.from(expected);
+  const actualBuffer = Buffer.from(signature);
+  if (expectedBuffer.length !== actualBuffer.length || !timingSafeEqual(expectedBuffer, actualBuffer)) return null;
+  const parsed = JSON.parse(base64UrlDecode(payload)) as WorkspaceSessionPayload;
+  if (!parsed.exp || parsed.exp < Math.floor(Date.now() / 1000)) return null;
+  return parsed;
+}
+
 export function loginEmail(value: string) {
   const trimmed = value.trim().toLowerCase();
   if (trimmed.includes("@")) return trimmed;
@@ -96,15 +140,78 @@ export function attachSessionCookies(response: NextResponse, session: { access_t
   });
 }
 
+export function attachWorkspaceSessionCookie(response: NextResponse, session: Omit<WorkspaceSessionPayload, "exp">, maxAge = 60 * 60 * 24 * 7) {
+  const payload = base64UrlEncode(JSON.stringify({ ...session, exp: Math.floor(Date.now() / 1000) + maxAge }));
+  response.cookies.set(workspaceSessionCookie, `${payload}.${signPayload(payload)}`, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge,
+  });
+}
+
 export function clearSessionCookies(response: NextResponse) {
   response.cookies.set(accessCookie, "", { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 0 });
   response.cookies.set(refreshCookie, "", { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 0 });
+  response.cookies.set(workspaceSessionCookie, "", { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 0 });
+}
+
+async function getSignedWorkspaceSessionContext(request: Request): Promise<SessionContext | null> {
+  const signed = verifySignedPayload(parseCookie(request.headers.get("cookie"), workspaceSessionCookie));
+  if (!signed) return null;
+  if (signed.isPlatformAdmin) {
+    return {
+      userId: signed.userId,
+      email: signed.email,
+      fullName: signed.fullName ?? null,
+      phone: signed.phone ?? null,
+      tenantId: signed.tenantId,
+      candidateId: signed.candidateId,
+      memberId: signed.memberId,
+      role: signed.role,
+      isPlatformAdmin: true,
+    };
+  }
+
+  const admin = getLooseSupabaseAdmin();
+  const { data: member } = await admin
+    .from("campaign_members")
+    .select("id, tenant_id, candidate_id, role, email, phone_number, full_name, status, user_id")
+    .eq("id", signed.memberId)
+    .limit(1)
+    .maybeSingle();
+
+  const row = member as {
+    id?: string;
+    tenant_id?: string;
+    candidate_id?: string;
+    role?: string;
+    email?: string | null;
+    phone_number?: string | null;
+    full_name?: string | null;
+    status?: string | null;
+    user_id?: string | null;
+  } | null;
+
+  if (!row || isBlockedMemberStatus(row.status)) return null;
+  return {
+    userId: row.user_id || signed.userId,
+    email: row.email ?? signed.email,
+    fullName: row.full_name ?? signed.fullName ?? null,
+    phone: row.phone_number ?? signed.phone ?? null,
+    tenantId: String(row.tenant_id ?? signed.tenantId),
+    candidateId: String(row.candidate_id ?? signed.candidateId),
+    memberId: String(row.id ?? signed.memberId),
+    role: String(row.role ?? signed.role) as WorkspaceRole,
+    isPlatformAdmin: false,
+  };
 }
 
 export async function getSessionContext(request: Request): Promise<SessionContext | null> {
   let token = parseCookie(request.headers.get("cookie"), accessCookie);
   const refreshToken = parseCookie(request.headers.get("cookie"), refreshCookie);
-  if (!token && !refreshToken) return null;
+  if (!token && !refreshToken) return getSignedWorkspaceSessionContext(request);
 
   const auth = getSupabaseAdmin();
   let refreshedAuthSession: SessionContext["refreshedAuthSession"] = null;
@@ -126,7 +233,7 @@ export async function getSessionContext(request: Request): Promise<SessionContex
       }
     }
   }
-  if (error || !data.user) return null;
+  if (error || !data.user) return getSignedWorkspaceSessionContext(request);
 
   const admin = getLooseSupabaseAdmin();
   const { data: primaryMembers } = await admin

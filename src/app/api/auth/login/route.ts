@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
 import { getLooseSupabaseAdmin } from "@/lib/supabase";
-import { attachSessionCookies, loginEmail } from "@/lib/auth-session";
+import { attachSessionCookies, attachWorkspaceSessionCookie, loginEmail } from "@/lib/auth-session";
 import { enforceRateLimit, requestKey } from "@/lib/rate-limit";
 
 const schema = z.object({
@@ -16,6 +16,10 @@ type LoginMember = {
   candidate_id: string;
   status?: string | null;
   user_id?: string | null;
+  role?: string | null;
+  email?: string | null;
+  phone_number?: string | null;
+  full_name?: string | null;
 };
 
 function chooseLoginMember(rows: LoginMember[] | null | undefined, userId?: string) {
@@ -57,7 +61,7 @@ export async function POST(request: Request) {
   const admin = getLooseSupabaseAdmin();
   const { data: members } = await admin
     .from("campaign_members")
-    .select("tenant_id, candidate_id, id, status, user_id")
+    .select("tenant_id, candidate_id, id, status, user_id, role, email, phone_number, full_name")
     .or(`email.eq.${email},user_id.eq.${data.user?.id ?? "00000000-0000-0000-0000-000000000000"}`)
     .limit(10);
   const member = chooseLoginMember(members as LoginMember[] | null, data.user?.id);
@@ -92,6 +96,17 @@ export async function POST(request: Request) {
     if (platformAdmin) {
       const response = NextResponse.json({ user: data.user, workspace: null, redirectTo: "/admin/saas" });
       attachSessionCookies(response, data.session);
+      attachWorkspaceSessionCookie(response, {
+        userId: data.user.id,
+        email,
+        fullName: String(data.user.user_metadata?.full_name ?? "Platform Admin"),
+        phone: null,
+        tenantId: "",
+        candidateId: "",
+        memberId: String(platformAdmin.id),
+        role: "Admin",
+        isPlatformAdmin: true,
+      });
       return response;
     }
 
@@ -108,5 +123,16 @@ export async function POST(request: Request) {
 
   const response = NextResponse.json({ user: data.user, workspace: member, redirectTo: "/" });
   attachSessionCookies(response, data.session);
+  attachWorkspaceSessionCookie(response, {
+    userId: data.user.id,
+    email: member.email ?? email,
+    fullName: member.full_name ?? String(data.user.user_metadata?.full_name ?? ""),
+    phone: member.phone_number ?? null,
+    tenantId: member.tenant_id,
+    candidateId: member.candidate_id,
+    memberId: member.id,
+    role: String(member.role ?? "Candidate") as Parameters<typeof attachWorkspaceSessionCookie>[1]["role"],
+    isPlatformAdmin: false,
+  });
   return response;
 }

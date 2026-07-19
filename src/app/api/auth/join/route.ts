@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { getLooseSupabaseAdmin, getSupabaseAdmin } from "@/lib/supabase";
 import { enforceRateLimit, requestKey } from "@/lib/rate-limit";
 import { writeAudit } from "@/lib/server-workflows";
-import { attachSessionCookies } from "@/lib/auth-session";
+import { attachSessionCookies, attachWorkspaceSessionCookie, type WorkspaceRole } from "@/lib/auth-session";
 
 const schema = z.object({
   joinCode: z.string().trim().min(6),
@@ -30,6 +30,22 @@ function loginMatchesInvitation(login: string, invitation: Record<string, string
   if (invitedEmail && normalizedLogin === invitedEmail) return true;
   if (invitedPhone && phoneKey(normalizedLogin) === invitedPhone) return true;
   return false;
+}
+
+function workspaceRole(value: string): WorkspaceRole {
+  const allowed: WorkspaceRole[] = [
+    "Candidate",
+    "Campaign Manager",
+    "Constituency Coordinator",
+    "Ward Coordinator",
+    "Village Coordinator",
+    "Volunteer",
+    "Polling Agent",
+    "Media Team",
+    "Data Clerk",
+    "Admin",
+  ];
+  return allowed.includes(value as WorkspaceRole) ? value as WorkspaceRole : "Volunteer";
 }
 
 export async function POST(request: Request) {
@@ -102,13 +118,14 @@ export async function POST(request: Request) {
     .eq("email", email)
     .maybeSingle();
 
+  let memberId = String(existingMember?.id ?? "");
   if (existingMember) {
     await admin
       .from("campaign_members")
       .update({ user_id: created.data.user.id, full_name: invitation.invited_name, role: invitation.role, status: "Active", candidate_id: invitation.candidate_id })
       .eq("id", existingMember.id);
   } else {
-    await admin.from("campaign_members").insert({
+    const { data: newMember } = await admin.from("campaign_members").insert({
       tenant_id: invitation.tenant_id,
       candidate_id: invitation.candidate_id,
       user_id: created.data.user.id,
@@ -116,7 +133,8 @@ export async function POST(request: Request) {
       full_name: invitation.invited_name,
       role: invitation.role,
       status: "Active",
-    });
+    }).select("id").single();
+    memberId = String(newMember?.id ?? "");
   }
 
   await admin.from("invitations").update({ status: "Accepted" }).eq("id", invitation.id);
@@ -153,6 +171,17 @@ export async function POST(request: Request) {
     const signedIn = await client.auth.signInWithPassword({ email, password: input.password });
     if (signedIn.data.session) attachSessionCookies(response, signedIn.data.session);
   }
+  attachWorkspaceSessionCookie(response, {
+    userId: created.data.user.id,
+    email,
+    fullName: invitation.invited_name,
+    phone: invitation.invited_phone || null,
+    tenantId: invitation.tenant_id,
+    candidateId: invitation.candidate_id,
+    memberId,
+    role: workspaceRole(invitation.role),
+    isPlatformAdmin: false,
+  });
 
   return response;
 }

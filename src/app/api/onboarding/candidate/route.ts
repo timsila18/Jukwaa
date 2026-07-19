@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { getLooseSupabaseAdmin, getSupabaseAdmin } from "@/lib/supabase";
 import { shortCode, slugify, writeAudit } from "@/lib/server-workflows";
 import { enforceRateLimit, requestKey } from "@/lib/rate-limit";
-import { attachSessionCookies, loginEmail } from "@/lib/auth-session";
+import { attachSessionCookies, attachWorkspaceSessionCookie, loginEmail } from "@/lib/auth-session";
 
 const schema = z.object({
   fullName: z.string().trim().min(2),
@@ -300,6 +300,17 @@ export async function POST(request: Request) {
     const signedIn = await client.auth.signInWithPassword({ email: authEmail, password: data.password }).catch(() => null);
     if (signedIn?.data.session) attachSessionCookies(response, signedIn.data.session);
   }
+  attachWorkspaceSessionCookie(response, {
+    userId: createdUser.user.id,
+    email: authEmail,
+    fullName: data.fullName,
+    phone: data.phoneNumber,
+    tenantId: tenant.id,
+    candidateId: candidate.id,
+    memberId: member.id,
+    role: "Candidate",
+    isPlatformAdmin: false,
+  });
 
   return response;
 }

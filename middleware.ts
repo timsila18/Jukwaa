@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 const accessCookie = "jukwaa_access_token";
 const refreshCookie = "jukwaa_refresh_token";
+const workspaceSessionCookie = "jukwaa_workspace_session";
 
 const publicPaths = [
   "/login",
@@ -34,7 +35,11 @@ export function middleware(request: NextRequest) {
   const isPublic = publicPaths.some((item) => path === item || path.startsWith(`${item}/`));
   if (isPublic || path.startsWith("/_next/")) return NextResponse.next();
 
-  const hasSessionCookie = Boolean(request.cookies.get(accessCookie)?.value || request.cookies.get(refreshCookie)?.value);
+  const hasSessionCookie = Boolean(
+    request.cookies.get(accessCookie)?.value
+    || request.cookies.get(refreshCookie)?.value
+    || request.cookies.get(workspaceSessionCookie)?.value,
+  );
 
   if (!hasSessionCookie) {
     if (path.startsWith("/api/")) {
