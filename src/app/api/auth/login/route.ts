@@ -18,7 +18,6 @@ type LoginMember = {
   user_id?: string | null;
   role?: string | null;
   email?: string | null;
-  phone_number?: string | null;
   full_name?: string | null;
 };
 
@@ -80,7 +79,7 @@ async function restoreLoginMember(input: {
   if (metadataTenantId && metadataCandidateId) {
     const { data: existing } = await admin
       .from("campaign_members")
-      .select("tenant_id, candidate_id, id, status, user_id, role, email, phone_number, full_name")
+      .select("tenant_id, candidate_id, id, status, user_id, role, email, full_name")
       .eq("tenant_id", metadataTenantId)
       .eq("candidate_id", metadataCandidateId)
       .or(`email.eq.${email},user_id.eq.${userId}`)
@@ -99,11 +98,10 @@ async function restoreLoginMember(input: {
         user_id: userId,
         email,
         full_name: cleanString(userMetadata.full_name) || email,
-        phone_number: cleanString(userMetadata.phone_number) || null,
         role: metadataRole,
         status: "Active",
       })
-      .select("tenant_id, candidate_id, id, status, user_id, role, email, phone_number, full_name")
+      .select("tenant_id, candidate_id, id, status, user_id, role, email, full_name")
       .single();
     return inserted as LoginMember | null;
   }
@@ -118,7 +116,7 @@ async function restoreLoginMember(input: {
 
   const { data: existingCandidateMembers } = await admin
     .from("campaign_members")
-    .select("tenant_id, candidate_id, id, status, user_id, role, email, phone_number, full_name")
+    .select("tenant_id, candidate_id, id, status, user_id, role, email, full_name")
     .eq("tenant_id", candidate.tenant_id)
     .eq("candidate_id", candidate.id)
     .or(`email.eq.${email},user_id.eq.${userId}`)
@@ -137,11 +135,10 @@ async function restoreLoginMember(input: {
       user_id: userId,
       email,
       full_name: candidate.full_name || cleanString(userMetadata.full_name) || email,
-      phone_number: candidate.phone_number || cleanString(userMetadata.phone_number) || null,
       role: "Candidate",
       status: "Active",
     })
-    .select("tenant_id, candidate_id, id, status, user_id, role, email, phone_number, full_name")
+    .select("tenant_id, candidate_id, id, status, user_id, role, email, full_name")
     .single();
   return insertedCandidateMember as LoginMember | null;
 }
@@ -170,7 +167,7 @@ export async function POST(request: Request) {
   const admin = getLooseSupabaseAdmin();
   const { data: members } = await admin
     .from("campaign_members")
-    .select("tenant_id, candidate_id, id, status, user_id, role, email, phone_number, full_name")
+    .select("tenant_id, candidate_id, id, status, user_id, role, email, full_name")
     .or(`email.eq.${email},user_id.eq.${data.user?.id ?? "00000000-0000-0000-0000-000000000000"}`)
     .limit(10);
   let member: LoginMember | null = chooseLoginMember(members as LoginMember[] | null, data.user?.id);
@@ -246,7 +243,7 @@ export async function POST(request: Request) {
     userId: data.user.id,
     email: member.email ?? email,
     fullName: member.full_name ?? String(data.user.user_metadata?.full_name ?? ""),
-    phone: member.phone_number ?? null,
+    phone: data.user.phone ?? null,
     tenantId: member.tenant_id,
     candidateId: member.candidate_id,
     memberId: member.id,

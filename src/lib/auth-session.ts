@@ -177,7 +177,7 @@ async function getSignedWorkspaceSessionContext(request: Request): Promise<Sessi
   const admin = getLooseSupabaseAdmin();
   const { data: member } = await admin
     .from("campaign_members")
-    .select("id, tenant_id, candidate_id, role, email, phone_number, full_name, status, user_id")
+    .select("id, tenant_id, candidate_id, role, email, full_name, status, user_id")
     .eq("id", signed.memberId)
     .limit(1)
     .maybeSingle();
@@ -188,7 +188,6 @@ async function getSignedWorkspaceSessionContext(request: Request): Promise<Sessi
     candidate_id?: string;
     role?: string;
     email?: string | null;
-    phone_number?: string | null;
     full_name?: string | null;
     status?: string | null;
     user_id?: string | null;
@@ -199,7 +198,7 @@ async function getSignedWorkspaceSessionContext(request: Request): Promise<Sessi
     userId: row.user_id || signed.userId,
     email: row.email ?? signed.email,
     fullName: row.full_name ?? signed.fullName ?? null,
-    phone: row.phone_number ?? signed.phone ?? null,
+    phone: signed.phone ?? null,
     tenantId: String(row.tenant_id ?? signed.tenantId),
     candidateId: String(row.candidate_id ?? signed.candidateId),
     memberId: String(row.id ?? signed.memberId),
@@ -238,7 +237,7 @@ export async function getSessionContext(request: Request): Promise<SessionContex
   const admin = getLooseSupabaseAdmin();
   const { data: primaryMembers } = await admin
     .from("campaign_members")
-    .select("id, tenant_id, candidate_id, role, email, phone_number, full_name, status, user_id")
+    .select("id, tenant_id, candidate_id, role, email, full_name, status, user_id")
     .eq("user_id", data.user.id)
     .limit(10);
 
@@ -248,7 +247,7 @@ export async function getSessionContext(request: Request): Promise<SessionContex
   if (!member && data.user.email && appMetadata.tenant_id && appMetadata.candidate_id) {
     const { data: matchedMembers } = await admin
       .from("campaign_members")
-      .select("id, tenant_id, candidate_id, role, email, phone_number, full_name, status, user_id")
+      .select("id, tenant_id, candidate_id, role, email, full_name, status, user_id")
       .eq("tenant_id", String(appMetadata.tenant_id))
       .eq("candidate_id", String(appMetadata.candidate_id))
       .eq("email", data.user.email)
@@ -266,7 +265,6 @@ export async function getSessionContext(request: Request): Promise<SessionContex
     const role = (cleanString(appMetadata.role) || "Candidate") as WorkspaceRole;
     const fullName = cleanString(userMetadata.full_name) || cleanString(data.user.email) || "JUKWAA User";
     const email = data.user.email ?? `${data.user.id}@user.jukwaa.local`;
-    const phone = cleanString(userMetadata.phone_number) || cleanString(data.user.phone) || null;
 
     const { data: createdMember } = await admin
       .from("campaign_members")
@@ -275,12 +273,11 @@ export async function getSessionContext(request: Request): Promise<SessionContex
         candidate_id: candidateId,
         user_id: data.user.id,
         email,
-        phone_number: phone,
         full_name: fullName,
         role,
         status: "Active",
       })
-      .select("id, tenant_id, candidate_id, role, email, phone_number, full_name, status, user_id")
+      .select("id, tenant_id, candidate_id, role, email, full_name, status, user_id")
       .single();
 
     member = chooseWorkspaceMember(rowsArray(createdMember as typeof member), data.user.id);
@@ -300,7 +297,7 @@ export async function getSessionContext(request: Request): Promise<SessionContex
     userId: data.user.id,
     email: data.user.email ?? (String(member?.email ?? "") || null),
     fullName: String(member?.full_name ?? userMetadata.full_name ?? "").trim() || null,
-    phone: String(member?.phone_number ?? data.user.phone ?? "").trim() || null,
+    phone: String(data.user.phone ?? userMetadata.phone_number ?? "").trim() || null,
     refreshedAuthSession,
     tenantId: String(member?.tenant_id ?? ""),
     candidateId: String(member?.candidate_id ?? ""),
