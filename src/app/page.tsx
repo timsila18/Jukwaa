@@ -2483,31 +2483,74 @@ export default function Home() {
                       <span>{messageBody.length}/1000 characters</span>
                     </div>
                     {messageDeliveryNotice ? <div className="rounded-lg border border-sky-100 bg-white p-3 text-xs font-bold text-sky-800 shadow-sm">{messageDeliveryNotice}</div> : null}
-                    <div className="grid gap-2 sm:grid-cols-3">
-                      <button disabled={messageSending} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-slate-950 px-3 text-sm font-black text-white shadow-sm hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-400" onClick={() => void saveCampaignMessage("Campaign Chat", "Message")} type="button">
-                        <Send size={16} />
-                        Send In-App Message
-                      </button>
-                      <button disabled={!workspaceCommunicationRooms.length} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-sm font-black text-emerald-800 shadow-sm hover:bg-emerald-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400" onClick={() => workspaceCommunicationRooms[0] && void shareRoomLink(workspaceCommunicationRooms[0].livekitRoomName, workspaceCommunicationRooms[0].title, "Voice Call")} type="button">
-                        <Phone size={16} />
-                        Send Voice Link
-                      </button>
-                      <button disabled={!workspaceCommunicationRooms.length} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 text-sm font-black text-violet-800 shadow-sm hover:bg-violet-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400" onClick={() => workspaceCommunicationRooms[0] && void shareRoomLink(workspaceCommunicationRooms[0].livekitRoomName, workspaceCommunicationRooms[0].title, "Video Meeting")} type="button">
-                        <Video size={16} />
-                        Send Meeting Link
-                      </button>
-                      <button disabled={messageSending} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-sky-600 px-3 text-sm font-black text-white shadow-sm hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-400" onClick={() => void sendCampaignBroadcast("Broadcast SMS")} type="button">
-                        <MessageSquare size={16} />
-                        {messageSending && messageChannel === "Broadcast SMS" ? "Preparing" : "Send Group SMS"}
-                      </button>
-                      <button disabled={messageSending} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 text-sm font-black text-white shadow-sm hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-400" onClick={() => void sendCampaignBroadcast("WhatsApp")} type="button">
-                        <Smartphone size={16} />
-                        {messageSending && messageChannel === "WhatsApp" ? "Opening" : "Open WhatsApp Broadcast"}
-                      </button>
-                      <button disabled={messageSending} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-800 shadow-sm hover:border-amber-200 hover:bg-amber-50 disabled:cursor-not-allowed disabled:bg-slate-100" type="submit">
-                        <ClipboardCheck size={16} />
-                        Save Message
-                      </button>
+                    <div className="rounded-2xl border border-slate-200 bg-white/90 p-3 shadow-sm">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="text-xs font-black uppercase text-slate-500">Delivery actions</p>
+                          <p className="mt-0.5 text-xs font-semibold text-slate-500">
+                            Send now, share a room link, or keep this message as a draft.
+                          </p>
+                        </div>
+                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
+                          {messageChannel}
+                        </span>
+                      </div>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                        <button disabled={messageSending} className="group flex min-h-[68px] items-center gap-3 rounded-xl border border-slate-900 bg-slate-950 p-3 text-left text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-900 hover:shadow-md disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-400 disabled:hover:translate-y-0" onClick={() => void saveCampaignMessage("Campaign Chat", "Message")} type="button">
+                          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/15">
+                            <Send size={16} />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block text-sm font-black leading-tight">In-App</span>
+                            <span className="mt-0.5 block text-xs font-semibold leading-snug text-slate-300">Notify campaign team</span>
+                          </span>
+                        </button>
+                        <button disabled={!workspaceCommunicationRooms.length} className="group flex min-h-[68px] items-center gap-3 rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-left text-emerald-950 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-emerald-100 hover:shadow-md disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:hover:translate-y-0" onClick={() => workspaceCommunicationRooms[0] && void shareRoomLink(workspaceCommunicationRooms[0].livekitRoomName, workspaceCommunicationRooms[0].title, "Voice Call")} type="button">
+                          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-emerald-600 text-white">
+                            <Phone size={16} />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block text-sm font-black leading-tight">Voice Link</span>
+                            <span className="mt-0.5 block text-xs font-semibold leading-snug text-emerald-800">Share call room</span>
+                          </span>
+                        </button>
+                        <button disabled={!workspaceCommunicationRooms.length} className="group flex min-h-[68px] items-center gap-3 rounded-xl border border-violet-100 bg-violet-50 p-3 text-left text-violet-950 shadow-sm transition hover:-translate-y-0.5 hover:border-violet-200 hover:bg-violet-100 hover:shadow-md disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:hover:translate-y-0" onClick={() => workspaceCommunicationRooms[0] && void shareRoomLink(workspaceCommunicationRooms[0].livekitRoomName, workspaceCommunicationRooms[0].title, "Video Meeting")} type="button">
+                          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-violet-600 text-white">
+                            <Video size={16} />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block text-sm font-black leading-tight">Meeting Link</span>
+                            <span className="mt-0.5 block text-xs font-semibold leading-snug text-violet-800">Share video room</span>
+                          </span>
+                        </button>
+                        <button disabled={messageSending} className="group flex min-h-[68px] items-center gap-3 rounded-xl border border-sky-100 bg-sky-50 p-3 text-left text-sky-950 shadow-sm transition hover:-translate-y-0.5 hover:border-sky-200 hover:bg-sky-100 hover:shadow-md disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:hover:translate-y-0" onClick={() => void sendCampaignBroadcast("Broadcast SMS")} type="button">
+                          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-sky-600 text-white">
+                            <MessageSquare size={16} />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block text-sm font-black leading-tight">{messageSending && messageChannel === "Broadcast SMS" ? "Preparing SMS" : "Group SMS"}</span>
+                            <span className="mt-0.5 block text-xs font-semibold leading-snug text-sky-800">Send normal texts</span>
+                          </span>
+                        </button>
+                        <button disabled={messageSending} className="group flex min-h-[68px] items-center gap-3 rounded-xl border border-teal-100 bg-teal-50 p-3 text-left text-teal-950 shadow-sm transition hover:-translate-y-0.5 hover:border-teal-200 hover:bg-teal-100 hover:shadow-md disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:hover:translate-y-0" onClick={() => void sendCampaignBroadcast("WhatsApp")} type="button">
+                          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-teal-600 text-white">
+                            <Smartphone size={16} />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block text-sm font-black leading-tight">{messageSending && messageChannel === "WhatsApp" ? "Opening" : "WhatsApp"}</span>
+                            <span className="mt-0.5 block text-xs font-semibold leading-snug text-teal-800">Open broadcast composer</span>
+                          </span>
+                        </button>
+                        <button disabled={messageSending} className="group flex min-h-[68px] items-center gap-3 rounded-xl border border-amber-100 bg-amber-50 p-3 text-left text-amber-950 shadow-sm transition hover:-translate-y-0.5 hover:border-amber-200 hover:bg-amber-100 hover:shadow-md disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:hover:translate-y-0" type="submit">
+                          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-amber-500 text-white">
+                            <ClipboardCheck size={16} />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block text-sm font-black leading-tight">Save Message</span>
+                            <span className="mt-0.5 block text-xs font-semibold leading-snug text-amber-800">Keep for later</span>
+                          </span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </form>
