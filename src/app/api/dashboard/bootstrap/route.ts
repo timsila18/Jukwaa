@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getWorkspaceAccess, requireSession } from "@/lib/auth-session";
+import { attachSessionCookies, getWorkspaceAccess, requireSession } from "@/lib/auth-session";
 import { getLiveWorkspaceSnapshot } from "@/lib/live-dashboard";
 
 export async function GET(request: Request) {
@@ -8,5 +8,7 @@ export async function GET(request: Request) {
   const workspaceAccess = await getWorkspaceAccess(auth.session);
 
   const snapshot = await getLiveWorkspaceSnapshot(auth.session, workspaceAccess);
-  return NextResponse.json(snapshot);
+  const response = NextResponse.json(snapshot, { headers: { "Cache-Control": "no-store" } });
+  if (auth.session.refreshedAuthSession) attachSessionCookies(response, auth.session.refreshedAuthSession);
+  return response;
 }

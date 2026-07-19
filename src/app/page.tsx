@@ -624,6 +624,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [liveBootstrap, setLiveBootstrap] = useState<LiveBootstrap | null>(null);
   const [liveSupporters, setLiveSupporters] = useState<LiveSupporter[] | null>(null);
+  const [bootstrapError, setBootstrapError] = useState("");
   const platformMetrics = platformWorkspaceMetrics();
   const brandingReview = useMemo(() => validateWorkspaceBranding(candidateBranding), []);
 
@@ -1279,22 +1280,38 @@ export default function Home() {
 
   useEffect(() => {
     let active = true;
-    fetch("/api/dashboard/bootstrap")
-      .then(async (response) => {
-        if (response.status === 401 || response.status === 403) {
-          window.location.assign(`/login?next=${encodeURIComponent("/")}`);
-          return null;
+    async function loadBootstrap(attempt = 1) {
+      try {
+        const response = await fetch("/api/dashboard/bootstrap", { credentials: "include", cache: "no-store" });
+        const payload = await response.json().catch(() => null) as LiveBootstrap | { error?: string } | null;
+        if (!response.ok) {
+          if (attempt < 2) {
+            window.setTimeout(() => void loadBootstrap(attempt + 1), 700);
+            return;
+          }
+          if (active) {
+            setBootstrapError((payload && "error" in payload && payload.error) ? payload.error : "Your dashboard session could not be loaded. Please refresh or log in again.");
+            setActionMessage((payload && "error" in payload && payload.error) ? payload.error : "Your dashboard session could not be loaded. Please refresh or log in again.");
+          }
+          return;
         }
-        if (!response.ok) return null;
-        return response.json() as Promise<LiveBootstrap>;
-      })
-      .then((payload) => {
-        if (active && payload) {
+        if (active && payload && "workspace" in payload) {
+          setBootstrapError("");
           setLiveBootstrap(payload);
           setLiveSupporters(payload.supporters.map(normalizeSupporter));
         }
-      })
-      .catch(() => undefined);
+      } catch {
+        if (attempt < 2) {
+          window.setTimeout(() => void loadBootstrap(attempt + 1), 700);
+          return;
+        }
+        if (active) {
+          setBootstrapError("Network interruption while loading your workspace. Refresh the page to retry.");
+          setActionMessage("Network interruption while loading your workspace. Refresh the page to retry.");
+        }
+      }
+    }
+    void loadBootstrap();
     return () => {
       active = false;
     };
@@ -2075,6 +2092,17 @@ export default function Home() {
                     <p className="mt-1 truncate text-xs text-slate-500">{result.detail}</p>
                   </button>
                 ))}
+              </div>
+            </section>
+          ) : null}
+
+          {bootstrapError ? (
+            <section className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+              <p className="text-sm font-black text-amber-900">Workspace details are taking longer to load</p>
+              <p className="mt-1 text-sm font-semibold leading-6 text-amber-800">{bootstrapError}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button className="inline-flex h-9 items-center justify-center rounded-md bg-slate-950 px-3 text-sm font-bold text-white hover:bg-slate-900" onClick={() => window.location.reload()} type="button">Reload workspace</button>
+                <Link className="inline-flex h-9 items-center justify-center rounded-md border border-amber-300 bg-white px-3 text-sm font-bold text-amber-800 hover:bg-amber-100" href="/login">Open login</Link>
               </div>
             </section>
           ) : null}

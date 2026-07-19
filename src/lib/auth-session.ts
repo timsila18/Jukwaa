@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { getLooseSupabaseAdmin, getSupabaseAdmin } from "@/lib/supabase";
 
 export const accessCookie = "jukwaa_access_token";
@@ -21,6 +22,7 @@ export type SessionContext = {
   email: string | null;
   fullName?: string | null;
   phone?: string | null;
+  refreshedAuthSession?: { access_token: string; refresh_token: string; expires_in?: number } | null;
   tenantId: string;
   candidateId: string;
   memberId: string;
@@ -96,11 +98,28 @@ export function clearSessionCookies(response: NextResponse) {
 }
 
 export async function getSessionContext(request: Request): Promise<SessionContext | null> {
-  const token = parseCookie(request.headers.get("cookie"), accessCookie);
+  let token = parseCookie(request.headers.get("cookie"), accessCookie);
   if (!token) return null;
 
   const auth = getSupabaseAdmin();
-  const { data, error } = await auth.auth.getUser(token);
+  let refreshedAuthSession: SessionContext["refreshedAuthSession"] = null;
+  let { data, error } = await auth.auth.getUser(token);
+  if ((error || !data.user) && parseCookie(request.headers.get("cookie"), refreshCookie)) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+    const refreshToken = parseCookie(request.headers.get("cookie"), refreshCookie);
+    if (url && key && refreshToken) {
+      const client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+      const refreshed = await client.auth.refreshSession({ refresh_token: refreshToken });
+      if (refreshed.data.session?.access_token) {
+        refreshedAuthSession = refreshed.data.session;
+        token = refreshed.data.session.access_token;
+        const retry = await auth.auth.getUser(token);
+        data = retry.data;
+        error = retry.error;
+      }
+    }
+  }
   if (error || !data.user) return null;
 
   const admin = getLooseSupabaseAdmin();
@@ -143,6 +162,7 @@ export async function getSessionContext(request: Request): Promise<SessionContex
     email: data.user.email ?? (String(member?.email ?? "") || null),
     fullName: String(member?.full_name ?? userMetadata.full_name ?? "").trim() || null,
     phone: String(member?.phone_number ?? data.user.phone ?? "").trim() || null,
+    refreshedAuthSession,
     tenantId: String(member?.tenant_id ?? ""),
     candidateId: String(member?.candidate_id ?? ""),
     memberId: String(member?.id ?? ""),
