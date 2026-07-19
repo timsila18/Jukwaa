@@ -772,7 +772,10 @@ export default function Home() {
         deliveryError: liveText(message, "delivery_error", ""),
         recipientPhones: Array.isArray(message.recipient_phones) ? message.recipient_phones.map(String) : [],
         recipientMemberIds: Array.isArray(message.recipient_member_ids) ? message.recipient_member_ids.map(String) : [],
+        providerMessageIds: Array.isArray(message.provider_message_ids) ? message.provider_message_ids.map(String) : [],
         recipientCount: Array.isArray(message.recipient_phones) ? message.recipient_phones.length : 0,
+        deliveredCount: liveNumber(message, "delivered_count", 0),
+        failedCount: liveNumber(message, "failed_count", 0),
         meetingUrl: liveText(message, "meeting_url", ""),
         callType: liveText(message, "call_type", "Message"),
         sentAt: liveDate(message, "sent_at", liveDate(message, "created_at", "")),
@@ -785,7 +788,10 @@ export default function Home() {
         deliveryError: "",
         recipientPhones: [],
         recipientMemberIds: [],
+        providerMessageIds: [],
         recipientCount: 0,
+        deliveredCount: 0,
+        failedCount: 0,
         meetingUrl: "",
         callType: "Message",
       }));
@@ -2519,6 +2525,8 @@ export default function Home() {
                       <span>{message.sender} - {message.sentAt || "Not sent"}</span>
                       <span>{message.recipientCount.toLocaleString()} phone recipient(s)</span>
                       {message.recipientMemberIds.length ? <span>{message.recipientMemberIds.length.toLocaleString()} in-app recipient(s)</span> : null}
+                      {message.providerMessageIds.length ? <span>{message.providerMessageIds.length.toLocaleString()} provider id(s)</span> : null}
+                      {message.deliveredCount || message.failedCount ? <span>{message.deliveredCount.toLocaleString()} delivered / {message.failedCount.toLocaleString()} failed</span> : null}
                     </div>
                     {message.deliveryError ? <p className="mt-2 rounded-md bg-amber-50 p-2 text-xs font-bold text-amber-800">{message.deliveryError}</p> : null}
                     {message.meetingUrl || message.recipientPhones.length || message.body ? (

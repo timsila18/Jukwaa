@@ -43,6 +43,15 @@ export async function GET() {
       hasCallbackUrl: Boolean(process.env.MPESA_CALLBACK_URL),
       hasCallbackSecret: Boolean(process.env.MPESA_CALLBACK_SECRET),
     },
+    sms: {
+      provider: "Africa's Talking",
+      configured: Boolean(process.env.AFRICASTALKING_USERNAME && process.env.AFRICASTALKING_API_KEY),
+      hasUsername: Boolean(process.env.AFRICASTALKING_USERNAME),
+      hasApiKey: Boolean(process.env.AFRICASTALKING_API_KEY),
+      hasSenderId: Boolean(process.env.AFRICASTALKING_SENDER_ID),
+      hasDeliveryCallbackSecret: Boolean(process.env.AFRICASTALKING_CALLBACK_SECRET),
+      deliveryCallbackUrl: "/api/communications/africastalking/delivery-report",
+    },
     livekit: {
       configured: Boolean(process.env.LIVEKIT_URL && process.env.LIVEKIT_API_KEY && process.env.LIVEKIT_API_SECRET),
     },

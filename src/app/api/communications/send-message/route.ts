@@ -17,9 +17,20 @@ type ProviderResult = {
   providerName: string;
   deliveryStatus: "Sent" | "Partially Sent" | "Needs Provider" | "Failed";
   providerResponse?: unknown;
+  providerMessageIds?: string[];
+  deliveredCount?: number;
+  failedCount?: number;
   deliveryError?: string | null;
   launchUrl?: string;
   launchLabel?: string;
+};
+
+type AfricaTalkingRecipient = {
+  status?: string;
+  statusCode?: number;
+  number?: string;
+  cost?: string;
+  messageId?: string;
 };
 
 function normalizeKenyaPhone(value: string) {
@@ -76,11 +87,26 @@ async function sendSms(recipients: string[], body: string): Promise<ProviderResu
     body: form,
   });
   const payload = await response.json().catch(() => ({}));
+  const acceptedRecipients = (payload as { SMSMessageData?: { Recipients?: AfricaTalkingRecipient[] } }).SMSMessageData?.Recipients ?? [];
+  const accepted = acceptedRecipients.filter((recipient) => String(recipient.status ?? "").toLowerCase() === "success").length;
+  const failed = acceptedRecipients.length ? Math.max(acceptedRecipients.length - accepted, 0) : response.ok ? 0 : recipients.length;
+  const providerMessageIds = acceptedRecipients.map((recipient) => recipient.messageId).filter(Boolean) as string[];
+  const deliveryStatus = !response.ok
+    ? "Failed"
+    : accepted === recipients.length
+      ? "Sent"
+      : accepted > 0
+        ? "Partially Sent"
+        : "Failed";
+
   return {
     providerName: "Africa's Talking SMS",
-    deliveryStatus: response.ok ? "Sent" : "Failed",
+    deliveryStatus,
     providerResponse: payload,
-    deliveryError: response.ok ? null : "SMS provider rejected the message.",
+    providerMessageIds,
+    deliveredCount: accepted,
+    failedCount: failed,
+    deliveryError: deliveryStatus === "Sent" ? null : deliveryStatus === "Partially Sent" ? `${failed} SMS recipient(s) were not accepted by Africa's Talking.` : "SMS provider rejected the message.",
   };
 }
 
@@ -126,6 +152,8 @@ async function sendWhatsApp(recipients: string[], body: string): Promise<Provide
     providerName: "WhatsApp Cloud API",
     deliveryStatus: sent === recipients.length ? "Sent" : sent > 0 ? "Partially Sent" : "Failed",
     providerResponse: results,
+    deliveredCount: sent,
+    failedCount: recipients.length - sent,
     deliveryError: sent === recipients.length ? null : `${recipients.length - sent} WhatsApp message(s) were not accepted by the provider.`,
   };
 }
@@ -156,6 +184,9 @@ async function insertMessage(input: {
     delivery_status: input.result.deliveryStatus,
     provider_name: input.result.providerName,
     provider_response: input.result.providerResponse ?? {},
+    provider_message_ids: input.result.providerMessageIds ?? [],
+    delivered_count: input.result.deliveredCount ?? 0,
+    failed_count: input.result.failedCount ?? 0,
     delivery_error: input.result.deliveryError ?? null,
   };
 

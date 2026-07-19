@@ -204,7 +204,7 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
     fetchRows("campaign_events", tenantId, "id, title, type, venue, event_date, start_time, expected_attendance, description, created_at", 100, "event_date", true),
     fetchRows("internal_notifications", tenantId, "id, title, body, status, created_at", 50),
     fetchRows("communication_rooms", tenantId, "id, title, livekit_room_name, purpose, status, audience, scheduled_at, expected_participants, created_at", 50, "scheduled_at", false),
-    fetchRows("communication_messages", tenantId, "id, channel, subject, body, audience, recipient_phones, recipient_member_ids, meeting_url, call_type, status, delivery_status, provider_name, delivery_error, sent_at, created_at", 50, "created_at", false),
+    fetchRows("communication_messages", tenantId, "id, channel, subject, body, audience, recipient_phones, recipient_member_ids, provider_message_ids, delivered_count, failed_count, meeting_url, call_type, status, delivery_status, provider_name, delivery_error, sent_at, created_at", 50, "created_at", false),
     fetchRows("campaign_members", tenantId, "id, full_name, email, phone_number, role, status, assigned_country_id, assigned_county_id, assigned_constituency_id, assigned_ward_id, assigned_village_id, assigned_polling_station_id, created_at", 200),
     fetchRows("ai_content_assets", tenantId, "id, asset_type, title, audience, status, created_at", 50),
     fetchRows("workspace_audit_logs", tenantId, "id, action, module, record_id, created_at", 50),
