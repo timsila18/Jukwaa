@@ -1297,8 +1297,12 @@ export default function Home() {
     },
   };
   const activeSectionId = sectionTargets[activeSection] ?? sectionTargets.Dashboard;
-  const activeSubtitle = activeSection === "Dashboard" ? personalWorkspaceSubtitle : `Manage ${activeSection.toLowerCase()} as ${currentRole} for ${referenceCandidateName}`;
+  const moduleOwnershipSubtitle = isOwnerAccount
+    ? `Manage ${activeSection.toLowerCase()} for ${referenceCandidateName}, ${candidateDescriptor}`
+    : `Manage ${activeSection.toLowerCase()} as ${currentRole} for ${referenceCandidateName}, ${candidateDescriptor}`;
+  const activeSubtitle = activeSection === "Dashboard" ? personalWorkspaceSubtitle : moduleOwnershipSubtitle;
   const activeWorkspaceFeatures = workspaceFeatures[activeSection as keyof typeof workspaceFeatures] ?? workspaceFeatures.Dashboard;
+  const showAnalyticsPanels = activeSection === "Dashboard" || activeSection === "Reports & Analytics";
 
   function sectionClass(sectionId: string, baseClassName: string) {
     return activeSectionId === sectionId ? baseClassName : "hidden";
@@ -3026,7 +3030,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="mt-6 grid gap-4 xl:grid-cols-4">
+          <section className={showAnalyticsPanels ? "mt-6 grid gap-4 xl:grid-cols-4" : "hidden"}>
             <ChartCard
               title="Volunteer Performance"
               report="volunteer-performance"
@@ -3188,7 +3192,7 @@ export default function Home() {
             </ChartCard>
           </section>
 
-          <section className="mt-6 grid gap-4 xl:grid-cols-2">
+          <section className={showAnalyticsPanels ? "mt-6 grid gap-4 xl:grid-cols-2" : "hidden"}>
             <ChartCard
               title="Gender Distribution"
               report="supporter-demographics"
