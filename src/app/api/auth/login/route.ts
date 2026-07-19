@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
 import { getLooseSupabaseAdmin } from "@/lib/supabase";
-import { attachSessionCookies, attachWorkspaceSessionCookie, loginEmail } from "@/lib/auth-session";
+import { attachSessionCookies, attachWorkspaceSessionCookie, loginEmail, type WorkspaceRole } from "@/lib/auth-session";
 import { enforceRateLimit, requestKey } from "@/lib/rate-limit";
 
 const schema = z.object({
@@ -22,6 +22,14 @@ type LoginMember = {
   full_name?: string | null;
 };
 
+type LoginCandidate = {
+  id: string;
+  tenant_id: string;
+  full_name: string;
+  email?: string | null;
+  phone_number?: string | null;
+};
+
 function chooseLoginMember(rows: LoginMember[] | null | undefined, userId?: string) {
   const members = Array.isArray(rows) ? rows : [];
   return (
@@ -35,6 +43,107 @@ function chooseLoginMember(rows: LoginMember[] | null | undefined, userId?: stri
 
 function isBlockedMemberStatus(status?: string | null) {
   return ["suspended", "revoked", "inactive", "deactivated", "expired"].includes(String(status ?? "").toLowerCase());
+}
+
+function cleanString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function workspaceRole(value: unknown): WorkspaceRole {
+  const allowed: WorkspaceRole[] = [
+    "Candidate",
+    "Campaign Manager",
+    "Constituency Coordinator",
+    "Ward Coordinator",
+    "Village Coordinator",
+    "Volunteer",
+    "Polling Agent",
+    "Media Team",
+    "Data Clerk",
+    "Admin",
+  ];
+  return allowed.includes(value as WorkspaceRole) ? value as WorkspaceRole : "Candidate";
+}
+
+async function restoreLoginMember(input: {
+  admin: ReturnType<typeof getLooseSupabaseAdmin>;
+  email: string;
+  userId: string;
+  userMetadata: Record<string, unknown>;
+  appMetadata: Record<string, unknown>;
+}) {
+  const { admin, email, userId, userMetadata, appMetadata } = input;
+  const metadataTenantId = cleanString(appMetadata.tenant_id);
+  const metadataCandidateId = cleanString(appMetadata.candidate_id);
+  const metadataRole = workspaceRole(appMetadata.role);
+
+  if (metadataTenantId && metadataCandidateId) {
+    const { data: existing } = await admin
+      .from("campaign_members")
+      .select("tenant_id, candidate_id, id, status, user_id, role, email, phone_number, full_name")
+      .eq("tenant_id", metadataTenantId)
+      .eq("candidate_id", metadataCandidateId)
+      .or(`email.eq.${email},user_id.eq.${userId}`)
+      .limit(10);
+    const existingMember = chooseLoginMember(existing as LoginMember[] | null, userId);
+    if (existingMember) {
+      await admin.from("campaign_members").update({ user_id: userId, status: "Active" }).eq("id", existingMember.id);
+      return { ...existingMember, user_id: userId, status: "Active" } as LoginMember;
+    }
+
+    const { data: inserted } = await admin
+      .from("campaign_members")
+      .insert({
+        tenant_id: metadataTenantId,
+        candidate_id: metadataCandidateId,
+        user_id: userId,
+        email,
+        full_name: cleanString(userMetadata.full_name) || email,
+        phone_number: cleanString(userMetadata.phone_number) || null,
+        role: metadataRole,
+        status: "Active",
+      })
+      .select("tenant_id, candidate_id, id, status, user_id, role, email, phone_number, full_name")
+      .single();
+    return inserted as LoginMember | null;
+  }
+
+  const { data: candidates } = await admin
+    .from("candidates")
+    .select("id, tenant_id, full_name, email, phone_number")
+    .eq("email", email)
+    .limit(10);
+  const candidate = Array.isArray(candidates) ? candidates[0] as LoginCandidate | undefined : candidates as LoginCandidate | null;
+  if (!candidate?.id || !candidate.tenant_id) return null;
+
+  const { data: existingCandidateMembers } = await admin
+    .from("campaign_members")
+    .select("tenant_id, candidate_id, id, status, user_id, role, email, phone_number, full_name")
+    .eq("tenant_id", candidate.tenant_id)
+    .eq("candidate_id", candidate.id)
+    .or(`email.eq.${email},user_id.eq.${userId}`)
+    .limit(10);
+  const existingCandidateMember = chooseLoginMember(existingCandidateMembers as LoginMember[] | null, userId);
+  if (existingCandidateMember) {
+    await admin.from("campaign_members").update({ user_id: userId, status: "Active", role: "Candidate" }).eq("id", existingCandidateMember.id);
+    return { ...existingCandidateMember, user_id: userId, status: "Active", role: "Candidate" } as LoginMember;
+  }
+
+  const { data: insertedCandidateMember } = await admin
+    .from("campaign_members")
+    .insert({
+      tenant_id: candidate.tenant_id,
+      candidate_id: candidate.id,
+      user_id: userId,
+      email,
+      full_name: candidate.full_name || cleanString(userMetadata.full_name) || email,
+      phone_number: candidate.phone_number || cleanString(userMetadata.phone_number) || null,
+      role: "Candidate",
+      status: "Active",
+    })
+    .select("tenant_id, candidate_id, id, status, user_id, role, email, phone_number, full_name")
+    .single();
+  return insertedCandidateMember as LoginMember | null;
 }
 
 export async function POST(request: Request) {
@@ -64,7 +173,7 @@ export async function POST(request: Request) {
     .select("tenant_id, candidate_id, id, status, user_id, role, email, phone_number, full_name")
     .or(`email.eq.${email},user_id.eq.${data.user?.id ?? "00000000-0000-0000-0000-000000000000"}`)
     .limit(10);
-  const member = chooseLoginMember(members as LoginMember[] | null, data.user?.id);
+  let member: LoginMember | null = chooseLoginMember(members as LoginMember[] | null, data.user?.id);
   if (member) {
     await admin.from("login_history").insert({
       tenant_id: member.tenant_id,
@@ -83,6 +192,16 @@ export async function POST(request: Request) {
 
   if (!data.session) {
     return NextResponse.json({ error: "Login could not start a session. Try again." }, { status: 503 });
+  }
+
+  if (!member) {
+    member = await restoreLoginMember({
+      admin,
+      email,
+      userId: data.user.id,
+      userMetadata: data.user.user_metadata as Record<string, unknown>,
+      appMetadata: data.user.app_metadata as Record<string, unknown>,
+    });
   }
 
   if (!member) {
