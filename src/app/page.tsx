@@ -419,7 +419,12 @@ function usablePersonName(value?: string | null) {
 }
 
 function emptyState(message: string) {
-  return <div className="rounded-md bg-slate-50 p-3 text-sm font-semibold text-slate-500">{message}</div>;
+  return (
+    <div className="rounded-xl border border-dashed border-sky-200 bg-gradient-to-br from-sky-50 via-white to-emerald-50 p-4 text-sm font-semibold leading-6 text-slate-600">
+      <span className="mb-2 inline-flex rounded-full bg-white px-2.5 py-1 text-xs font-black text-sky-700 ring-1 ring-sky-100">Ready for live records</span>
+      <p>{message}</p>
+    </div>
+  );
 }
 
 function Logo() {
@@ -465,7 +470,7 @@ function ChartCard({
   }[accent];
 
   return (
-    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-md">
       <div className="mb-4 flex items-center justify-between">
         <div className={`mx-4 mt-4 inline-flex rounded-full border bg-gradient-to-r px-3 py-1 text-xs font-black ${accentClasses}`}>{title}</div>
         <button
@@ -758,6 +763,7 @@ export default function Home() {
         deliveryStatus: liveText(message, "delivery_status", "Not Sent"),
         providerName: liveText(message, "provider_name", ""),
         deliveryError: liveText(message, "delivery_error", ""),
+        recipientPhones: Array.isArray(message.recipient_phones) ? message.recipient_phones.map(String) : [],
         recipientCount: Array.isArray(message.recipient_phones) ? message.recipient_phones.length : 0,
         sentAt: liveDate(message, "sent_at", liveDate(message, "created_at", "")),
       }))
@@ -767,6 +773,7 @@ export default function Home() {
         deliveryStatus: message.status,
         providerName: "",
         deliveryError: "",
+        recipientPhones: [],
         recipientCount: 0,
       }));
   const workspaceAiContentAssets = usingLiveData
@@ -1386,6 +1393,14 @@ export default function Home() {
       .filter(Boolean);
   }
 
+  function smsComposerUrl(recipients: string[], body: string) {
+    return `sms:${recipients.map((recipient) => encodeURIComponent(recipient)).join(",")}?body=${encodeURIComponent(body)}`;
+  }
+
+  function whatsappComposerUrl(body: string) {
+    return `https://wa.me/?text=${encodeURIComponent(body)}`;
+  }
+
   function useSupporterPhones() {
     const phones = workspaceSupporters
       .map((supporter) => supporter.phoneNumber)
@@ -1394,38 +1409,56 @@ export default function Home() {
     setMessageAudience(`${electiveScopeLabel} supporters`);
   }
 
-  async function submitCampaignMessage(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function validateCampaignMessage(recipientsRequired: boolean) {
     setMessageDeliveryNotice("");
 
     const recipients = parseRecipientPhones(messageRecipients);
     const audience = messageAudience || `${electiveScopeLabel} team`;
 
-    if (messageChannel !== "Broadcast SMS" && messageChannel !== "WhatsApp") {
-      await persistWorkflow(
-        "communicationMessage",
-        {
-          channel: messageChannel,
-          subject: messageSubject,
-          body: messageBody,
-          audience,
-          recipientPhones: recipients,
-          status: messageStatus,
-        },
-        "Campaign message saved to the queue.",
-        "Communications",
-      );
-      setMessageSubject("");
-      setMessageBody("");
-      setMessageRecipients("");
-      setMessageStatus("Draft");
-      return;
+    if (!messageSubject.trim()) {
+      setMessageDeliveryNotice("Add a short message subject first.");
+      return null;
+    }
+    if (!messageBody.trim()) {
+      setMessageDeliveryNotice("Write the message before sending.");
+      return null;
+    }
+    if (recipientsRequired && !recipients.length) {
+      setMessageDeliveryNotice("Add at least one phone number before sending.");
+      return null;
     }
 
-    if (!recipients.length) {
-      setMessageDeliveryNotice("Add at least one phone number before sending.");
-      return;
-    }
+    return { recipients, audience };
+  }
+
+  async function saveCampaignMessage() {
+    const details = validateCampaignMessage(false);
+    if (!details) return;
+
+    await persistWorkflow(
+      "communicationMessage",
+      {
+        channel: messageChannel,
+        subject: messageSubject,
+        body: messageBody,
+        audience: details.audience,
+        recipientPhones: details.recipients,
+        status: messageStatus,
+      },
+      "Campaign message saved to the queue.",
+      "Communications",
+    );
+    setMessageSubject("");
+    setMessageBody("");
+    setMessageRecipients("");
+    setMessageAudience("");
+    setMessageStatus("Draft");
+  }
+
+  async function sendCampaignBroadcast(channel: "Broadcast SMS" | "WhatsApp") {
+    setMessageChannel(channel);
+    const details = validateCampaignMessage(true);
+    if (!details) return;
 
     setMessageSending(true);
     try {
@@ -1433,11 +1466,11 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          channel: messageChannel,
+          channel,
           subject: messageSubject,
           body: messageBody,
-          audience,
-          recipients,
+          audience: details.audience,
+          recipients: details.recipients,
         }),
       });
       const payload = await response.json();
@@ -1462,6 +1495,11 @@ export default function Home() {
     } finally {
       setMessageSending(false);
     }
+  }
+
+  function submitCampaignMessage(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void saveCampaignMessage();
   }
 
   async function askJukwaaAi(event: FormEvent<HTMLFormElement>) {
@@ -2013,14 +2051,14 @@ export default function Home() {
           ) : null}
 
           {activeSection !== "Dashboard" ? (
-            <section className="j-workspace-hero mb-5">
+            <section className="j-workspace-hero mb-5 rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50 via-white to-amber-50/60 p-5 shadow-sm ring-1 ring-white">
               <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-wide text-blue-700">Active workspace</p>
+                  <p className="inline-flex rounded-full border border-sky-100 bg-white px-3 py-1 text-xs font-black uppercase tracking-wide text-sky-700 shadow-sm">Active workspace</p>
                   <h2 className="mt-2 text-2xl font-black text-slate-950">{activeWorkspaceFeatures.title}</h2>
                   <p className="mt-2 max-w-3xl text-base leading-7 text-slate-600">{activeWorkspaceFeatures.description}</p>
                 </div>
-                <button className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-black text-white shadow-sm hover:bg-blue-700" onClick={openPrimaryAction} type="button">
+                <button className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-black text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-900" onClick={openPrimaryAction} type="button">
                   <Plus size={17} />
                   New {activeSection === "Payments & Billing" ? "Payment" : activeSection.split(" ")[0]}
                 </button>
@@ -2031,9 +2069,9 @@ export default function Home() {
                   const description = String(card[1]);
                   const FeatureIcon = card[2] as typeof Users;
                   return (
-                    <div key={title} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                    <div key={title} className="rounded-xl border border-slate-200 bg-white/90 p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-sky-200 hover:bg-white hover:shadow-md">
                       <div className="flex items-start gap-3">
-                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-blue-50 text-blue-700 ring-1 ring-blue-100">
+                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-sky-50 to-emerald-50 text-sky-700 ring-1 ring-sky-100">
                           <FeatureIcon size={19} />
                         </span>
                         <span>
@@ -2111,34 +2149,54 @@ export default function Home() {
                     <button className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white hover:bg-slate-900" type="submit"><Video size={16} />Create Room</button>
                   </div>
                 </form>
-                <form className="rounded-lg border border-slate-200 p-3" onSubmit={submitCampaignMessage}>
+                <form className="rounded-xl border border-sky-100 bg-gradient-to-br from-white via-sky-50/40 to-emerald-50/30 p-4 shadow-sm" onSubmit={submitCampaignMessage}>
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h3 className="text-sm font-black text-slate-950">SMS & WhatsApp Broadcast</h3>
-                    <button className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-black text-sky-700 hover:bg-sky-50" onClick={useSupporterPhones} type="button">
+                    <div>
+                      <h3 className="text-sm font-black text-slate-950">SMS & WhatsApp Broadcast</h3>
+                      <p className="mt-1 text-xs font-semibold text-slate-500">Send normal group texts or open WhatsApp with a broadcast-ready message.</p>
+                    </div>
+                    <button className="rounded-full border border-sky-200 bg-white px-3 py-1.5 text-xs font-black text-sky-700 shadow-sm hover:bg-sky-50" onClick={useSupporterPhones} type="button">
                       Use supporter phones
                     </button>
                   </div>
-                  <div className="mt-3 grid gap-2">
-                    <input className="h-10 rounded-md border border-slate-200 px-3 text-sm" onChange={(event) => setMessageSubject(event.target.value)} placeholder="Message subject" required value={messageSubject} />
+                  <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                    {[
+                      { channel: "Broadcast SMS", title: "Group SMS", note: "Text phones directly", icon: MessageSquare, tone: "border-sky-200 bg-sky-50 text-sky-800" },
+                      { channel: "WhatsApp", title: "WhatsApp", note: "Open broadcast composer", icon: Smartphone, tone: "border-emerald-200 bg-emerald-50 text-emerald-800" },
+                      { channel: "Campaign Chat", title: "Draft", note: "Save to message queue", icon: ClipboardCheck, tone: "border-amber-200 bg-amber-50 text-amber-800" },
+                    ].map((option) => {
+                      const OptionIcon = option.icon;
+                      const selected = messageChannel === option.channel;
+                      return (
+                        <button
+                          key={option.channel}
+                          className={`rounded-xl border p-3 text-left transition ${selected ? option.tone : "border-slate-200 bg-white text-slate-700 hover:border-sky-200 hover:bg-sky-50/60"}`}
+                          onClick={() => setMessageChannel(option.channel)}
+                          type="button"
+                        >
+                          <span className="flex items-center gap-2 text-sm font-black"><OptionIcon size={16} />{option.title}</span>
+                          <span className="mt-1 block text-xs font-semibold opacity-80">{option.note}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-4 grid gap-2">
+                    <input className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm shadow-sm outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100" onChange={(event) => setMessageSubject(event.target.value)} placeholder="Message subject" value={messageSubject} />
                     <div className="grid gap-2 sm:grid-cols-2">
-                      <select className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm" onChange={(event) => setMessageChannel(event.target.value)} value={messageChannel}>
-                        {["Broadcast SMS", "WhatsApp", "Campaign Chat", "Solco Meeting"].map((channel) => <option key={channel}>{channel}</option>)}
-                      </select>
                       <select className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm" onChange={(event) => setMessageStatus(event.target.value)} value={messageStatus}>
                         {["Draft", "Queued", "Sent", "Delivered"].map((status) => <option key={status}>{status}</option>)}
                       </select>
+                      <input className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm" onChange={(event) => setMessageAudience(event.target.value)} placeholder="Audience, e.g. Ward coordinators" value={messageAudience} />
                     </div>
-                    <input className="h-10 rounded-md border border-slate-200 px-3 text-sm" onChange={(event) => setMessageAudience(event.target.value)} placeholder="Audience" value={messageAudience} />
                     <textarea
-                      className="min-h-24 rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-sky-500"
+                      className="min-h-28 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
                       maxLength={1000}
                       onChange={(event) => setMessageBody(event.target.value)}
                       placeholder={`Write the message for ${electiveScopeLabel}`}
-                      required
                       value={messageBody}
                     />
                     <textarea
-                      className="min-h-20 rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-sky-500"
+                      className="min-h-20 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
                       onChange={(event) => setMessageRecipients(event.target.value)}
                       placeholder="+2547... one per line, comma, or semicolon"
                       value={messageRecipients}
@@ -2147,11 +2205,21 @@ export default function Home() {
                       <span>{parseRecipientPhones(messageRecipients).length.toLocaleString()} recipient(s)</span>
                       <span>{messageBody.length}/1000 characters</span>
                     </div>
-                    {messageDeliveryNotice ? <div className="rounded-md bg-sky-50 p-2 text-xs font-bold text-sky-800">{messageDeliveryNotice}</div> : null}
-                    <button disabled={messageSending} className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-400" type="submit">
-                      {messageChannel === "WhatsApp" ? <Smartphone size={16} /> : <MessageSquare size={16} />}
-                      {messageSending ? "Processing" : messageChannel === "Broadcast SMS" || messageChannel === "WhatsApp" ? "Send / Open Composer" : "Save Message"}
-                    </button>
+                    {messageDeliveryNotice ? <div className="rounded-lg border border-sky-100 bg-white p-3 text-xs font-bold text-sky-800 shadow-sm">{messageDeliveryNotice}</div> : null}
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      <button disabled={messageSending} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-sky-600 px-3 text-sm font-black text-white shadow-sm hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-400" onClick={() => void sendCampaignBroadcast("Broadcast SMS")} type="button">
+                        <MessageSquare size={16} />
+                        {messageSending && messageChannel === "Broadcast SMS" ? "Preparing" : "Send Group SMS"}
+                      </button>
+                      <button disabled={messageSending} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 text-sm font-black text-white shadow-sm hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-400" onClick={() => void sendCampaignBroadcast("WhatsApp")} type="button">
+                        <Smartphone size={16} />
+                        {messageSending && messageChannel === "WhatsApp" ? "Opening" : "Open WhatsApp Broadcast"}
+                      </button>
+                      <button disabled={messageSending} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-800 shadow-sm hover:border-amber-200 hover:bg-amber-50 disabled:cursor-not-allowed disabled:bg-slate-100" type="submit">
+                        <ClipboardCheck size={16} />
+                        Save Draft
+                      </button>
+                    </div>
                   </div>
                 </form>
               </div>
@@ -2178,31 +2246,54 @@ export default function Home() {
               </div>
             </div>
 
-            <div id="communication-message-queue" className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <div id="communication-message-queue" className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-sm font-bold text-slate-950">Message Queue</h2>
                 <ReportLink report="communication-messages" label="Messages" />
               </div>
               <div className="mt-4 space-y-3">
                 {workspaceCommunicationMessages.map((message) => (
-                  <div key={message.id} className="rounded-lg bg-slate-50 p-3">
+                  <div key={message.id} className="rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-3 shadow-sm">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-sm font-bold text-slate-950">{message.subject}</p>
-                        <p className="text-xs text-slate-500">{message.channel} - {message.audience}</p>
+                        <p className="text-xs text-slate-500">{message.audience}</p>
                       </div>
                       <StatusPill label={message.deliveryStatus || message.status} />
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-black ${message.channel === "WhatsApp" ? "bg-emerald-50 text-emerald-700" : message.channel === "Broadcast SMS" ? "bg-sky-50 text-sky-700" : "bg-amber-50 text-amber-700"}`}>{message.channel}</span>
+                      {message.providerName ? <span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">{message.providerName}</span> : null}
                     </div>
                     {message.body ? <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-700">{message.body}</p> : null}
                     <div className="mt-2 flex flex-wrap gap-2 text-xs font-semibold text-slate-500">
                       <span>{message.sender} - {message.sentAt || "Not sent"}</span>
                       <span>{message.recipientCount.toLocaleString()} recipient(s)</span>
-                      {message.providerName ? <span>{message.providerName}</span> : null}
                     </div>
                     {message.deliveryError ? <p className="mt-2 rounded-md bg-amber-50 p-2 text-xs font-bold text-amber-800">{message.deliveryError}</p> : null}
+                    {message.recipientPhones.length || message.body ? (
+                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                        {message.recipientPhones.length ? (
+                          <a className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 text-xs font-black text-sky-800 hover:bg-sky-100" href={smsComposerUrl(message.recipientPhones, message.body)}>
+                            <MessageSquare size={14} />
+                            Reopen SMS
+                          </a>
+                        ) : null}
+                        {message.body ? (
+                          <a className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-xs font-black text-emerald-800 hover:bg-emerald-100" href={whatsappComposerUrl(message.body)} rel="noreferrer" target="_blank">
+                            <Smartphone size={14} />
+                            Open WhatsApp
+                          </a>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
                 ))}
-                {workspaceCommunicationMessages.length === 0 ? emptyState("No campaign messages have been queued yet.") : null}
+                {workspaceCommunicationMessages.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-sky-200 bg-sky-50/70 p-5 text-sm font-semibold text-sky-900">
+                    No campaign messages have been queued yet. Create a group SMS, open a WhatsApp broadcast, or save a draft and it will appear here.
+                  </div>
+                ) : null}
               </div>
             </div>
           </section>

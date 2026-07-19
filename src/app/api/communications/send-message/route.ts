@@ -37,12 +37,12 @@ function normalizeKenyaPhone(value: string) {
   return `+${normalized}`;
 }
 
-function smsLaunchUrl(phone: string, body: string) {
-  return `sms:${encodeURIComponent(phone)}?body=${encodeURIComponent(body)}`;
+function smsLaunchUrl(recipients: string[], body: string) {
+  return `sms:${recipients.map((phone) => encodeURIComponent(phone)).join(",")}?body=${encodeURIComponent(body)}`;
 }
 
-function whatsappLaunchUrl(phone: string, body: string) {
-  return `https://wa.me/${phone.replace(/\D/g, "")}?text=${encodeURIComponent(body)}`;
+function whatsappLaunchUrl(body: string) {
+  return `https://wa.me/?text=${encodeURIComponent(body)}`;
 }
 
 async function sendSms(recipients: string[], body: string): Promise<ProviderResult> {
@@ -54,9 +54,9 @@ async function sendSms(recipients: string[], body: string): Promise<ProviderResu
     return {
       providerName: "Device SMS",
       deliveryStatus: "Needs Provider",
-      deliveryError: "Automated SMS provider is not configured. Opening the device SMS app for the first recipient.",
-      launchUrl: smsLaunchUrl(recipients[0], body),
-      launchLabel: "Open SMS app",
+      deliveryError: "Automated SMS provider is not configured. Opening the device SMS app with the group message prepared.",
+      launchUrl: smsLaunchUrl(recipients, body),
+      launchLabel: "Open Group SMS",
     };
   }
 
@@ -92,9 +92,9 @@ async function sendWhatsApp(recipients: string[], body: string): Promise<Provide
     return {
       providerName: "WhatsApp Launcher",
       deliveryStatus: "Needs Provider",
-      deliveryError: "Automated WhatsApp provider is not configured. Opening WhatsApp for the first recipient.",
-      launchUrl: whatsappLaunchUrl(recipients[0], body),
-      launchLabel: "Open WhatsApp",
+      deliveryError: "Automated WhatsApp provider is not configured. Opening WhatsApp with a broadcast-ready message so you can choose a group or contacts.",
+      launchUrl: whatsappLaunchUrl(body),
+      launchLabel: "Open WhatsApp Broadcast",
     };
   }
 
