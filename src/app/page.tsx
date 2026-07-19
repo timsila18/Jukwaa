@@ -241,6 +241,8 @@ type LiveBootstrap = {
   workspace: {
     candidateId: string;
     email?: string | null;
+    fullName?: string | null;
+    phone?: string | null;
     role: string;
     isPlatformAdmin: boolean;
     member?: {
@@ -600,6 +602,7 @@ export default function Home() {
   const [messageSending, setMessageSending] = useState(false);
   const [messageDeliveryNotice, setMessageDeliveryNotice] = useState("");
   const [actionMessage, setActionMessage] = useState("");
+  const [topbarPanel, setTopbarPanel] = useState<"notifications" | "messages" | "account" | null>(null);
   const [taskTitle, setTaskTitle] = useState("");
   const [taskDescription, setTaskDescription] = useState("");
   const [taskDueDate, setTaskDueDate] = useState("");
@@ -655,7 +658,9 @@ export default function Home() {
   const isOwnerAccount = currentRole === "Candidate" || currentRole === "Admin" || liveBootstrap?.workspace.isPlatformAdmin;
   const currentMemberName =
     usablePersonName(currentMember?.full_name)
+    || usablePersonName(liveBootstrap?.workspace.fullName)
     || readableNameFromContact(currentMember?.phone_number)
+    || readableNameFromContact(liveBootstrap?.workspace.phone)
     || readableNameFromContact(currentMember?.email)
     || readableNameFromContact(liveBootstrap?.workspace.email)
     || (isOwnerAccount ? referenceCandidateName : `${currentRole} Member`);
@@ -774,6 +779,7 @@ export default function Home() {
   const workspaceNotifications = liveNotifications.map((notification) => ({
         title: liveText(notification, "title", "Notification"),
         detail: liveText(notification, "body", "No details recorded."),
+        time: liveDate(notification, "created_at", "Live workspace"),
       }));
   const workspaceCommunicationRooms = usingLiveData
     ? liveRooms.map((room) => ({
@@ -1488,6 +1494,7 @@ export default function Home() {
   function scrollToSection(label: string) {
     setActiveSection(label);
     setSidebarOpen(false);
+    setTopbarPanel(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -1512,9 +1519,68 @@ export default function Home() {
     if (activeSection === "Team & Roles") { window.location.assign("/signup/user"); return; }
     const target = targets[activeSection];
     if (!target) { runAction(`${activeSection} action is available from its workspace panel.`, activeSection); return; }
-    const section = target === "communications" ? "Communications" : target === "ai-assistant" ? "AI Campaign Assistant" : activeSection;
+    const section = target === "communications" ? "Communications" : target === "ai-assistant" ? "AI Campaign Studio" : activeSection;
     scrollToSection(section);
     window.setTimeout(() => document.getElementById(target)?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+  }
+
+  function openActionShortcut(label: string, section: string) {
+    if (label === "Logout") {
+      void logout();
+      return;
+    }
+    if (label.includes("Task")) {
+      setTaskTitle((current) => current || `${label} for ${memberAssignmentLabel}`);
+      scrollToSection("Tasks & Field Ops");
+      window.setTimeout(() => document.getElementById("field-operations")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+      return;
+    }
+    if (label.includes("Event")) {
+      setEventTitle((current) => current || `${electiveScopeLabel} campaign event`);
+      scrollToSection("Events");
+      window.setTimeout(() => document.getElementById("events-rallies")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+      return;
+    }
+    if (label.includes("Supporter") || label === "Register Supporter") {
+      scrollToSection("Supporters");
+      window.setTimeout(() => document.getElementById("supporter-form")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+      return;
+    }
+    if (label.includes("Volunteer")) {
+      scrollToSection("Volunteers");
+      window.setTimeout(() => document.getElementById("field-operations")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+      return;
+    }
+    if (label.includes("Invite") || section === "Team & Roles") {
+      scrollToSection("Team & Roles");
+      window.setTimeout(() => document.getElementById("invitations")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+      return;
+    }
+    if (label.includes("Issue") || label.includes("Incident")) {
+      scrollToSection("Issues & Manifesto");
+      window.setTimeout(() => document.getElementById("community-issues")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+      return;
+    }
+    if (label.includes("Communicate") || label.includes("Message") || label.includes("Broadcast")) {
+      scrollToSection("Communications");
+      window.setTimeout(() => document.getElementById("communications")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+      return;
+    }
+    if (label.includes("AI")) {
+      scrollToSection("AI Campaign Studio");
+      window.setTimeout(() => document.getElementById("ai-assistant")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+      return;
+    }
+    if (label.includes("Report")) {
+      scrollToSection("Reports & Analytics");
+      window.setTimeout(() => document.getElementById("reports")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+      return;
+    }
+    if (section === "Logout") {
+      void logout();
+      return;
+    }
+    scrollToSection(section);
   }
 
   async function logout() {
@@ -1901,22 +1967,94 @@ export default function Home() {
                 <input className="w-full bg-transparent outline-none placeholder:text-slate-400" onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search supporters, team, tasks, events..." value={searchQuery} />
                 <span className="rounded bg-slate-100 px-2 py-1 text-xs font-black text-slate-700">Ctrl K</span>
               </label>
-              <button className="relative grid h-10 w-10 place-items-center rounded-md border border-slate-200 bg-white text-slate-950 shadow-sm" aria-label="Notifications" onClick={() => runAction("Opening internal notifications and audit trail.", "Audit Trail")} type="button">
-                <Bell size={18} />
-                <span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-red-500 text-[10px] font-black text-white">{unreadNotificationCount}</span>
-              </button>
-              <button className="relative grid h-10 w-10 place-items-center rounded-md border border-slate-200 bg-white text-slate-950 shadow-sm" aria-label="Messages" onClick={() => scrollToSection("Communications")} type="button">
-                <MessageSquare size={18} />
-                <span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-emerald-500 text-[10px] font-black text-white">{openMessageCount}</span>
-              </button>
-              <button className="hidden h-10 items-center gap-3 rounded-md border-l border-slate-200 pl-3 text-left sm:inline-flex" onClick={() => scrollToSection(accountSection)} type="button">
-                <span className="grid h-9 w-9 place-items-center rounded-full bg-slate-100 text-sm font-black text-slate-700 ring-1 ring-slate-200">{currentMemberName.slice(0, 1)}</span>
-                <span>
-                  <span className="block text-sm font-black text-slate-950">{currentMemberName}</span>
-                  <span className="block text-xs font-semibold text-slate-600">{currentRole}</span>
-                </span>
-                <ChevronDown size={16} className="text-slate-700" />
-              </button>
+              <div className="relative">
+                <button className={`relative grid h-10 w-10 place-items-center rounded-md border text-slate-950 shadow-sm transition hover:border-sky-200 hover:bg-sky-50 ${topbarPanel === "notifications" ? "border-sky-300 bg-sky-50" : "border-slate-200 bg-white"}`} aria-label="Notifications" onClick={() => setTopbarPanel((current) => current === "notifications" ? null : "notifications")} type="button">
+                  <Bell size={18} />
+                  <span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-red-500 text-[10px] font-black text-white">{unreadNotificationCount}</span>
+                </button>
+                {topbarPanel === "notifications" ? (
+                  <div className="absolute right-0 top-12 z-50 w-[min(360px,calc(100vw-2rem))] rounded-xl border border-slate-200 bg-white p-3 text-left shadow-2xl">
+                    <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-2">
+                      <div>
+                        <p className="text-sm font-black text-slate-950">Notifications</p>
+                        <p className="text-xs font-semibold text-slate-500">{unreadNotificationCount} unread in this workspace</p>
+                      </div>
+                      <button className="rounded-md px-2 py-1 text-xs font-black text-sky-700 hover:bg-sky-50" onClick={() => scrollToSection("Audit Trail")} type="button">Audit</button>
+                    </div>
+                    <div className="mt-3 grid max-h-80 gap-2 overflow-y-auto">
+                      {workspaceNotifications.slice(0, 6).map((notification, index) => (
+                        <button key={`${notification.title}-${index}`} className="rounded-lg border border-slate-100 bg-slate-50 p-3 text-left transition hover:border-sky-200 hover:bg-sky-50" onClick={() => scrollToSection("Audit Trail")} type="button">
+                          <p className="text-sm font-black text-slate-950">{notification.title}</p>
+                          <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-slate-600">{notification.detail}</p>
+                          <p className="mt-2 text-[11px] font-black uppercase text-slate-400">{notification.time}</p>
+                        </button>
+                      ))}
+                      {workspaceNotifications.length === 0 ? (
+                        <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-600">
+                          No internal notifications yet. New invitations, approvals, messages, and audit events will appear here.
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+              <div className="relative">
+                <button className={`relative grid h-10 w-10 place-items-center rounded-md border text-slate-950 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50 ${topbarPanel === "messages" ? "border-emerald-300 bg-emerald-50" : "border-slate-200 bg-white"}`} aria-label="Messages" onClick={() => setTopbarPanel((current) => current === "messages" ? null : "messages")} type="button">
+                  <MessageSquare size={18} />
+                  <span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-emerald-500 text-[10px] font-black text-white">{openMessageCount}</span>
+                </button>
+                {topbarPanel === "messages" ? (
+                  <div className="absolute right-0 top-12 z-50 w-[min(380px,calc(100vw-2rem))] rounded-xl border border-slate-200 bg-white p-3 text-left shadow-2xl">
+                    <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-2">
+                      <div>
+                        <p className="text-sm font-black text-slate-950">Message Inbox</p>
+                        <p className="text-xs font-semibold text-slate-500">{openMessageCount} draft or queued message(s)</p>
+                      </div>
+                      <button className="rounded-md bg-slate-950 px-2.5 py-1.5 text-xs font-black text-white hover:bg-slate-900" onClick={() => scrollToSection("Communications")} type="button">Open</button>
+                    </div>
+                    <div className="mt-3 grid max-h-80 gap-2 overflow-y-auto">
+                      {workspaceCommunicationMessages.slice(0, 6).map((message) => (
+                        <button key={message.id} className="rounded-lg border border-slate-100 bg-slate-50 p-3 text-left transition hover:border-emerald-200 hover:bg-emerald-50" onClick={() => scrollToSection("Communications")} type="button">
+                          <div className="flex items-start justify-between gap-3">
+                            <p className="text-sm font-black text-slate-950">{message.subject}</p>
+                            <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-[11px] font-black text-emerald-700 ring-1 ring-emerald-100">{message.status}</span>
+                          </div>
+                          <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-slate-600">{message.body || message.audience}</p>
+                          <p className="mt-2 text-[11px] font-black uppercase text-slate-400">{message.channel} - {message.deliveryStatus}</p>
+                        </button>
+                      ))}
+                      {workspaceCommunicationMessages.length === 0 ? (
+                        <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-600">
+                          No campaign messages yet. Create an in-app, SMS, WhatsApp, voice, or meeting message from Communications.
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+              <div className="relative hidden sm:block">
+                <button className={`h-10 items-center gap-3 rounded-md border-l border-slate-200 pl-3 text-left sm:inline-flex ${topbarPanel === "account" ? "bg-slate-50" : ""}`} onClick={() => setTopbarPanel((current) => current === "account" ? null : "account")} type="button">
+                  <span className="grid h-9 w-9 place-items-center rounded-full bg-slate-100 text-sm font-black text-slate-700 ring-1 ring-slate-200">{currentMemberName.slice(0, 1)}</span>
+                  <span>
+                    <span className="block text-sm font-black text-slate-950">{currentMemberName}</span>
+                    <span className="block text-xs font-semibold text-slate-600">{currentRole}</span>
+                  </span>
+                  <ChevronDown size={16} className={`text-slate-700 transition ${topbarPanel === "account" ? "rotate-180" : ""}`} />
+                </button>
+                {topbarPanel === "account" ? (
+                  <div className="absolute right-0 top-12 z-50 w-80 rounded-xl border border-slate-200 bg-white p-3 text-left shadow-2xl">
+                    <div className="rounded-lg bg-slate-50 p-3">
+                      <p className="text-sm font-black text-slate-950">{currentMemberName}</p>
+                      <p className="mt-1 text-xs font-semibold text-slate-600">{personalWorkspaceSubtitle}</p>
+                      <p className="mt-2 rounded-full bg-white px-2.5 py-1 text-xs font-black text-sky-700 ring-1 ring-sky-100">{currentRole} - {memberAssignmentLabel}</p>
+                    </div>
+                    <div className="mt-3 grid gap-2">
+                      <button className="h-9 rounded-md bg-slate-950 px-3 text-left text-sm font-bold text-white hover:bg-slate-900" onClick={() => scrollToSection(accountSection)} type="button">Open my workspace</button>
+                      <button className="h-9 rounded-md border border-slate-200 px-3 text-left text-sm font-bold text-slate-700 hover:bg-slate-50" onClick={() => scrollToSection("Team & Roles")} type="button">Team and roles</button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
               <button className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 shadow-sm hover:border-red-200 hover:bg-red-50 hover:text-red-700" onClick={() => void logout()} type="button">
                 <X size={16} />
                 <span className="hidden sm:inline">Logout</span>
@@ -1976,7 +2114,7 @@ export default function Home() {
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {roleProfile.quickActions.slice(0, 4).map(([label, Icon, section], index) => (
-                    <button key={label} className={`inline-flex h-12 items-center justify-center gap-2 rounded-md px-4 text-sm font-black shadow-sm transition ${index === 0 ? "bg-[#07111f] text-white hover:bg-[#0f1f34]" : "border border-slate-200 bg-white text-slate-800 hover:border-amber-300 hover:bg-amber-50"}`} onClick={() => scrollToSection(section)} type="button">
+                    <button key={label} className={`inline-flex h-12 items-center justify-center gap-2 rounded-md px-4 text-sm font-black shadow-sm transition ${index === 0 ? "bg-[#07111f] text-white hover:bg-[#0f1f34]" : "border border-slate-200 bg-white text-slate-800 hover:border-amber-300 hover:bg-amber-50"}`} onClick={() => openActionShortcut(label, section)} type="button">
                       <Icon size={17} />
                       {label}
                     </button>
@@ -2204,7 +2342,7 @@ export default function Home() {
                   <h2 className="text-base font-black text-slate-950">Quick Actions</h2>
                   <div className="mt-4 grid grid-cols-3 gap-2">
                     {quickActions.map(([label, Icon, section]) => (
-                      <button key={label} className="flex h-12 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-2 text-xs font-black text-slate-700 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700" onClick={() => section === "Logout" ? void logout() : scrollToSection(section)} type="button">
+                      <button key={label} className="flex h-12 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-2 text-xs font-black text-slate-700 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700" onClick={() => openActionShortcut(label, section)} type="button">
                         <Icon size={16} />
                         {label}
                       </button>

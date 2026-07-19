@@ -19,6 +19,8 @@ export type WorkspaceRole =
 export type SessionContext = {
   userId: string;
   email: string | null;
+  fullName?: string | null;
+  phone?: string | null;
   tenantId: string;
   candidateId: string;
   memberId: string;
@@ -82,11 +84,28 @@ export async function getSessionContext(request: Request): Promise<SessionContex
   if (error || !data.user) return null;
 
   const admin = getLooseSupabaseAdmin();
-  const { data: member } = await admin
+  const { data: primaryMember } = await admin
     .from("campaign_members")
-    .select("id, tenant_id, candidate_id, role, email, status")
+    .select("id, tenant_id, candidate_id, role, email, phone_number, full_name, status")
     .eq("user_id", data.user.id)
     .maybeSingle();
+
+  const appMetadata = data.user.app_metadata as Record<string, unknown>;
+  const userMetadata = data.user.user_metadata as Record<string, unknown>;
+  let member = primaryMember;
+  if (!member && data.user.email && appMetadata.tenant_id && appMetadata.candidate_id) {
+    const { data: matchedMember } = await admin
+      .from("campaign_members")
+      .select("id, tenant_id, candidate_id, role, email, phone_number, full_name, status")
+      .eq("tenant_id", String(appMetadata.tenant_id))
+      .eq("candidate_id", String(appMetadata.candidate_id))
+      .eq("email", data.user.email)
+      .maybeSingle();
+    member = matchedMember;
+    if (matchedMember) {
+      await admin.from("campaign_members").update({ user_id: data.user.id }).eq("id", matchedMember.id);
+    }
+  }
 
   const { data: platformAdmin } = await admin
     .from("platform_admins")
@@ -101,6 +120,8 @@ export async function getSessionContext(request: Request): Promise<SessionContex
   return {
     userId: data.user.id,
     email: data.user.email ?? member?.email ?? null,
+    fullName: String(member?.full_name ?? userMetadata.full_name ?? "").trim() || null,
+    phone: String(member?.phone_number ?? data.user.phone ?? "").trim() || null,
     tenantId: member?.tenant_id ?? "",
     candidateId: member?.candidate_id ?? "",
     memberId: member?.id ?? "",

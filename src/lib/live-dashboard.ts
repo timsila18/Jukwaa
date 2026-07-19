@@ -8,6 +8,8 @@ export type LiveSnapshot = {
     candidateId: string;
     memberId: string;
     email?: string | null;
+    fullName?: string | null;
+    phone?: string | null;
     role: string;
     isPlatformAdmin: boolean;
     member?: DbRow | null;
@@ -67,6 +69,8 @@ type SnapshotSession = {
   candidateId: string;
   memberId: string;
   email?: string | null;
+  fullName?: string | null;
+  phone?: string | null;
   role: string;
   isPlatformAdmin: boolean;
 };
@@ -184,7 +188,6 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
     invitations,
     pollingResults,
     pollingStations,
-    memberResult,
     settingsResult,
     candidateResult,
     solcoResult,
@@ -218,7 +221,6 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
     fetchRows("invitations", tenantId, "id, invited_name, invited_phone, invited_email, role, status, expiry_date, created_at", 100),
     fetchRows("polling_results", tenantId, "id, candidate_name, votes, rejected_votes, total_votes, verification_status, created_at", 100),
     fetchRows("polling_stations", tenantId, "id, name, village_id, registered_voters, station_code, centre_code, centre_name, stream_count, created_at", 30000, "name", true),
-    admin.from("campaign_members").select("id, full_name, email, phone_number, role, status, assigned_country_id, assigned_county_id, assigned_constituency_id, assigned_ward_id, assigned_village_id, assigned_polling_station_id").eq("id", session.memberId || "00000000-0000-0000-0000-000000000000").limit(1).maybeSingle(),
     admin.from("campaign_settings").select("campaign_name, candidate_name, position_targeted, political_party, county, constituency, election_year, slogan, active_status").eq("tenant_id", tenantId).limit(1).maybeSingle(),
     admin.from("candidates").select("full_name, campaign_name, position_contesting, political_party, county, constituency, ward, slogan, active_status").eq("id", candidateId).limit(1).maybeSingle(),
     admin.from("solco_integrations").select("workspace_url, livekit_url_label, token_endpoint, meeting_path, status").eq("tenant_id", tenantId).eq("candidate_id", candidateId).limit(1).maybeSingle(),
@@ -238,7 +240,10 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
   ]);
 
   const livekitConfigured = Boolean(process.env.LIVEKIT_URL && process.env.LIVEKIT_API_KEY && process.env.LIVEKIT_API_SECRET);
-  const member = memberResult.data as DbRow | null;
+  const sessionEmail = typeof session.email === "string" ? session.email.toLowerCase() : "";
+  const member = (campaignMembers.find((row) => String(row.id) === session.memberId)
+    ?? campaignMembers.find((row) => sessionEmail && String(row.email ?? "").toLowerCase() === sessionEmail)
+    ?? null) as DbRow | null;
   let workspacePollingStations = pollingStations;
   if (workspacePollingStations.length === 0 && candidateResult.data) {
     const candidate = candidateResult.data as DbRow;
