@@ -67,6 +67,10 @@ function isBlockedMemberStatus(status?: string | null) {
   return ["suspended", "revoked", "inactive", "deactivated", "expired"].includes(String(status ?? "").toLowerCase());
 }
 
+function cleanString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
 export function loginEmail(value: string) {
   const trimmed = value.trim().toLowerCase();
   if (trimmed.includes("@")) return trimmed;
@@ -147,6 +151,32 @@ export async function getSessionContext(request: Request): Promise<SessionContex
     if (matchedMember) {
       await admin.from("campaign_members").update({ user_id: data.user.id }).eq("id", matchedMember.id);
     }
+  }
+
+  if (!member && appMetadata.tenant_id && appMetadata.candidate_id) {
+    const tenantId = String(appMetadata.tenant_id);
+    const candidateId = String(appMetadata.candidate_id);
+    const role = (cleanString(appMetadata.role) || "Candidate") as WorkspaceRole;
+    const fullName = cleanString(userMetadata.full_name) || cleanString(data.user.email) || "JUKWAA User";
+    const email = data.user.email ?? `${data.user.id}@user.jukwaa.local`;
+    const phone = cleanString(userMetadata.phone_number) || cleanString(data.user.phone) || null;
+
+    const { data: createdMember } = await admin
+      .from("campaign_members")
+      .insert({
+        tenant_id: tenantId,
+        candidate_id: candidateId,
+        user_id: data.user.id,
+        email,
+        phone_number: phone,
+        full_name: fullName,
+        role,
+        status: "Active",
+      })
+      .select("id, tenant_id, candidate_id, role, email, phone_number, full_name, status, user_id")
+      .single();
+
+    member = chooseWorkspaceMember(rowsArray(createdMember as typeof member), data.user.id);
   }
 
   const { data: platformAdmin } = await admin
