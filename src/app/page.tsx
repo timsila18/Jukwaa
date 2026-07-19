@@ -625,6 +625,7 @@ export default function Home() {
   const [liveBootstrap, setLiveBootstrap] = useState<LiveBootstrap | null>(null);
   const [liveSupporters, setLiveSupporters] = useState<LiveSupporter[] | null>(null);
   const [bootstrapError, setBootstrapError] = useState("");
+  const [bootstrapLoading, setBootstrapLoading] = useState(true);
   const platformMetrics = platformWorkspaceMetrics();
   const brandingReview = useMemo(() => validateWorkspaceBranding(candidateBranding), []);
 
@@ -1289,14 +1290,23 @@ export default function Home() {
             window.setTimeout(() => void loadBootstrap(attempt + 1), 700);
             return;
           }
+          if (response.status === 401) {
+            window.location.replace(`/login?next=${encodeURIComponent("/")}`);
+            return;
+          }
           if (active) {
+            setBootstrapLoading(false);
+            setLiveBootstrap(null);
+            setLiveSupporters([]);
             setBootstrapError((payload && "error" in payload && payload.error) ? payload.error : "Your dashboard session could not be loaded. Please refresh or log in again.");
             setActionMessage((payload && "error" in payload && payload.error) ? payload.error : "Your dashboard session could not be loaded. Please refresh or log in again.");
           }
           return;
         }
         if (active && payload && "workspace" in payload) {
+          setBootstrapLoading(false);
           setBootstrapError("");
+          setActionMessage("");
           setLiveBootstrap(payload);
           setLiveSupporters(payload.supporters.map(normalizeSupporter));
         }
@@ -1306,6 +1316,9 @@ export default function Home() {
           return;
         }
         if (active) {
+          setBootstrapLoading(false);
+          setLiveBootstrap(null);
+          setLiveSupporters([]);
           setBootstrapError("Network interruption while loading your workspace. Refresh the page to retry.");
           setActionMessage("Network interruption while loading your workspace. Refresh the page to retry.");
         }
@@ -1318,9 +1331,22 @@ export default function Home() {
   }, []);
 
   async function refreshWorkspace() {
-    const response = await fetch("/api/dashboard/bootstrap", { credentials: "include" });
-    if (!response.ok) return;
+    setBootstrapLoading(true);
+    const response = await fetch("/api/dashboard/bootstrap", { credentials: "include", cache: "no-store" });
+    if (!response.ok) {
+      setBootstrapLoading(false);
+      if (response.status === 401) {
+        window.location.replace(`/login?next=${encodeURIComponent("/")}`);
+        return;
+      }
+      const payload = await response.json().catch(() => null) as { error?: string } | null;
+      setBootstrapError(payload?.error ?? "Workspace could not be reloaded.");
+      return;
+    }
     const payload = await response.json() as LiveBootstrap;
+    setBootstrapLoading(false);
+    setBootstrapError("");
+    setActionMessage("");
     setLiveBootstrap(payload);
     setLiveSupporters(payload.supporters.map(normalizeSupporter));
   }
@@ -2081,6 +2107,31 @@ export default function Home() {
         </header>
 
         <div className="j-workspace-content p-4 lg:p-6 xl:p-7">
+          {bootstrapLoading && !liveBootstrap ? (
+            <section className="grid min-h-[55vh] place-items-center rounded-xl border border-sky-100 bg-white p-6 text-center shadow-sm">
+              <div>
+                <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-sky-100 border-t-sky-700" />
+                <h2 className="mt-4 text-xl font-black text-slate-950">Loading your JUKWAA workspace</h2>
+                <p className="mt-2 text-sm font-semibold text-slate-500">Checking your secure campaign session and live workspace details.</p>
+              </div>
+            </section>
+          ) : null}
+
+          {!bootstrapLoading && !liveBootstrap && bootstrapError ? (
+            <section className="grid min-h-[55vh] place-items-center rounded-xl border border-amber-200 bg-amber-50 p-6 text-center shadow-sm">
+              <div>
+                <h2 className="text-xl font-black text-amber-950">Workspace could not open</h2>
+                <p className="mt-2 text-sm font-semibold leading-6 text-amber-800">{bootstrapError}</p>
+                <div className="mt-4 flex flex-wrap justify-center gap-2">
+                  <button className="inline-flex h-10 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-bold text-white hover:bg-slate-900" onClick={() => void refreshWorkspace()} type="button">Reload workspace</button>
+                  <Link className="inline-flex h-10 items-center justify-center rounded-md border border-amber-300 bg-white px-4 text-sm font-bold text-amber-800 hover:bg-amber-100" href="/login">Open login</Link>
+                </div>
+              </div>
+            </section>
+          ) : null}
+
+          {liveBootstrap ? (
+          <>
           {searchQuery.trim() && globalSearchResults.length ? (
             <section className="mb-4 rounded-lg border border-sky-100 bg-white p-3 shadow-sm">
               <p className="text-xs font-black uppercase tracking-wide text-sky-700">Search results</p>
@@ -4567,6 +4618,8 @@ export default function Home() {
             </div>
             <p className="mt-3 text-xs leading-5 text-slate-500">Source: {kenyaGeographySummary.source}. The raw constituency area text is preserved in the JUKWAA data platform for auditability.</p>
           </section>
+          </>
+          ) : null}
         </div>
       </div>
     </main>
