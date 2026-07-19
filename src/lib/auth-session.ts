@@ -99,15 +99,17 @@ export function clearSessionCookies(response: NextResponse) {
 
 export async function getSessionContext(request: Request): Promise<SessionContext | null> {
   let token = parseCookie(request.headers.get("cookie"), accessCookie);
-  if (!token) return null;
+  const refreshToken = parseCookie(request.headers.get("cookie"), refreshCookie);
+  if (!token && !refreshToken) return null;
 
   const auth = getSupabaseAdmin();
   let refreshedAuthSession: SessionContext["refreshedAuthSession"] = null;
-  let { data, error } = await auth.auth.getUser(token);
-  if ((error || !data.user) && parseCookie(request.headers.get("cookie"), refreshCookie)) {
+  let { data, error } = token
+    ? await auth.auth.getUser(token)
+    : { data: { user: null }, error: new Error("Access token missing") };
+  if (error || !data.user) {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-    const refreshToken = parseCookie(request.headers.get("cookie"), refreshCookie);
     if (url && key && refreshToken) {
       const client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
       const refreshed = await client.auth.refreshSession({ refresh_token: refreshToken });

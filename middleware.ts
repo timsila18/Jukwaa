@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const accessCookie = "jukwaa_access_token";
+const refreshCookie = "jukwaa_refresh_token";
 
 const publicPaths = [
   "/login",
@@ -33,7 +34,9 @@ export function middleware(request: NextRequest) {
   const isPublic = publicPaths.some((item) => path === item || path.startsWith(`${item}/`));
   if (isPublic || path.startsWith("/_next/")) return NextResponse.next();
 
-  if (!request.cookies.get(accessCookie)?.value) {
+  const hasSessionCookie = Boolean(request.cookies.get(accessCookie)?.value || request.cookies.get(refreshCookie)?.value);
+
+  if (!hasSessionCookie) {
     if (path.startsWith("/api/")) {
       return NextResponse.json({ error: "Login required." }, { status: 401 });
     }
