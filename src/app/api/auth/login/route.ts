@@ -10,6 +10,29 @@ const schema = z.object({
   password: z.string().min(6),
 });
 
+type LoginMember = {
+  id: string;
+  tenant_id: string;
+  candidate_id: string;
+  status?: string | null;
+  user_id?: string | null;
+};
+
+function chooseLoginMember(rows: LoginMember[] | null | undefined, userId?: string) {
+  const members = Array.isArray(rows) ? rows : [];
+  return (
+    members.find((member) => userId && member.user_id === userId && member.status === "Active")
+    ?? members.find((member) => member.status === "Active")
+    ?? members.find((member) => userId && member.user_id === userId)
+    ?? members[0]
+    ?? null
+  );
+}
+
+function isBlockedMemberStatus(status?: string | null) {
+  return ["suspended", "revoked", "inactive", "deactivated", "expired"].includes(String(status ?? "").toLowerCase());
+}
+
 export async function POST(request: Request) {
   const limited = await enforceRateLimit(requestKey(request, "login"), 20, 60_000);
   if (!limited.allowed) {
@@ -32,11 +55,12 @@ export async function POST(request: Request) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password: parsed.data.password });
 
   const admin = getLooseSupabaseAdmin();
-  const { data: member } = await admin
+  const { data: members } = await admin
     .from("campaign_members")
-    .select("tenant_id, candidate_id, id")
+    .select("tenant_id, candidate_id, id, status, user_id")
     .or(`email.eq.${email},user_id.eq.${data.user?.id ?? "00000000-0000-0000-0000-000000000000"}`)
-    .maybeSingle();
+    .limit(10);
+  const member = chooseLoginMember(members as LoginMember[] | null, data.user?.id);
   if (member) {
     await admin.from("login_history").insert({
       tenant_id: member.tenant_id,
@@ -72,6 +96,14 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ error: "This login is not attached to an active campaign workspace yet." }, { status: 403 });
+  }
+
+  if (isBlockedMemberStatus(member.status)) {
+    return NextResponse.json({ error: "This campaign account has been suspended or deactivated. Contact your campaign admin." }, { status: 403 });
+  }
+
+  if (data.user?.id && member.user_id !== data.user.id) {
+    await admin.from("campaign_members").update({ user_id: data.user.id }).eq("id", member.id);
   }
 
   const response = NextResponse.json({ user: data.user, workspace: member, redirectTo: "/" });

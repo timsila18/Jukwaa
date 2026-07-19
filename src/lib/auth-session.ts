@@ -45,6 +45,26 @@ function parseCookie(header: string | null, name: string) {
     ?.slice(name.length + 1);
 }
 
+function chooseWorkspaceMember<T extends { status?: string | null; user_id?: string | null }>(rows: T[] | null | undefined, userId?: string) {
+  const members = Array.isArray(rows) ? rows : [];
+  return (
+    members.find((member) => userId && member.user_id === userId && member.status === "Active")
+    ?? members.find((member) => member.status === "Active")
+    ?? members.find((member) => userId && member.user_id === userId)
+    ?? members[0]
+    ?? null
+  );
+}
+
+function rowsArray<T>(value: T | T[] | null | undefined): T[] {
+  if (Array.isArray(value)) return value;
+  return value ? [value] : [];
+}
+
+function isBlockedMemberStatus(status?: string | null) {
+  return ["suspended", "revoked", "inactive", "deactivated", "expired"].includes(String(status ?? "").toLowerCase());
+}
+
 export function loginEmail(value: string) {
   const trimmed = value.trim().toLowerCase();
   if (trimmed.includes("@")) return trimmed;
@@ -84,23 +104,24 @@ export async function getSessionContext(request: Request): Promise<SessionContex
   if (error || !data.user) return null;
 
   const admin = getLooseSupabaseAdmin();
-  const { data: primaryMember } = await admin
+  const { data: primaryMembers } = await admin
     .from("campaign_members")
-    .select("id, tenant_id, candidate_id, role, email, phone_number, full_name, status")
+    .select("id, tenant_id, candidate_id, role, email, phone_number, full_name, status, user_id")
     .eq("user_id", data.user.id)
-    .maybeSingle();
+    .limit(10);
 
   const appMetadata = data.user.app_metadata as Record<string, unknown>;
   const userMetadata = data.user.user_metadata as Record<string, unknown>;
-  let member = primaryMember;
+  let member = chooseWorkspaceMember(rowsArray(primaryMembers), data.user.id);
   if (!member && data.user.email && appMetadata.tenant_id && appMetadata.candidate_id) {
-    const { data: matchedMember } = await admin
+    const { data: matchedMembers } = await admin
       .from("campaign_members")
-      .select("id, tenant_id, candidate_id, role, email, phone_number, full_name, status")
+      .select("id, tenant_id, candidate_id, role, email, phone_number, full_name, status, user_id")
       .eq("tenant_id", String(appMetadata.tenant_id))
       .eq("candidate_id", String(appMetadata.candidate_id))
       .eq("email", data.user.email)
-      .maybeSingle();
+      .limit(10);
+    const matchedMember = chooseWorkspaceMember(rowsArray(matchedMembers), data.user.id);
     member = matchedMember;
     if (matchedMember) {
       await admin.from("campaign_members").update({ user_id: data.user.id }).eq("id", matchedMember.id);
@@ -115,17 +136,17 @@ export async function getSessionContext(request: Request): Promise<SessionContex
     .maybeSingle();
 
   if (!member && !platformAdmin) return null;
-  if (member && member.status !== "Active" && !platformAdmin) return null;
+  if (member && isBlockedMemberStatus(String(member.status ?? "")) && !platformAdmin) return null;
 
   return {
     userId: data.user.id,
-    email: data.user.email ?? member?.email ?? null,
+    email: data.user.email ?? (String(member?.email ?? "") || null),
     fullName: String(member?.full_name ?? userMetadata.full_name ?? "").trim() || null,
     phone: String(member?.phone_number ?? data.user.phone ?? "").trim() || null,
-    tenantId: member?.tenant_id ?? "",
-    candidateId: member?.candidate_id ?? "",
-    memberId: member?.id ?? "",
-    role: (member?.role ?? "Admin") as WorkspaceRole,
+    tenantId: String(member?.tenant_id ?? ""),
+    candidateId: String(member?.candidate_id ?? ""),
+    memberId: String(member?.id ?? ""),
+    role: String(member?.role ?? "Admin") as WorkspaceRole,
     isPlatformAdmin: Boolean(platformAdmin),
   };
 }
