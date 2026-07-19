@@ -29,6 +29,9 @@ const workflowSchemas = {
     title: z.string().trim().min(2),
     description: z.string().trim().optional().or(z.literal("")),
     dueDate: z.string().trim().min(8),
+    assigneeType: z.enum(["Volunteer", "Campaign Member", "Polling Agent"]).default("Volunteer"),
+    assigneeId: z.string().trim().optional().or(z.literal("")),
+    assigneeLabel: z.string().trim().optional().or(z.literal("")),
   }),
   issue: z.object({
     title: z.string().trim().min(2),
@@ -98,6 +101,9 @@ const workflowSchemas = {
     body: z.string().trim().optional().or(z.literal("")),
     audience: z.string().trim().min(2),
     recipientPhones: z.array(z.string().trim()).default([]),
+    recipientMemberIds: z.array(z.string().trim()).default([]),
+    meetingUrl: z.string().trim().optional().or(z.literal("")),
+    callType: z.enum(["Message", "Voice Call", "Video Meeting", "Broadcast"]).default("Message"),
     status: z.enum(["Draft", "Queued", "Sent", "Delivered"]).default("Draft"),
   }),
   issueStatus: z.object({
@@ -128,6 +134,35 @@ const workflowRoles: Record<WorkflowName, string[]> = {
 async function firstId(table: string, tenantId: string, column = "id") {
   const { data } = await getLooseSupabaseAdmin().from(table).select(column).eq("tenant_id", tenantId).limit(1).maybeSingle();
   return data?.[column] as string | undefined;
+}
+
+async function ensureTaskPoolVolunteer(tenantId: string, candidateId: string) {
+  const supabase = getLooseSupabaseAdmin();
+  const phoneNumber = `TASK-POOL-${candidateId.slice(0, 8)}`;
+  const { data: existing } = await supabase
+    .from("volunteers")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .eq("phone_number", phoneNumber)
+    .limit(1)
+    .maybeSingle();
+  if (existing?.id) return String(existing.id);
+
+  const { data, error } = await supabase
+    .from("volunteers")
+    .insert({
+      tenant_id: tenantId,
+      candidate_id: candidateId,
+      full_name: "Workspace Task Pool",
+      phone_number: phoneNumber,
+      recruitment_source: "System",
+      status: "Active",
+      notes: "System assignee used when tasks are assigned to campaign members or polling agents.",
+    })
+    .select("id")
+    .single();
+  if (error || !data?.id) throw new Error(error?.message ?? "Could not prepare task assignment pool.");
+  return String(data.id);
 }
 
 type LocationScope = {
@@ -250,8 +285,13 @@ export async function POST(request: Request, context: { params: Promise<{ workfl
 
   if (name === "task") {
     const data = parsed.data as z.infer<typeof workflowSchemas.task>;
-    const volunteerId = await firstId("volunteers", workspace.tenantId);
-    if (!volunteerId) return NextResponse.json({ error: "Create a volunteer before assigning a task." }, { status: 409 });
+    const selectedId = data.assigneeId?.trim();
+    const volunteerId = data.assigneeType === "Volunteer" && selectedId
+      ? selectedId
+      : data.assigneeType === "Volunteer"
+        ? await firstId("volunteers", workspace.tenantId)
+        : await ensureTaskPoolVolunteer(workspace.tenantId, workspace.candidateId);
+    if (!volunteerId) return NextResponse.json({ error: "Create a volunteer or choose a team member before assigning a task." }, { status: 409 });
     table = "volunteer_tasks";
     payload = {
       tenant_id: workspace.tenantId,
@@ -260,6 +300,11 @@ export async function POST(request: Request, context: { params: Promise<{ workfl
       title: data.title,
       description: data.description || null,
       assigned_to: volunteerId,
+      assigned_member_id: data.assigneeType === "Campaign Member" && selectedId ? selectedId : null,
+      assigned_polling_agent_id: data.assigneeType === "Polling Agent" && selectedId ? selectedId : null,
+      assignee_type: data.assigneeType,
+      assignee_label: data.assigneeLabel || null,
+      assigned_by: auth.session.userId || null,
       due_date: data.dueDate,
       status: "Pending",
     };
@@ -403,6 +448,9 @@ export async function POST(request: Request, context: { params: Promise<{ workfl
       audience: data.audience,
       body: data.body || null,
       recipient_phones: data.recipientPhones,
+      recipient_member_ids: data.recipientMemberIds,
+      meeting_url: data.meetingUrl || null,
+      call_type: data.callType,
       status: data.status,
       delivery_status: data.status === "Sent" || data.status === "Delivered" ? data.status : "Not Sent",
       sent_at: data.status === "Sent" || data.status === "Delivered" ? new Date().toISOString() : null,

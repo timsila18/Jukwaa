@@ -22,6 +22,7 @@ import {
   Menu,
   MessageSquare,
   Navigation,
+  Phone,
   Plus,
   Radio,
   RadioTower,
@@ -36,6 +37,7 @@ import {
   Users,
   UsersRound,
   Settings,
+  Send,
   Video,
   UploadCloud,
   Vote,
@@ -329,6 +331,7 @@ type LiveBootstrap = {
   notifications?: LiveRecord[];
   communicationRooms?: LiveRecord[];
   communicationMessages?: LiveRecord[];
+  campaignMembers?: LiveRecord[];
   aiContentAssets?: LiveRecord[];
   auditLogs?: LiveRecord[];
   invitations?: LiveRecord[];
@@ -599,6 +602,9 @@ export default function Home() {
   const [taskTitle, setTaskTitle] = useState("");
   const [taskDescription, setTaskDescription] = useState("");
   const [taskDueDate, setTaskDueDate] = useState("");
+  const [taskAssignee, setTaskAssignee] = useState("");
+  const [messageRecipientScope, setMessageRecipientScope] = useState("Team");
+  const [messageMemberRecipient, setMessageMemberRecipient] = useState("all-team");
   const [eventTitle, setEventTitle] = useState("");
   const [eventVenue, setEventVenue] = useState("");
   const [eventDate, setEventDate] = useState("");
@@ -623,6 +629,7 @@ export default function Home() {
   const liveNotifications = liveBootstrap?.notifications ?? [];
   const liveRooms = liveBootstrap?.communicationRooms ?? [];
   const liveMessages = liveBootstrap?.communicationMessages ?? [];
+  const liveCampaignMembers = liveBootstrap?.campaignMembers ?? [];
   const liveAiAssets = liveBootstrap?.aiContentAssets ?? [];
   const liveAuditLogs = liveBootstrap?.auditLogs ?? [];
   const livePollingResults = liveBootstrap?.pollingResults ?? [];
@@ -764,7 +771,10 @@ export default function Home() {
         providerName: liveText(message, "provider_name", ""),
         deliveryError: liveText(message, "delivery_error", ""),
         recipientPhones: Array.isArray(message.recipient_phones) ? message.recipient_phones.map(String) : [],
+        recipientMemberIds: Array.isArray(message.recipient_member_ids) ? message.recipient_member_ids.map(String) : [],
         recipientCount: Array.isArray(message.recipient_phones) ? message.recipient_phones.length : 0,
+        meetingUrl: liveText(message, "meeting_url", ""),
+        callType: liveText(message, "call_type", "Message"),
         sentAt: liveDate(message, "sent_at", liveDate(message, "created_at", "")),
       }))
     : communicationMessages.map((message) => ({
@@ -774,7 +784,10 @@ export default function Home() {
         providerName: "",
         deliveryError: "",
         recipientPhones: [],
+        recipientMemberIds: [],
         recipientCount: 0,
+        meetingUrl: "",
+        callType: "Message",
       }));
   const workspaceAiContentAssets = usingLiveData
     ? liveAiAssets.map((asset) => ({
@@ -821,8 +834,11 @@ export default function Home() {
   const workspaceTaskRows = liveTasks.map((task) => ({
         id: String(task.id),
         title: liveText(task, "title", "Task"),
+        description: liveText(task, "description", ""),
         dueDate: liveDate(task, "due_date", ""),
         status: liveText(task, "status", "Pending"),
+        assignee: liveText(task, "assignee_label", "Unassigned"),
+        assigneeType: liveText(task, "assignee_type", "Volunteer"),
       }));
   const workspaceFieldVisitRows = liveFieldVisits.map((visit) => ({
         id: String(visit.id),
@@ -1016,6 +1032,52 @@ export default function Home() {
     status: liveText(invite, "status", "Pending"),
   }));
   const pendingInvitationId = workspaceInvitations.find((invite) => invite.status === "Pending")?.id;
+  const memberContactRows = liveCampaignMembers.map((member) => ({
+    id: String(member.id),
+    source: "Campaign Member" as const,
+    name: usablePersonName(liveText(member, "full_name", "")) || readableNameFromContact(liveText(member, "email", "")) || liveText(member, "role", "Team member"),
+    role: liveText(member, "role", "Team Member"),
+    phone: liveText(member, "phone_number", ""),
+    email: liveText(member, "email", ""),
+    geography: [
+      liveText(member, "polling_station_name", ""),
+      liveText(member, "village_name", ""),
+      liveText(member, "ward_name", ""),
+      liveText(member, "constituency_name", ""),
+      liveText(member, "county_name", ""),
+    ].find(Boolean) || electiveScopeLabel,
+    status: liveText(member, "status", "Active"),
+  }));
+  const volunteerContactRows = liveVolunteers.map((volunteer) => ({
+    id: String(volunteer.id),
+    source: "Volunteer" as const,
+    name: liveText(volunteer, "full_name", "Volunteer"),
+    role: "Volunteer",
+    phone: liveText(volunteer, "phone_number", ""),
+    email: liveText(volunteer, "email", ""),
+    geography: liveText(volunteer, "ward_name", liveText(volunteer, "constituency_name", electiveScopeLabel)),
+    status: liveText(volunteer, "status", "Pending"),
+  }));
+  const pollingAgentContactRows = livePollingAgents.map((agent) => ({
+    id: String(agent.id),
+    source: "Polling Agent" as const,
+    name: liveText(agent, "full_name", "Polling Agent"),
+    role: "Polling Agent",
+    phone: liveText(agent, "phone_number", ""),
+    email: "",
+    geography: liveText(agent, "polling_station_name", liveText(agent, "ward_name", electiveScopeLabel)),
+    status: liveText(agent, "status", "Pending"),
+  }));
+  const workspaceTeamContacts = [
+    ...memberContactRows,
+    ...volunteerContactRows,
+    ...pollingAgentContactRows,
+  ].filter((contact, index, rows) => contact.name && rows.findIndex((row) => row.source === contact.source && row.id === contact.id) === index);
+  const taskAssigneeOptions = [
+    ...volunteerContactRows.map((contact) => ({ ...contact, assignmentType: "Volunteer" as const })),
+    ...memberContactRows.map((contact) => ({ ...contact, assignmentType: "Campaign Member" as const })),
+    ...pollingAgentContactRows.map((contact) => ({ ...contact, assignmentType: "Polling Agent" as const })),
+  ];
   const workspaceElectionRows = [{
     id: `${liveBootstrap?.workspace.candidateId ?? "candidate"}-${campaignPosition}-${campaignCounty}-${campaignConstituency}-${campaignWard}`,
     electionName: `${campaignPosition} Campaign ${liveBootstrap?.campaign?.election_year || "2027"}`,
@@ -1046,6 +1108,15 @@ export default function Home() {
       geography: electiveScopeLabel,
       status: invite.status,
     })),
+    ...memberContactRows
+      .filter((member) => member.id !== String(currentMember?.id || ""))
+      .map((member) => ({
+        id: `member-${member.id}`,
+        name: member.name,
+        role: member.role,
+        geography: member.geography,
+        status: member.status,
+      })),
     ...liveVolunteers.map((volunteer) => ({
       id: `volunteer-${String(volunteer.id)}`,
       name: liveText(volunteer, "full_name", "Volunteer"),
@@ -1147,6 +1218,7 @@ export default function Home() {
     livekitUrl: liveBootstrap?.livekit?.urlLabel || liveBootstrap?.solcoIntegration?.livekit_url_label || solcoIntegration.livekitUrl,
     meetingPath: liveBootstrap?.solcoIntegration?.meeting_path || solcoIntegration.meetingPath,
   };
+  const roomJoinUrl = (roomName: string) => `${workspaceSolco.workspaceUrl}${workspaceSolco.meetingPath.replace("{roomName}", roomName)}`;
   const dashboardMetrics = [
     { label: "Supporters", value: totalSupporters.toLocaleString(), helper: "live workspace total", icon: Users, tone: "sky" },
     { label: "Volunteers", value: totalVolunteers.toLocaleString(), helper: "live workspace total", icon: UserCheck, tone: "gold" },
@@ -1407,12 +1479,58 @@ export default function Home() {
       .filter((phoneNumber) => phoneNumber.replace(/\D/g, "").length >= 7);
     setMessageRecipients(Array.from(new Set(phones)).join("\n"));
     setMessageAudience(`${electiveScopeLabel} supporters`);
+    setMessageRecipientScope("Supporters");
+  }
+
+  function contactsForScope(scope = messageRecipientScope) {
+    if (scope === "Supporters") {
+      return workspaceSupporters.map((supporter) => ({ id: supporter.id, source: "Supporter", name: supporter.fullName, role: "Supporter", phone: supporter.phoneNumber, geography: supporter.ward || electiveScopeLabel }));
+    }
+    if (scope === "Volunteers") return volunteerContactRows;
+    if (scope === "Polling Agents") return pollingAgentContactRows;
+    if (scope === "One Person") {
+      const [source, ...idParts] = messageMemberRecipient.split(":");
+      const id = idParts.join(":");
+      return workspaceTeamContacts.filter((contact) => contact.source === source && contact.id === id);
+    }
+    return workspaceTeamContacts;
+  }
+
+  function recipientMemberIdsForScope(scope = messageRecipientScope) {
+    if (scope === "One Person") {
+      const [source, ...idParts] = messageMemberRecipient.split(":");
+      return source === "Campaign Member" ? [idParts.join(":")] : [];
+    }
+    if (scope === "Team") return memberContactRows.map((member) => member.id);
+    return [];
+  }
+
+  function applyMessageScope(scope: string, recipientKey = messageMemberRecipient) {
+    setMessageRecipientScope(scope);
+    if (recipientKey) setMessageMemberRecipient(recipientKey);
+    const previousRecipient = messageMemberRecipient;
+    const scopeContacts = (() => {
+      if (scope === "Supporters") return workspaceSupporters.map((supporter) => ({ phone: supporter.phoneNumber }));
+      if (scope === "Volunteers") return volunteerContactRows;
+      if (scope === "Polling Agents") return pollingAgentContactRows;
+      if (scope === "One Person") {
+        const [source, ...idParts] = recipientKey.split(":");
+        const id = idParts.join(":");
+        return workspaceTeamContacts.filter((contact) => contact.source === source && contact.id === id);
+      }
+      return workspaceTeamContacts;
+    })();
+    const phones = scopeContacts.map((contact) => contact.phone).filter((phoneNumber) => phoneNumber.replace(/\D/g, "").length >= 7);
+    setMessageRecipients(Array.from(new Set(phones)).join("\n"));
+    const targetContact = scope === "One Person" ? workspaceTeamContacts.find((contact) => `${contact.source}:${contact.id}` === (recipientKey || previousRecipient)) : null;
+    setMessageAudience(scope === "One Person" && targetContact ? `${targetContact.name} (${targetContact.role})` : scope === "Supporters" ? `${electiveScopeLabel} supporters` : scope === "Team" ? `${electiveScopeLabel} campaign team` : `${electiveScopeLabel} ${scope.toLowerCase()}`);
   }
 
   function validateCampaignMessage(recipientsRequired: boolean) {
     setMessageDeliveryNotice("");
 
-    const recipients = parseRecipientPhones(messageRecipients);
+    const scopedPhones = contactsForScope().map((contact) => contact.phone).filter((phoneNumber) => phoneNumber.replace(/\D/g, "").length >= 7);
+    const recipients = Array.from(new Set([...parseRecipientPhones(messageRecipients), ...scopedPhones]));
     const audience = messageAudience || `${electiveScopeLabel} team`;
 
     if (!messageSubject.trim()) {
@@ -1428,22 +1546,25 @@ export default function Home() {
       return null;
     }
 
-    return { recipients, audience };
+    return { recipients, audience, recipientMemberIds: recipientMemberIdsForScope() };
   }
 
-  async function saveCampaignMessage() {
+  async function saveCampaignMessage(channel = messageChannel, callType: "Message" | "Voice Call" | "Video Meeting" | "Broadcast" = "Message", meetingUrl = "") {
     const details = validateCampaignMessage(false);
     if (!details) return;
 
     await persistWorkflow(
       "communicationMessage",
       {
-        channel: messageChannel,
+        channel,
         subject: messageSubject,
         body: messageBody,
         audience: details.audience,
         recipientPhones: details.recipients,
-        status: messageStatus,
+        recipientMemberIds: details.recipientMemberIds,
+        meetingUrl,
+        callType,
+        status: channel === "Campaign Chat" || channel === "Solco Meeting" ? "Queued" : messageStatus,
       },
       "Campaign message saved to the queue.",
       "Communications",
@@ -1452,7 +1573,31 @@ export default function Home() {
     setMessageBody("");
     setMessageRecipients("");
     setMessageAudience("");
+    setMessageRecipientScope("Team");
+    setMessageMemberRecipient("all-team");
     setMessageStatus("Draft");
+  }
+
+  async function shareRoomLink(roomName: string, title: string, callType: "Voice Call" | "Video Meeting") {
+    const link = roomJoinUrl(roomName);
+    const subject = messageSubject.trim() || `${callType}: ${title}`;
+    const body = messageBody.trim() || `Join ${title}: ${link}`;
+    await persistWorkflow(
+      "communicationMessage",
+      {
+        channel: "Solco Meeting",
+        subject,
+        body,
+        audience: messageAudience || `${electiveScopeLabel} campaign team`,
+        recipientPhones: parseRecipientPhones(messageRecipients),
+        recipientMemberIds: recipientMemberIdsForScope(),
+        meetingUrl: link,
+        callType,
+        status: "Queued",
+      },
+      `${callType} link queued for ${messageAudience || "selected audience"}.`,
+      "Communications",
+    );
   }
 
   async function sendCampaignBroadcast(channel: "Broadcast SMS" | "WhatsApp") {
@@ -1483,6 +1628,8 @@ export default function Home() {
       setMessageBody("");
       setMessageRecipients("");
       setMessageAudience("");
+      setMessageRecipientScope("Team");
+      setMessageMemberRecipient("all-team");
       setMessageStatus("Draft");
       const deliveryText = payload.message ? `${payload.status}: ${payload.message}` : `Message ${String(payload.status).toLowerCase()}.`;
       setMessageDeliveryNotice(deliveryText);
@@ -2163,7 +2310,7 @@ export default function Home() {
                     {[
                       { channel: "Broadcast SMS", title: "Group SMS", note: "Text phones directly", icon: MessageSquare, tone: "border-sky-200 bg-sky-50 text-sky-800" },
                       { channel: "WhatsApp", title: "WhatsApp", note: "Open broadcast composer", icon: Smartphone, tone: "border-emerald-200 bg-emerald-50 text-emerald-800" },
-                      { channel: "Campaign Chat", title: "Draft", note: "Save to message queue", icon: ClipboardCheck, tone: "border-amber-200 bg-amber-50 text-amber-800" },
+                      { channel: "Campaign Chat", title: "In-app", note: "Send inside JUKWAA", icon: Send, tone: "border-violet-200 bg-violet-50 text-violet-800" },
                     ].map((option) => {
                       const OptionIcon = option.icon;
                       const selected = messageChannel === option.channel;
@@ -2179,6 +2326,38 @@ export default function Home() {
                         </button>
                       );
                     })}
+                  </div>
+                  <div className="mt-4 rounded-xl border border-slate-200 bg-white p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-xs font-black uppercase tracking-wide text-slate-500">Audience scope</p>
+                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">{contactsForScope().length.toLocaleString()} contact(s)</span>
+                    </div>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-5">
+                      {["Team", "Volunteers", "Polling Agents", "Supporters", "One Person"].map((scope) => (
+                        <button
+                          key={scope}
+                          className={`rounded-lg border px-2 py-2 text-xs font-black transition ${messageRecipientScope === scope ? "border-sky-300 bg-sky-50 text-sky-800 shadow-sm" : "border-slate-200 bg-white text-slate-600 hover:border-sky-200 hover:bg-sky-50/60"}`}
+                          onClick={() => applyMessageScope(scope)}
+                          type="button"
+                        >
+                          {scope}
+                        </button>
+                      ))}
+                    </div>
+                    {messageRecipientScope === "One Person" ? (
+                      <select
+                        className="mt-3 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                        onChange={(event) => applyMessageScope("One Person", event.target.value)}
+                        value={messageMemberRecipient}
+                      >
+                        <option value="all-team">Choose a workspace contact</option>
+                        {workspaceTeamContacts.map((contact) => (
+                          <option key={`${contact.source}:${contact.id}`} value={`${contact.source}:${contact.id}`}>
+                            {contact.name} - {contact.role} - {contact.geography}
+                          </option>
+                        ))}
+                      </select>
+                    ) : null}
                   </div>
                   <div className="mt-4 grid gap-2">
                     <input className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm shadow-sm outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100" onChange={(event) => setMessageSubject(event.target.value)} placeholder="Message subject" value={messageSubject} />
@@ -2207,6 +2386,18 @@ export default function Home() {
                     </div>
                     {messageDeliveryNotice ? <div className="rounded-lg border border-sky-100 bg-white p-3 text-xs font-bold text-sky-800 shadow-sm">{messageDeliveryNotice}</div> : null}
                     <div className="grid gap-2 sm:grid-cols-3">
+                      <button disabled={messageSending} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-slate-950 px-3 text-sm font-black text-white shadow-sm hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-400" onClick={() => void saveCampaignMessage("Campaign Chat", "Message")} type="button">
+                        <Send size={16} />
+                        Send In-App Message
+                      </button>
+                      <button disabled={!workspaceCommunicationRooms.length} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-sm font-black text-emerald-800 shadow-sm hover:bg-emerald-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400" onClick={() => workspaceCommunicationRooms[0] && void shareRoomLink(workspaceCommunicationRooms[0].livekitRoomName, workspaceCommunicationRooms[0].title, "Voice Call")} type="button">
+                        <Phone size={16} />
+                        Send Voice Link
+                      </button>
+                      <button disabled={!workspaceCommunicationRooms.length} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 text-sm font-black text-violet-800 shadow-sm hover:bg-violet-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400" onClick={() => workspaceCommunicationRooms[0] && void shareRoomLink(workspaceCommunicationRooms[0].livekitRoomName, workspaceCommunicationRooms[0].title, "Video Meeting")} type="button">
+                        <Video size={16} />
+                        Send Meeting Link
+                      </button>
                       <button disabled={messageSending} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-sky-600 px-3 text-sm font-black text-white shadow-sm hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-400" onClick={() => void sendCampaignBroadcast("Broadcast SMS")} type="button">
                         <MessageSquare size={16} />
                         {messageSending && messageChannel === "Broadcast SMS" ? "Preparing" : "Send Group SMS"}
@@ -2217,7 +2408,7 @@ export default function Home() {
                       </button>
                       <button disabled={messageSending} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-800 shadow-sm hover:border-amber-200 hover:bg-amber-50 disabled:cursor-not-allowed disabled:bg-slate-100" type="submit">
                         <ClipboardCheck size={16} />
-                        Save Draft
+                        Save Message
                       </button>
                     </div>
                   </div>
@@ -2236,13 +2427,70 @@ export default function Home() {
                     <p className="mt-2 text-sm leading-6 text-slate-600">{room.audience}</p>
                     <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
                       <span className="font-mono">{room.livekitRoomName}</span>
-                      <button className="rounded-md border border-slate-200 bg-white px-2 py-1 font-bold text-sky-700 hover:bg-sky-50" onClick={() => void issueMeetingToken(room.livekitRoomName)} type="button">
-                        Request token
-                      </button>
+                      <div className="flex flex-wrap gap-2">
+                        <a className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 font-bold text-emerald-700 hover:bg-emerald-100" href={roomJoinUrl(room.livekitRoomName)} rel="noreferrer" target="_blank">
+                          Join
+                        </a>
+                        <button className="rounded-md border border-slate-200 bg-white px-2 py-1 font-bold text-sky-700 hover:bg-sky-50" onClick={() => void issueMeetingToken(room.livekitRoomName)} type="button">
+                          Token
+                        </button>
+                        <button className="rounded-md border border-violet-200 bg-violet-50 px-2 py-1 font-bold text-violet-700 hover:bg-violet-100" onClick={() => void shareRoomLink(room.livekitRoomName, room.title, "Video Meeting")} type="button">
+                          Share link
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
                 {workspaceCommunicationRooms.length === 0 ? emptyState("No communication rooms have been created for this workspace yet.") : null}
+              </div>
+              <div className="mt-4 rounded-xl border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-sky-50/60 p-4 shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-black text-slate-950">Workspace Contact Directory</h3>
+                    <p className="text-xs font-semibold text-slate-500">People working under {referenceCandidateName}&apos;s {electiveScopeLabel} campaign.</p>
+                  </div>
+                  <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-700 ring-1 ring-slate-200">{workspaceTeamContacts.length.toLocaleString()} contact(s)</span>
+                </div>
+                <div className="mt-3 grid gap-2 md:grid-cols-2">
+                  {workspaceTeamContacts.slice(0, 8).map((contact) => {
+                    const contactPhones = contact.phone ? [contact.phone] : [];
+                    const contactKey = `${contact.source}:${contact.id}`;
+                    return (
+                      <div key={contactKey} className="rounded-xl border border-white bg-white/85 p-3 shadow-sm ring-1 ring-slate-100">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-black text-slate-950">{contact.name}</p>
+                            <p className="text-xs font-semibold text-slate-500">{contact.role} - {contact.geography}</p>
+                          </div>
+                          <StatusPill label={contact.status || "Active"} />
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                          <button className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white px-2 text-xs font-black text-slate-700 hover:bg-sky-50" onClick={() => { setMessageSubject(`Message for ${contact.name}`); applyMessageScope("One Person", contactKey); }} type="button">
+                            <Send size={13} />In-app
+                          </button>
+                          {contact.phone ? (
+                            <a className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 text-xs font-black text-emerald-800 hover:bg-emerald-100" href={`tel:${contact.phone}`}>
+                              <Phone size={13} />Call
+                            </a>
+                          ) : (
+                            <button className="inline-flex h-9 cursor-not-allowed items-center justify-center gap-1 rounded-lg border border-slate-200 bg-slate-100 px-2 text-xs font-black text-slate-400" disabled type="button"><Phone size={13} />Call</button>
+                          )}
+                          {contact.phone ? (
+                            <a className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-sky-200 bg-sky-50 px-2 text-xs font-black text-sky-800 hover:bg-sky-100" href={smsComposerUrl(contactPhones, messageBody || `Hello ${contact.name}, this is ${referenceCandidateName}'s ${electiveScopeLabel} campaign.`)}>
+                              <MessageSquare size={13} />SMS
+                            </a>
+                          ) : (
+                            <button className="inline-flex h-9 cursor-not-allowed items-center justify-center gap-1 rounded-lg border border-slate-200 bg-slate-100 px-2 text-xs font-black text-slate-400" disabled type="button"><MessageSquare size={13} />SMS</button>
+                          )}
+                          <a className="inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-violet-200 bg-violet-50 px-2 text-xs font-black text-violet-800 hover:bg-violet-100" href={workspaceCommunicationRooms[0] ? roomJoinUrl(workspaceCommunicationRooms[0].livekitRoomName) : workspaceSolco.workspaceUrl} rel="noreferrer" target="_blank">
+                            <Video size={13} />Video
+                          </a>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {workspaceTeamContacts.length === 0 ? emptyState("No campaign team contacts are available yet. Invite users, add volunteers, or register polling agents first.") : null}
+                </div>
               </div>
             </div>
 
@@ -2263,16 +2511,24 @@ export default function Home() {
                     </div>
                     <div className="mt-2 flex flex-wrap gap-2">
                       <span className={`rounded-full px-2.5 py-1 text-xs font-black ${message.channel === "WhatsApp" ? "bg-emerald-50 text-emerald-700" : message.channel === "Broadcast SMS" ? "bg-sky-50 text-sky-700" : "bg-amber-50 text-amber-700"}`}>{message.channel}</span>
+                      {message.callType && message.callType !== "Message" ? <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-black text-violet-700">{message.callType}</span> : null}
                       {message.providerName ? <span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-slate-600 ring-1 ring-slate-200">{message.providerName}</span> : null}
                     </div>
                     {message.body ? <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-700">{message.body}</p> : null}
                     <div className="mt-2 flex flex-wrap gap-2 text-xs font-semibold text-slate-500">
                       <span>{message.sender} - {message.sentAt || "Not sent"}</span>
-                      <span>{message.recipientCount.toLocaleString()} recipient(s)</span>
+                      <span>{message.recipientCount.toLocaleString()} phone recipient(s)</span>
+                      {message.recipientMemberIds.length ? <span>{message.recipientMemberIds.length.toLocaleString()} in-app recipient(s)</span> : null}
                     </div>
                     {message.deliveryError ? <p className="mt-2 rounded-md bg-amber-50 p-2 text-xs font-bold text-amber-800">{message.deliveryError}</p> : null}
-                    {message.recipientPhones.length || message.body ? (
+                    {message.meetingUrl || message.recipientPhones.length || message.body ? (
                       <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                        {message.meetingUrl ? (
+                          <a className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 text-xs font-black text-violet-800 hover:bg-violet-100" href={message.meetingUrl} rel="noreferrer" target="_blank">
+                            <Video size={14} />
+                            Open meeting
+                          </a>
+                        ) : null}
                         {message.recipientPhones.length ? (
                           <a className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 text-xs font-black text-sky-800 hover:bg-sky-100" href={smsComposerUrl(message.recipientPhones, message.body)}>
                             <MessageSquare size={14} />
@@ -3484,7 +3740,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section id="volunteers" className={sectionClass("volunteers", "scroll-mt-24 grid gap-4 2xl:grid-cols-[1.2fr_0.9fr]")}>
+          <section id="volunteers" className={activeSectionId === "volunteers" || activeSectionId === "field-operations" ? "scroll-mt-24 grid gap-4 2xl:grid-cols-[1.2fr_0.9fr]" : "hidden"}>
             <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4">
                 <div>
@@ -3538,12 +3794,38 @@ export default function Home() {
             <div id="field-operations" className="scroll-mt-24 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               <h2 className="text-sm font-bold text-slate-950">Tasks & Field Operations</h2>
               <p className="mt-1 text-sm text-slate-500">Create work for the provisioned volunteer team, then record field activity.</p>
-              <form className="mt-4 grid gap-2" onSubmit={(event) => { event.preventDefault(); void persistWorkflow("task", { title: taskTitle, description: taskDescription, dueDate: taskDueDate }, "Task created and assigned to the next available volunteer.", "Tasks & Field Ops"); }}>
+              <form className="mt-4 grid gap-3 rounded-xl border border-sky-100 bg-sky-50/50 p-3" onSubmit={(event) => {
+                event.preventDefault();
+                const selectedAssignee = taskAssigneeOptions.find((option) => `${option.assignmentType}:${option.id}` === taskAssignee) ?? taskAssigneeOptions[0];
+                void persistWorkflow("task", {
+                  title: taskTitle,
+                  description: taskDescription,
+                  dueDate: taskDueDate,
+                  assigneeType: selectedAssignee?.assignmentType ?? "Volunteer",
+                  assigneeId: selectedAssignee?.id ?? "",
+                  assigneeLabel: selectedAssignee ? `${selectedAssignee.name} (${selectedAssignee.role})` : "Workspace team",
+                }, selectedAssignee ? `Task created for ${selectedAssignee.name}.` : "Task created for the workspace team.", "Tasks & Field Ops").then(() => {
+                  setTaskTitle("");
+                  setTaskDescription("");
+                  setTaskDueDate("");
+                  setTaskAssignee("");
+                });
+              }}>
                 <input className="h-10 rounded-md border border-slate-200 px-3 text-sm" onChange={(event) => setTaskTitle(event.target.value)} placeholder="Task title" required value={taskTitle} />
                 <textarea className="min-h-20 rounded-md border border-slate-200 p-3 text-sm" onChange={(event) => setTaskDescription(event.target.value)} placeholder="Instructions (optional)" value={taskDescription} />
+                <label className="block text-sm font-semibold text-slate-700">
+                  Assign task to
+                  <select className="mt-1 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm" onChange={(event) => setTaskAssignee(event.target.value)} value={taskAssignee || (taskAssigneeOptions[0] ? `${taskAssigneeOptions[0].assignmentType}:${taskAssigneeOptions[0].id}` : "")}>
+                    {taskAssigneeOptions.length ? taskAssigneeOptions.map((assignee) => (
+                      <option key={`${assignee.assignmentType}:${assignee.id}`} value={`${assignee.assignmentType}:${assignee.id}`}>
+                        {assignee.name} - {assignee.role} - {assignee.geography}
+                      </option>
+                    )) : <option value="">No team members available yet</option>}
+                  </select>
+                </label>
                 <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
                   <input className="h-10 rounded-md border border-slate-200 px-3 text-sm" min={new Date().toISOString().slice(0, 10)} onChange={(event) => setTaskDueDate(event.target.value)} required type="date" value={taskDueDate} />
-                  <button className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white hover:bg-slate-900" type="submit"><CheckCircle2 size={16} />Create Task</button>
+                  <button disabled={!taskAssigneeOptions.length} className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-300" type="submit"><CheckCircle2 size={16} />Create Task</button>
                 </div>
               </form>
               <p className="mt-4 text-sm font-bold text-slate-950">60-Second Field Actions</p>
@@ -3571,7 +3853,7 @@ export default function Home() {
                     <div key={task.id} className="flex items-center justify-between gap-3 rounded-md bg-slate-50 p-3">
                       <div>
                         <p className="text-sm font-bold text-slate-950">{task.title}</p>
-                        <p className="text-xs text-slate-500">due {task.dueDate}</p>
+                        <p className="text-xs text-slate-500">{task.assignee} - due {task.dueDate}</p>
                       </div>
                       <StatusPill label={task.status} />
                     </div>

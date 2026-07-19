@@ -54,6 +54,7 @@ export type LiveSnapshot = {
   notifications: DbRow[];
   communicationRooms: DbRow[];
   communicationMessages: DbRow[];
+  campaignMembers: DbRow[];
   aiContentAssets: DbRow[];
   auditLogs: DbRow[];
   invitations: DbRow[];
@@ -171,6 +172,7 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
     notifications,
     communicationRooms,
     communicationMessages,
+    campaignMembers,
     aiContentAssets,
     auditLogs,
     invitations,
@@ -196,13 +198,14 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
     fetchRows("supporters", tenantId, "id, full_name, phone_number, gender, age_group, county_id, constituency_id, ward_id, village_id, polling_station_id, support_level, key_issue, volunteer_interest, created_at", 100),
     fetchRows("volunteers", tenantId, "id, full_name, phone_number, email, county_id, constituency_id, ward_id, village_id, status, recruitment_source, join_date, notes, created_at", 100),
     fetchRows("polling_agents", tenantId, "id, full_name, phone_number, assigned_county_id, assigned_constituency_id, assigned_ward_id, assigned_polling_station_id, status, last_seen_at, created_at", 100),
-    fetchRows("volunteer_tasks", tenantId, "id, title, description, status, due_date, created_at", 100),
+    fetchRows("volunteer_tasks", tenantId, "id, title, description, status, due_date, assigned_to, assigned_member_id, assigned_polling_agent_id, assignee_type, assignee_label, created_at", 100),
     fetchRows("field_visits", tenantId, "id, visit_date, start_time, end_time, village_id, polling_station_id, visit_purpose, supporters_engaged, notes, latitude, longitude, photos, created_at", 50, "visit_date"),
     fetchRows("community_issues", tenantId, "id, issue_title, category, description, ward_id, village_id, polling_station_id, priority_level, status, number_of_mentions, created_at", 100),
     fetchRows("campaign_events", tenantId, "id, title, type, venue, event_date, start_time, expected_attendance, description, created_at", 100, "event_date", true),
     fetchRows("internal_notifications", tenantId, "id, title, body, status, created_at", 50),
     fetchRows("communication_rooms", tenantId, "id, title, livekit_room_name, purpose, status, audience, scheduled_at, expected_participants, created_at", 50, "scheduled_at", false),
-    fetchRows("communication_messages", tenantId, "id, channel, subject, body, audience, recipient_phones, status, delivery_status, provider_name, delivery_error, sent_at, created_at", 50, "created_at", false),
+    fetchRows("communication_messages", tenantId, "id, channel, subject, body, audience, recipient_phones, recipient_member_ids, meeting_url, call_type, status, delivery_status, provider_name, delivery_error, sent_at, created_at", 50, "created_at", false),
+    fetchRows("campaign_members", tenantId, "id, full_name, email, phone_number, role, status, assigned_country_id, assigned_county_id, assigned_constituency_id, assigned_ward_id, assigned_village_id, assigned_polling_station_id, created_at", 200),
     fetchRows("ai_content_assets", tenantId, "id, asset_type, title, audience, status, created_at", 50),
     fetchRows("workspace_audit_logs", tenantId, "id, action, module, record_id, created_at", 50),
     fetchRows("invitations", tenantId, "id, invited_name, invited_phone, invited_email, role, status, expiry_date, created_at", 100),
@@ -231,14 +234,16 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
   const scopedSupporters = scopedRowsForMember(supporters, member, session.role, session.isPlatformAdmin);
   const scopedVolunteers = scopedRowsForMember(volunteers, member, session.role, session.isPlatformAdmin);
   const scopedPollingAgents = scopedRowsForMember(pollingAgents, member, session.role, session.isPlatformAdmin);
+  const scopedCampaignMembers = scopedRowsForMember(campaignMembers, member, session.role, session.isPlatformAdmin);
   const scopedFieldVisits = scopedRowsForMember(fieldVisits, member, session.role, session.isPlatformAdmin);
   const scopedIssues = scopedRowsForMember(issues, member, session.role, session.isPlatformAdmin);
-  const [namedSupporters, namedVolunteers, namedPollingAgents, namedFieldVisits, namedIssues, namedMembers] = await Promise.all([
+  const [namedSupporters, namedVolunteers, namedPollingAgents, namedFieldVisits, namedIssues, namedCampaignMembers, namedMembers] = await Promise.all([
     withAreaNames(tenantId, scopedSupporters),
     withAreaNames(tenantId, scopedVolunteers),
     withAreaNames(tenantId, scopedPollingAgents),
     withAreaNames(tenantId, scopedFieldVisits),
     withAreaNames(tenantId, scopedIssues),
+    withAreaNames(tenantId, scopedCampaignMembers),
     withAreaNames(tenantId, member ? [member] : []),
   ]);
   const scopedSummary = ["Candidate", "Campaign Manager", "Admin", "Media Team", "Data Clerk"].includes(session.role) || session.isPlatformAdmin
@@ -293,6 +298,7 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
     notifications,
     communicationRooms,
     communicationMessages,
+    campaignMembers: namedCampaignMembers,
     aiContentAssets,
     auditLogs,
     invitations,
