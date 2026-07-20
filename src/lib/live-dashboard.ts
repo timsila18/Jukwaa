@@ -86,8 +86,8 @@ async function fetchRows(table: string, tenantId: string, select = "*", limit = 
   return Array.isArray(data) ? data as DbRow[] : [];
 }
 
-async function countRows(table: string, tenantId: string, predicate?: (row: DbRow) => boolean) {
-  const rows = await fetchRows(table, tenantId, "id, status, due_date", 2000);
+async function countRows(table: string, tenantId: string, predicate?: (row: DbRow) => boolean, select = "id") {
+  const rows = await fetchRows(table, tenantId, select, 2000);
   return predicate ? rows.filter(predicate).length : rows.length;
 }
 
@@ -253,13 +253,13 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
     countRows("volunteers", tenantId),
     countRows("polling_agents", tenantId),
     countRows("volunteer_tasks", tenantId),
-    countRows("volunteer_tasks", tenantId, (row) => row.status === "Completed"),
-    countRows("volunteer_tasks", tenantId, (row) => row.status !== "Completed" && String(row.due_date ?? "") < today),
+    countRows("volunteer_tasks", tenantId, (row) => row.status === "Completed", "id, status"),
+    countRows("volunteer_tasks", tenantId, (row) => row.status !== "Completed" && String(row.due_date ?? "") < today, "id, status, due_date"),
     countRows("community_issues", tenantId),
     countRows("campaign_events", tenantId),
     countRows("invitations", tenantId),
-    countRows("internal_notifications", tenantId, (row) => row.status === "Unread"),
-    countRows("communication_messages", tenantId, (row) => row.status === "Draft" || row.status === "Queued"),
+    countRows("internal_notifications", tenantId, (row) => row.status === "Unread", "id, status"),
+    countRows("communication_messages", tenantId, (row) => row.status === "Draft" || row.status === "Queued", "id, status"),
     countRows("ai_content_assets", tenantId),
   ]);
 
