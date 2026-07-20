@@ -91,6 +91,30 @@ async function countRows(table: string, tenantId: string, predicate?: (row: DbRo
   return predicate ? rows.filter(predicate).length : rows.length;
 }
 
+async function syncWorkspacePollingStations(input: {
+  tenantId: string;
+  position?: unknown;
+  county?: unknown;
+  constituency?: unknown;
+  ward?: unknown;
+}) {
+  const admin = getLooseSupabaseAdmin() as unknown as {
+    rpc?: (name: string, args: Record<string, unknown>) => Promise<unknown> | unknown;
+  };
+  if (typeof admin.rpc !== "function") return;
+  try {
+    await Promise.resolve(admin.rpc("sync_workspace_polling_stations", {
+      target_tenant: input.tenantId,
+      target_position: input.position ?? null,
+      target_county: input.county ?? null,
+      target_constituency: input.constituency ?? null,
+      target_ward: input.ward ?? null,
+    }));
+  } catch {
+    // Polling station sync is best-effort; dashboard loading must continue without it.
+  }
+}
+
 function mapRows(rows: DbRow[], key = "id") {
   return new Map(rows.map((row) => [String(row[key]), row]));
 }
@@ -248,13 +272,13 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
   const hasOfficialPollingStations = workspacePollingStations.some((station) => Number(station.registered_voters ?? 0) > 0 && String(station.station_code ?? "").trim());
   if ((!workspacePollingStations.length || !hasOfficialPollingStations) && candidateResult.data) {
     const candidate = candidateResult.data as DbRow;
-    await (admin as unknown as { rpc: (name: string, args: Record<string, unknown>) => Promise<unknown> }).rpc("sync_workspace_polling_stations", {
-      target_tenant: tenantId,
-      target_position: candidate.position_contesting ?? null,
-      target_county: candidate.county ?? null,
-      target_constituency: candidate.constituency ?? null,
-      target_ward: candidate.ward ?? null,
-    }).catch(() => null);
+    await syncWorkspacePollingStations({
+      tenantId,
+      position: candidate.position_contesting,
+      county: candidate.county,
+      constituency: candidate.constituency,
+      ward: candidate.ward,
+    });
     workspacePollingStations = await fetchRows("polling_stations", tenantId, "id, name, village_id, registered_voters, station_code, centre_code, centre_name, stream_count, created_at", 30000, "name", true);
   }
   const scopedSupporters = scopedRowsForMember(supporters, member, session.role, session.isPlatformAdmin);
