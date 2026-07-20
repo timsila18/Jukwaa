@@ -31,6 +31,7 @@ export type SupabaseLooseQuery = {
   update: (values: unknown) => SupabaseLooseQuery;
   delete: () => SupabaseLooseQuery;
   eq: (column: string, value: unknown) => SupabaseLooseQuery;
+  in: (column: string, values: unknown[]) => SupabaseLooseQuery;
   or: (filters: string) => SupabaseLooseQuery;
   order: (column: string, options?: { ascending?: boolean }) => SupabaseLooseQuery;
   limit: (count: number) => SupabaseLooseQuery;

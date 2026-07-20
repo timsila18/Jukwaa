@@ -86,6 +86,24 @@ function cleanString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function normalizeEmail(value: unknown) {
+  const text = cleanString(value).toLowerCase();
+  return text && text.includes("@") ? text : "";
+}
+
+function phoneDigits(value: unknown) {
+  return cleanString(value).replace(/\D/g, "");
+}
+
+function phoneAlias(value: unknown) {
+  const digits = phoneDigits(value);
+  return digits.length >= 7 ? `${digits}@phone.jukwaa.local` : "";
+}
+
+function unique(values: Array<string | null | undefined>) {
+  return Array.from(new Set(values.map((value) => cleanString(value).toLowerCase()).filter(Boolean)));
+}
+
 function sessionSecret() {
   return process.env.JUKWAA_SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || "jukwaa-local-session-secret";
 }
@@ -120,6 +138,179 @@ export function loginEmail(value: string) {
   if (trimmed.includes("@")) return trimmed;
   const digits = trimmed.replace(/\D/g, "");
   return `${digits}@phone.jukwaa.local`;
+}
+
+type SessionMemberRow = {
+  id?: string;
+  tenant_id?: string;
+  candidate_id?: string;
+  role?: string | null;
+  email?: string | null;
+  full_name?: string | null;
+  status?: string | null;
+  user_id?: string | null;
+};
+
+type SessionCandidateRow = {
+  id?: string;
+  tenant_id?: string;
+  full_name?: string | null;
+  email?: string | null;
+  phone_number?: string | null;
+};
+
+const sessionMemberSelect = "id, tenant_id, candidate_id, role, email, full_name, status, user_id";
+
+function sessionIdentifiersForUser(user: {
+  email?: string | null;
+  phone?: string | null;
+  user_metadata?: Record<string, unknown>;
+}) {
+  const metadata = user.user_metadata ?? {};
+  const emails = unique([
+    normalizeEmail(user.email),
+    normalizeEmail(metadata.email),
+    normalizeEmail(metadata.invited_email),
+    phoneAlias(user.phone),
+    phoneAlias(metadata.phone),
+    phoneAlias(metadata.phone_number),
+    phoneAlias(metadata.invited_phone),
+  ]);
+  const phones = unique([
+    phoneDigits(user.phone),
+    phoneDigits(metadata.phone),
+    phoneDigits(metadata.phone_number),
+    phoneDigits(metadata.invited_phone),
+  ]);
+  return { emails, phones };
+}
+
+function mergeSessionMembers(...sets: Array<SessionMemberRow[] | null | undefined>) {
+  const byId = new Map<string, SessionMemberRow>();
+  for (const rows of sets) {
+    for (const row of Array.isArray(rows) ? rows : []) {
+      if (row?.id) byId.set(row.id, row);
+    }
+  }
+  return Array.from(byId.values());
+}
+
+async function findSessionMembers(input: {
+  admin: ReturnType<typeof getLooseSupabaseAdmin>;
+  userId?: string | null;
+  emails?: string[];
+  tenantId?: string;
+  candidateId?: string;
+}) {
+  const { admin, userId, emails = [], tenantId, candidateId } = input;
+  let byUser: SessionMemberRow[] | null = null;
+  let byEmail: SessionMemberRow[] | null = null;
+
+  if (userId) {
+    let query = admin.from("campaign_members").select(sessionMemberSelect).eq("user_id", userId).limit(20);
+    if (tenantId) query = query.eq("tenant_id", tenantId);
+    if (candidateId) query = query.eq("candidate_id", candidateId);
+    const result = await query;
+    byUser = result.data as SessionMemberRow[] | null;
+  }
+
+  if (emails.length) {
+    let query = admin.from("campaign_members").select(sessionMemberSelect).in("email", emails).limit(20);
+    if (tenantId) query = query.eq("tenant_id", tenantId);
+    if (candidateId) query = query.eq("candidate_id", candidateId);
+    const result = await query;
+    byEmail = result.data as SessionMemberRow[] | null;
+  }
+
+  return mergeSessionMembers(byUser, byEmail);
+}
+
+async function restoreSessionMember(input: {
+  admin: ReturnType<typeof getLooseSupabaseAdmin>;
+  userId: string;
+  emails: string[];
+  phones: string[];
+  userMetadata: Record<string, unknown>;
+  appMetadata: Record<string, unknown>;
+}) {
+  const { admin, userId, emails, phones, userMetadata, appMetadata } = input;
+  const metadataTenantId = cleanString(appMetadata.tenant_id);
+  const metadataCandidateId = cleanString(appMetadata.candidate_id);
+  const metadataRole = (cleanString(appMetadata.role) || "Candidate") as WorkspaceRole;
+  const primaryEmail = emails[0] || `${userId}@user.jukwaa.local`;
+
+  if (metadataTenantId && metadataCandidateId) {
+    const existing = await findSessionMembers({ admin, userId, emails, tenantId: metadataTenantId, candidateId: metadataCandidateId });
+    const existingMember = chooseWorkspaceMember(existing, userId);
+    if (existingMember?.id) {
+      await admin.from("campaign_members").update({ user_id: userId, status: "Active" }).eq("id", existingMember.id);
+      return { ...existingMember, user_id: userId, status: "Active" };
+    }
+
+    const fullName = cleanString(userMetadata.full_name) || cleanString(userMetadata.name) || primaryEmail;
+    const { data: createdMember } = await admin
+      .from("campaign_members")
+      .insert({
+        tenant_id: metadataTenantId,
+        candidate_id: metadataCandidateId,
+        user_id: userId,
+        email: primaryEmail,
+        full_name: fullName,
+        role: metadataRole,
+        status: "Active",
+      })
+      .select(sessionMemberSelect)
+      .single();
+    return createdMember as SessionMemberRow | null;
+  }
+
+  let candidate: SessionCandidateRow | null = null;
+  if (emails.length) {
+    const { data: candidates } = await admin
+      .from("candidates")
+      .select("id, tenant_id, full_name, email, phone_number")
+      .in("email", emails)
+      .limit(10);
+    candidate = Array.isArray(candidates) ? candidates[0] as SessionCandidateRow | null : candidates as SessionCandidateRow | null;
+  }
+
+  if (!candidate?.id && phones.length) {
+    const { data: candidatePool } = await admin
+      .from("candidates")
+      .select("id, tenant_id, full_name, email, phone_number")
+      .limit(1000);
+    candidate = (Array.isArray(candidatePool) ? candidatePool : [])
+      .find((row) => phones.includes(phoneDigits((row as SessionCandidateRow).phone_number))) as SessionCandidateRow | null;
+  }
+
+  if (!candidate?.id || !candidate.tenant_id) return null;
+  const existingCandidateMembers = await findSessionMembers({
+    admin,
+    userId,
+    emails,
+    tenantId: candidate.tenant_id,
+    candidateId: candidate.id,
+  });
+  const existingCandidateMember = chooseWorkspaceMember(existingCandidateMembers, userId);
+  if (existingCandidateMember?.id) {
+    await admin.from("campaign_members").update({ user_id: userId, status: "Active", role: "Candidate" }).eq("id", existingCandidateMember.id);
+    return { ...existingCandidateMember, user_id: userId, status: "Active", role: "Candidate" };
+  }
+
+  const { data: createdCandidateMember } = await admin
+    .from("campaign_members")
+    .insert({
+      tenant_id: candidate.tenant_id,
+      candidate_id: candidate.id,
+      user_id: userId,
+      email: primaryEmail,
+      full_name: candidate.full_name || cleanString(userMetadata.full_name) || primaryEmail,
+      role: "Candidate",
+      status: "Active",
+    })
+    .select(sessionMemberSelect)
+    .single();
+  return createdCandidateMember as SessionMemberRow | null;
 }
 
 export function attachSessionCookies(response: NextResponse, session: { access_token: string; refresh_token: string; expires_in?: number }) {
@@ -235,60 +426,45 @@ export async function getSessionContext(request: Request): Promise<SessionContex
   if (error || !data.user) return getSignedWorkspaceSessionContext(request);
 
   const admin = getLooseSupabaseAdmin();
-  const { data: primaryMembers } = await admin
-    .from("campaign_members")
-    .select("id, tenant_id, candidate_id, role, email, full_name, status, user_id")
-    .eq("user_id", data.user.id)
-    .limit(10);
-
   const appMetadata = data.user.app_metadata as Record<string, unknown>;
   const userMetadata = data.user.user_metadata as Record<string, unknown>;
-  let member = chooseWorkspaceMember(rowsArray(primaryMembers), data.user.id);
-  if (!member && data.user.email && appMetadata.tenant_id && appMetadata.candidate_id) {
-    const { data: matchedMembers } = await admin
-      .from("campaign_members")
-      .select("id, tenant_id, candidate_id, role, email, full_name, status, user_id")
-      .eq("tenant_id", String(appMetadata.tenant_id))
-      .eq("candidate_id", String(appMetadata.candidate_id))
-      .eq("email", data.user.email)
-      .limit(10);
-    const matchedMember = chooseWorkspaceMember(rowsArray(matchedMembers), data.user.id);
-    member = matchedMember;
-    if (matchedMember) {
-      await admin.from("campaign_members").update({ user_id: data.user.id }).eq("id", matchedMember.id);
-    }
+  const identifiers = sessionIdentifiersForUser(data.user);
+  let member = chooseWorkspaceMember(
+    await findSessionMembers({ admin, userId: data.user.id, emails: identifiers.emails }),
+    data.user.id,
+  );
+  if (!member) {
+    member = chooseWorkspaceMember(
+      rowsArray(await restoreSessionMember({
+        admin,
+        userId: data.user.id,
+        emails: identifiers.emails,
+        phones: identifiers.phones,
+        userMetadata,
+        appMetadata,
+      })),
+      data.user.id,
+    );
   }
 
-  if (!member && appMetadata.tenant_id && appMetadata.candidate_id) {
-    const tenantId = String(appMetadata.tenant_id);
-    const candidateId = String(appMetadata.candidate_id);
-    const role = (cleanString(appMetadata.role) || "Candidate") as WorkspaceRole;
-    const fullName = cleanString(userMetadata.full_name) || cleanString(data.user.email) || "JUKWAA User";
-    const email = data.user.email ?? `${data.user.id}@user.jukwaa.local`;
-
-    const { data: createdMember } = await admin
-      .from("campaign_members")
-      .insert({
-        tenant_id: tenantId,
-        candidate_id: candidateId,
-        user_id: data.user.id,
-        email,
-        full_name: fullName,
-        role,
-        status: "Active",
-      })
-      .select("id, tenant_id, candidate_id, role, email, full_name, status, user_id")
-      .single();
-
-    member = chooseWorkspaceMember(rowsArray(createdMember as typeof member), data.user.id);
-  }
-
-  const { data: platformAdmin } = await admin
-    .from("platform_admins")
-    .select("id")
-    .eq("user_id", data.user.id)
-    .eq("status", "Active")
-    .maybeSingle();
+  const [{ data: platformAdminByUser }, { data: platformAdminByEmail }] = await Promise.all([
+    admin
+      .from("platform_admins")
+      .select("id")
+      .eq("user_id", data.user.id)
+      .eq("status", "Active")
+      .maybeSingle(),
+    identifiers.emails.length
+      ? admin
+        .from("platform_admins")
+        .select("id")
+        .in("email", identifiers.emails)
+        .eq("status", "Active")
+        .limit(1)
+        .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  const platformAdmin = platformAdminByUser ?? platformAdminByEmail;
 
   if (!member && !platformAdmin) return null;
   if (member && isBlockedMemberStatus(String(member.status ?? "")) && !platformAdmin) return null;
