@@ -42,6 +42,12 @@ const workflowSchemas = {
     phoneNumber: z.string().trim().min(7),
     pollingStationId: z.string().uuid(),
   }),
+  supporterRole: z.object({
+    supporterId: z.string().uuid(),
+    targetRole: z.enum(["Volunteer", "Polling Agent", "Ward Coordinator", "Village Coordinator", "Constituency Coordinator", "Campaign Manager", "Data Clerk"]).default("Volunteer"),
+    pollingStationId: z.string().uuid().optional().or(z.literal("")),
+    notes: z.string().trim().optional().or(z.literal("")),
+  }),
   issue: z.object({
     title: z.string().trim().min(2),
     category: z.enum(["Roads", "Water", "Education", "Healthcare", "Agriculture", "Youth Employment", "Security", "Electricity", "Business", "Environment", "Other"]).default("Other"),
@@ -128,6 +134,7 @@ const workflowRoles: Record<WorkflowName, string[]> = {
   volunteer: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Admin"],
   task: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Admin"],
   pollingAgent: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Admin"],
+  supporterRole: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Admin"],
   issue: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Village Coordinator", "Volunteer", "Polling Agent", "Admin"],
   event: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Admin"],
   fieldVisit: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Village Coordinator", "Volunteer", "Admin"],
@@ -262,6 +269,51 @@ async function stationLocationScope(tenantId: string, pollingStationId: string):
     villageId: station.village_id ? String(station.village_id) : undefined,
     pollingStationId: String(station.id),
   };
+}
+
+function memberEmailForPhone(phoneNumber: string, supporterId: string) {
+  const digits = phoneNumber.replace(/\D/g, "");
+  return `${digits || supporterId.replace(/-/g, "").slice(0, 12)}@phone.jukwaa.local`;
+}
+
+async function upsertCampaignMemberFromSupporter(input: {
+  tenantId: string;
+  candidateId: string;
+  supporter: Record<string, unknown>;
+  role: string;
+  location: LocationScope;
+  invitedBy?: string | null;
+}) {
+  const supabase = getLooseSupabaseAdmin();
+  const email = memberEmailForPhone(String(input.supporter.phone_number ?? ""), String(input.supporter.id));
+  const payload = {
+    tenant_id: input.tenantId,
+    candidate_id: input.candidateId,
+    email,
+    full_name: String(input.supporter.full_name ?? "Campaign member"),
+    role: input.role,
+    status: "Active",
+    assigned_country_id: null,
+    assigned_county_id: input.location.countyId ?? input.supporter.county_id ?? null,
+    assigned_constituency_id: input.location.constituencyId ?? input.supporter.constituency_id ?? null,
+    assigned_ward_id: input.location.wardId ?? input.supporter.ward_id ?? null,
+    assigned_village_id: input.location.villageId ?? input.supporter.village_id ?? null,
+    assigned_polling_station_id: input.location.pollingStationId ?? input.supporter.polling_station_id ?? null,
+  };
+
+  const { data: existing } = await supabase
+    .from("campaign_members")
+    .select("id")
+    .eq("tenant_id", input.tenantId)
+    .eq("email", email)
+    .limit(1)
+    .maybeSingle();
+  const mutation = existing?.id
+    ? supabase.from("campaign_members").update(payload).eq("tenant_id", input.tenantId).eq("id", existing.id).select("id").single()
+    : supabase.from("campaign_members").insert(payload).select("id").single();
+  const { data, error } = await mutation;
+  if (error || !data?.id) throw new Error(error?.message ?? "Could not create campaign member role.");
+  return { id: String(data.id), email, role: input.role };
 }
 
 export async function POST(request: Request, context: { params: Promise<{ workflow: string }> }) {
@@ -425,6 +477,103 @@ export async function POST(request: Request, context: { params: Promise<{ workfl
     if (error || !saved) return NextResponse.json({ error: "Could not assign polling agent.", detail: error?.message }, { status: 500 });
     await writeAudit({ tenantId: workspace.tenantId, candidateId: workspace.candidateId, action: existing?.id ? "Update" : "Create", module: "pollingAgent", recordId: saved.id, newValue: { ...payload, sourceType: data.sourceType, sourceId: data.sourceId || null } });
     return NextResponse.json({ id: saved.id, status: "Saved" });
+  }
+
+  if (name === "supporterRole") {
+    const data = parsed.data as z.infer<typeof workflowSchemas.supporterRole>;
+    const { data: supporter, error: supporterError } = await supabase
+      .from("supporters")
+      .select("id, full_name, phone_number, county_id, constituency_id, ward_id, village_id, polling_station_id")
+      .eq("id", data.supporterId)
+      .eq("tenant_id", workspace.tenantId)
+      .eq("candidate_id", workspace.candidateId)
+      .limit(1)
+      .maybeSingle();
+    if (supporterError || !supporter?.id) {
+      return NextResponse.json({ error: "Supporter was not found in this workspace.", detail: supporterError?.message }, { status: 404 });
+    }
+
+    const location = data.pollingStationId && z.string().uuid().safeParse(data.pollingStationId).success
+      ? await stationLocationScope(workspace.tenantId, data.pollingStationId)
+      : {
+          countyId: supporter.county_id ? String(supporter.county_id) : undefined,
+          constituencyId: supporter.constituency_id ? String(supporter.constituency_id) : undefined,
+          wardId: supporter.ward_id ? String(supporter.ward_id) : undefined,
+          villageId: supporter.village_id ? String(supporter.village_id) : undefined,
+          pollingStationId: supporter.polling_station_id ? String(supporter.polling_station_id) : undefined,
+        };
+    const assignments: Array<{ type: string; id: string; role?: string; email?: string }> = [];
+
+    if (data.targetRole === "Volunteer") {
+      const volunteerPayload = {
+        tenant_id: workspace.tenantId,
+        candidate_id: workspace.candidateId,
+        full_name: supporter.full_name,
+        phone_number: supporter.phone_number,
+        county_id: location.countyId ?? null,
+        constituency_id: location.constituencyId ?? null,
+        ward_id: location.wardId ?? null,
+        village_id: location.villageId ?? null,
+        recruitment_source: "Supporter Promotion",
+        status: "Active",
+        notes: data.notes || "Promoted from supporter register.",
+      };
+      const { data: existingVolunteer } = await supabase.from("volunteers").select("id").eq("tenant_id", workspace.tenantId).eq("phone_number", supporter.phone_number).limit(1).maybeSingle();
+      const mutation = existingVolunteer?.id
+        ? supabase.from("volunteers").update(volunteerPayload).eq("tenant_id", workspace.tenantId).eq("id", existingVolunteer.id).select("id").single()
+        : supabase.from("volunteers").insert(volunteerPayload).select("id").single();
+      const { data: volunteer, error } = await mutation;
+      if (error || !volunteer?.id) return NextResponse.json({ error: "Could not promote supporter to volunteer.", detail: error?.message }, { status: 500 });
+      assignments.push({ type: "Volunteer", id: String(volunteer.id) });
+    }
+
+    if (data.targetRole === "Polling Agent") {
+      if (!location.pollingStationId) {
+        return NextResponse.json({ error: "Choose a polling station before assigning a polling agent." }, { status: 400 });
+      }
+      const agentPayload = {
+        tenant_id: workspace.tenantId,
+        candidate_id: workspace.candidateId,
+        full_name: supporter.full_name,
+        phone_number: supporter.phone_number,
+        assigned_county_id: location.countyId ?? null,
+        assigned_constituency_id: location.constituencyId ?? null,
+        assigned_ward_id: location.wardId ?? null,
+        assigned_polling_station_id: location.pollingStationId,
+        reporting_manager: auth.session.memberId || null,
+        status: "Assigned",
+      };
+      const { data: existingAgent } = await supabase.from("polling_agents").select("id").eq("tenant_id", workspace.tenantId).eq("phone_number", supporter.phone_number).limit(1).maybeSingle();
+      const mutation = existingAgent?.id
+        ? supabase.from("polling_agents").update(agentPayload).eq("tenant_id", workspace.tenantId).eq("id", existingAgent.id).select("id").single()
+        : supabase.from("polling_agents").insert(agentPayload).select("id").single();
+      const { data: agent, error } = await mutation;
+      if (error || !agent?.id) return NextResponse.json({ error: "Could not assign polling agent.", detail: error?.message }, { status: 500 });
+      assignments.push({ type: "Polling Agent", id: String(agent.id) });
+    }
+
+    const memberRole = await upsertCampaignMemberFromSupporter({
+      tenantId: workspace.tenantId,
+      candidateId: workspace.candidateId,
+      supporter,
+      role: data.targetRole,
+      location,
+      invitedBy: auth.session.memberId,
+    });
+    assignments.push({ type: "Campaign Member", ...memberRole });
+
+    await supabase
+      .from("supporters")
+      .update({
+        volunteer_interest: data.targetRole === "Volunteer" ? true : undefined,
+        notes: data.notes || `Reassigned as ${data.targetRole}.`,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", data.supporterId)
+      .eq("tenant_id", workspace.tenantId)
+      .eq("candidate_id", workspace.candidateId);
+    await writeAudit({ tenantId: workspace.tenantId, candidateId: workspace.candidateId, action: "Update", module: "supporterRole", recordId: data.supporterId, newValue: { targetRole: data.targetRole, assignments } });
+    return NextResponse.json({ id: data.supporterId, status: "Saved", assignments });
   }
 
   if (name === "issue") {
@@ -636,4 +785,49 @@ export async function POST(request: Request, context: { params: Promise<{ workfl
       polling_station_name: (parsed.data as z.infer<typeof workflowSchemas.supporter>).pollingStationName || "",
     } : undefined,
   });
+}
+
+export async function DELETE(request: Request, context: { params: Promise<{ workflow: string }> }) {
+  const limited = await enforceRateLimit(requestKey(request, "workflow-delete"), 30, 60_000);
+  if (!limited.allowed) {
+    return NextResponse.json({ error: "Too many delete requests. Try again shortly." }, { status: 429 });
+  }
+
+  const { workflow } = await context.params;
+  if (workflow !== "supporter") {
+    return NextResponse.json({ error: "Unsupported delete workflow." }, { status: 404 });
+  }
+
+  const auth = await requireSession(request);
+  if (auth.response) return auth.response;
+  if (!["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Admin"].includes(auth.session.role) && !auth.session.isPlatformAdmin) {
+    return NextResponse.json({ error: "You do not have permission to delete supporters." }, { status: 403 });
+  }
+
+  const supporterId = new URL(request.url).searchParams.get("supporterId") ?? "";
+  if (!z.string().uuid().safeParse(supporterId).success) {
+    return NextResponse.json({ error: "A valid supporter ID is required." }, { status: 400 });
+  }
+
+  const supabase = getLooseSupabaseAdmin();
+  const { data: deleted, error } = await supabase
+    .from("supporters")
+    .delete()
+    .eq("id", supporterId)
+    .eq("tenant_id", auth.session.tenantId)
+    .eq("candidate_id", auth.session.candidateId)
+    .select("id, full_name, phone_number")
+    .single();
+  if (error || !deleted?.id) {
+    return NextResponse.json({ error: "Could not delete supporter.", detail: error?.message }, { status: 500 });
+  }
+  await writeAudit({
+    tenantId: auth.session.tenantId,
+    candidateId: auth.session.candidateId,
+    action: "Delete",
+    module: "supporter",
+    recordId: deleted.id,
+    newValue: { deleted },
+  });
+  return NextResponse.json({ id: deleted.id, status: "Deleted" });
 }

@@ -233,6 +233,16 @@ const supportColors: Record<SupportLevel, string> = {
   Unknown: "#64748b",
 };
 
+const supporterRoleOptions = [
+  { value: "Volunteer", label: "Volunteer" },
+  { value: "Polling Agent", label: "Polling Agent" },
+  { value: "Ward Coordinator", label: "Ward Agent / Ward Coordinator" },
+  { value: "Village Coordinator", label: "Village Coordinator" },
+  { value: "Constituency Coordinator", label: "Constituency Coordinator" },
+  { value: "Campaign Manager", label: "Campaign Manager" },
+  { value: "Data Clerk", label: "Data Clerk" },
+];
+
 const subscribeToClient = () => () => {};
 const getClientSnapshot = () => true;
 const getServerSnapshot = () => false;
@@ -586,6 +596,10 @@ export default function Home() {
   const [supporterPollingStation, setSupporterPollingStation] = useState("");
   const [supporterKeyIssue, setSupporterKeyIssue] = useState("");
   const [editingSupporterId, setEditingSupporterId] = useState("");
+  const [reassigningSupporterId, setReassigningSupporterId] = useState("");
+  const [supporterRoleTarget, setSupporterRoleTarget] = useState("Volunteer");
+  const [supporterRoleStation, setSupporterRoleStation] = useState("");
+  const [supporterRoleNotes, setSupporterRoleNotes] = useState("");
   const [overrideDuplicate, setOverrideDuplicate] = useState(false);
   const [selectedParty, setSelectedParty] = useState(campaign.politicalParty);
   const [aiQuestion, setAiQuestion] = useState("Which wards need attention this week?");
@@ -709,7 +723,7 @@ export default function Home() {
       : isMcaRace
         ? [`${campaignWard || "Ward"} Ward`, "Local Units", "Polling Stations"]
         : [`${campaignConstituency || "Constituency"} Constituency`, "Wards", "Local Units"];
-  const candidatePollingStations = livePollingStations.map((station) => ({
+  const mappedCandidatePollingStations = livePollingStations.map((station) => ({
     id: String(station.id),
     name: liveText(station, "name", liveText(station, "polling_station_name", "Polling station")),
     ward: liveText(station, "ward_name", ""),
@@ -721,6 +735,10 @@ export default function Home() {
     registeredVoters: liveNumber(station, "registered_voters", 0),
     streamCount: liveNumber(station, "stream_count", 0),
   }));
+  const hasOfficialPollingStations = mappedCandidatePollingStations.some((station) => station.stationCode && station.registeredVoters > 0);
+  const candidatePollingStations = hasOfficialPollingStations
+    ? mappedCandidatePollingStations.filter((station) => station.stationCode && station.registeredVoters > 0)
+    : mappedCandidatePollingStations;
   const focusAreas: ElectoralFocusArea[] = (() => {
     if (scopeLevel === "country") {
       return kenyaCounties.map((countyName) => ({ label: countyName, chartName: countyName, level: "county", countyName, constituencyName: "", wardName: "" }));
@@ -992,17 +1010,22 @@ export default function Home() {
 
   function resetSupporterForm() {
     setEditingSupporterId("");
+    setReassigningSupporterId("");
     setName("");
     setPhone("");
     setSupportLevel("Unknown");
     setSupporterVillage("");
     setSupporterPollingStation("");
     setSupporterKeyIssue("");
+    setSupporterRoleTarget("Volunteer");
+    setSupporterRoleStation("");
+    setSupporterRoleNotes("");
     setOverrideDuplicate(false);
   }
 
   function editSupporter(supporter: LiveSupporter) {
     setEditingSupporterId(supporter.id);
+    setReassigningSupporterId("");
     setName(supporter.fullName);
     setPhone(supporter.phoneNumber);
     setSupportLevel(supporter.supportLevel);
@@ -1013,6 +1036,15 @@ export default function Home() {
     setOverrideDuplicate(false);
     scrollToSection("Supporters");
     window.setTimeout(() => document.getElementById("supporter-form")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+  }
+
+  function startSupporterReassignment(supporter: LiveSupporter) {
+    editSupporter(supporter);
+    setReassigningSupporterId(supporter.id);
+    setSupporterRoleTarget("Volunteer");
+    const matchedStation = candidatePollingStations.find((station) => station.name === supporter.pollingStation);
+    setSupporterRoleStation(matchedStation?.id ?? "");
+    setSupporterRoleNotes("");
   }
 
   const supportLevelData = groupCount(workspaceSupporters, "supportLevel");
@@ -1697,6 +1729,47 @@ export default function Home() {
     } catch (error) {
       runAction(error instanceof Error ? error.message : "Workflow could not be saved.", sectionLabel);
     }
+  }
+
+  async function deleteSupporter(supporter: LiveSupporter) {
+    if (!window.confirm(`Delete ${supporter.fullName} from this supporter register?`)) return;
+    try {
+      const response = await fetch(`/api/workflows/supporter?supporterId=${encodeURIComponent(supporter.id)}`, { method: "DELETE" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error ?? "Supporter could not be deleted.");
+      setLiveSupporters((current) => (current ?? []).filter((row) => row.id !== supporter.id));
+      if (editingSupporterId === supporter.id) resetSupporterForm();
+      await refreshWorkspace();
+      runAction(`${supporter.fullName} deleted from the supporter register.`, "Supporters");
+    } catch (error) {
+      runAction(error instanceof Error ? error.message : "Supporter could not be deleted.", "Supporters");
+    }
+  }
+
+  async function reassignSupporterRole() {
+    const targetId = reassigningSupporterId || editingSupporterId;
+    if (!targetId) {
+      runAction("Choose a supporter before reassigning a role.", "Supporters");
+      return;
+    }
+    if (supporterRoleTarget === "Polling Agent" && !supporterRoleStation) {
+      runAction("Choose a polling station before assigning a polling agent.", "Supporters");
+      return;
+    }
+    await persistWorkflow(
+      "supporterRole",
+      {
+        supporterId: targetId,
+        targetRole: supporterRoleTarget,
+        pollingStationId: supporterRoleTarget === "Polling Agent" ? supporterRoleStation : supporterRoleStation || undefined,
+        notes: supporterRoleNotes,
+      },
+      `${name.trim() || "Supporter"} reassigned as ${supporterRoleTarget}.`,
+      "Supporters",
+    );
+    setReassigningSupporterId("");
+    setSupporterRoleNotes("");
+    await refreshWorkspace();
   }
 
   function parseRecipientPhones(value: string) {
@@ -4050,7 +4123,7 @@ export default function Home() {
                       <th className="px-4 py-3">Support</th>
                       <th className="px-4 py-3">Issue</th>
                       <th className="px-4 py-3">Volunteer</th>
-                      <th className="px-4 py-3">Action</th>
+                      <th className="px-4 py-3">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -4068,6 +4141,7 @@ export default function Home() {
                         <td className="px-4 py-3 text-slate-600">{supporter.keyIssue}</td>
                         <td className="px-4 py-3 text-slate-600">{supporter.volunteerInterest ? "Yes" : "No"}</td>
                         <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-2">
                           <button
                             className="inline-flex h-8 items-center justify-center rounded-md border border-sky-200 bg-sky-50 px-3 text-xs font-black text-sky-700 transition hover:bg-sky-100"
                             onClick={() => editSupporter(supporter)}
@@ -4075,6 +4149,21 @@ export default function Home() {
                           >
                             Edit
                           </button>
+                            <button
+                              className="inline-flex h-8 items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 px-3 text-xs font-black text-emerald-700 transition hover:bg-emerald-100"
+                              onClick={() => startSupporterReassignment(supporter)}
+                              type="button"
+                            >
+                              Reassign
+                            </button>
+                            <button
+                              className="inline-flex h-8 items-center justify-center rounded-md border border-rose-200 bg-rose-50 px-3 text-xs font-black text-rose-700 transition hover:bg-rose-100"
+                              onClick={() => void deleteSupporter(supporter)}
+                              type="button"
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -4171,6 +4260,59 @@ export default function Home() {
                     </label>
                   </div>
                 )}
+                {editingSupporterId ? (
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-3">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <h3 className="text-sm font-black text-emerald-950">Reassign role</h3>
+                        <p className="mt-1 text-xs font-semibold text-emerald-800">
+                          Promote this supporter into a working role for {referenceCandidateName}&apos;s campaign.
+                        </p>
+                      </div>
+                      {reassigningSupporterId ? (
+                        <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-700">Ready to reassign</span>
+                      ) : null}
+                    </div>
+                    <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                      <label className="block text-sm font-semibold text-slate-700">
+                        New role
+                        <select className="mt-1 h-10 w-full rounded-md border border-emerald-200 bg-white px-3 text-sm outline-none focus:border-emerald-500" value={supporterRoleTarget} onChange={(event) => setSupporterRoleTarget(event.target.value)}>
+                          {supporterRoleOptions.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
+                        </select>
+                      </label>
+                      <label className="block text-sm font-semibold text-slate-700">
+                        Polling station / assignment point
+                        {candidatePollingStations.length ? (
+                          <select className="mt-1 h-10 w-full rounded-md border border-emerald-200 bg-white px-3 text-sm outline-none focus:border-emerald-500" value={supporterRoleStation} onChange={(event) => setSupporterRoleStation(event.target.value)}>
+                            <option value="">Use supporter&apos;s current area</option>
+                            {candidatePollingStations.map((station) => (
+                              <option key={station.id} value={station.id}>
+                                {station.name}{station.ward ? ` - ${station.ward}` : ""} - {station.registeredVoters.toLocaleString()} voters
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <div className="mt-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
+                            Polling stations have not loaded for this workspace yet.
+                          </div>
+                        )}
+                      </label>
+                    </div>
+                    <label className="mt-3 block text-sm font-semibold text-slate-700">
+                      Assignment notes
+                      <input value={supporterRoleNotes} onChange={(event) => setSupporterRoleNotes(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-emerald-200 bg-white px-3 text-sm outline-none focus:border-emerald-500" placeholder="Optional: area, responsibility, or onboarding note" />
+                    </label>
+                    <button
+                      className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-emerald-600 px-3 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                      disabled={supporterRoleTarget === "Polling Agent" && !supporterRoleStation}
+                      onClick={() => void reassignSupporterRole()}
+                      type="button"
+                    >
+                      <UserCog size={16} />
+                      Reassign as {supporterRoleOptions.find((role) => role.value === supporterRoleTarget)?.label ?? supporterRoleTarget}
+                    </button>
+                  </div>
+                ) : null}
                 <button disabled={!name.trim() || phone.replace(/\D/g, "").length < 7 || (duplicate && !overrideDuplicate)} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-300" onClick={() => void persistWorkflow("supporter", { supporterId: editingSupporterId || undefined, fullName: name, phoneNumber: phone, supportLevel, ...selectedLocationPayload, countyName: selectedStationRecord?.county || selectedLocationPayload.countyName, constituencyName: selectedStationRecord?.constituency || selectedLocationPayload.constituencyName, wardName: selectedStationRecord?.ward || selectedLocationPayload.wardName, villageName: selectedStationRecord?.village || supporterVillage, pollingStationName: supporterPollingStation, pollingStationId: selectedStationRecord?.id || undefined, keyIssue: supporterKeyIssue, consentToContact: true, notes: overrideDuplicate ? "Duplicate override approved." : "" }, `${name.trim() || "Supporter"} ${editingSupporterId ? "updated" : "saved"} in ${selectedStationRecord?.ward || effectiveFocusArea.label || effectiveSupporterWard || electiveScopeLabel}.`, "Supporters")} type="button">
                   <Plus size={16} />
                   {editingSupporterId ? "Save Changes" : "Save Supporter"}

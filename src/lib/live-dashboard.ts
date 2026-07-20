@@ -245,7 +245,8 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
     ?? campaignMembers.find((row) => sessionEmail && String(row.email ?? "").toLowerCase() === sessionEmail)
     ?? null) as DbRow | null;
   let workspacePollingStations = pollingStations;
-  if (workspacePollingStations.length === 0 && candidateResult.data) {
+  const hasOfficialPollingStations = workspacePollingStations.some((station) => Number(station.registered_voters ?? 0) > 0 && String(station.station_code ?? "").trim());
+  if ((!workspacePollingStations.length || !hasOfficialPollingStations) && candidateResult.data) {
     const candidate = candidateResult.data as DbRow;
     await (admin as unknown as { rpc: (name: string, args: Record<string, unknown>) => Promise<unknown> }).rpc("sync_workspace_polling_stations", {
       target_tenant: tenantId,
