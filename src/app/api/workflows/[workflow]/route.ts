@@ -7,6 +7,7 @@ import { requireSession } from "@/lib/auth-session";
 
 const workflowSchemas = {
   supporter: z.object({
+    supporterId: z.string().uuid().optional(),
     fullName: z.string().trim().min(2),
     phoneNumber: z.string().trim().min(7),
     supportLevel: z.enum(["Strong Supporter", "Leaning Supporter", "Undecided", "Opponent", "Unknown"]).default("Unknown"),
@@ -16,6 +17,7 @@ const workflowSchemas = {
     wardName: z.string().trim().optional().or(z.literal("")),
     villageName: z.string().trim().optional().or(z.literal("")),
     pollingStationName: z.string().trim().optional().or(z.literal("")),
+    pollingStationId: z.string().uuid().optional().or(z.literal("")),
     consentToContact: z.boolean().default(true),
     notes: z.string().trim().optional().or(z.literal("")),
   }),
@@ -228,6 +230,16 @@ async function ensureWorkspaceLocation(tenantId: string, input: { countyName?: s
   return { countyId, constituencyId, wardId, villageId, pollingStationId };
 }
 
+async function supporterLocationScope(
+  tenantId: string,
+  input: { countyName?: string; constituencyName?: string; wardName?: string; villageName?: string; pollingStationName?: string; pollingStationId?: string },
+) {
+  if (input.pollingStationId && z.string().uuid().safeParse(input.pollingStationId).success) {
+    return stationLocationScope(tenantId, input.pollingStationId);
+  }
+  return ensureWorkspaceLocation(tenantId, input);
+}
+
 async function stationLocationScope(tenantId: string, pollingStationId: string): Promise<LocationScope> {
   const supabase = getLooseSupabaseAdmin();
   const { data: station } = await supabase
@@ -281,7 +293,7 @@ export async function POST(request: Request, context: { params: Promise<{ workfl
 
   if (name === "supporter") {
     const data = parsed.data as z.infer<typeof workflowSchemas.supporter>;
-    const location = await ensureWorkspaceLocation(workspace.tenantId, data);
+    const location = await supporterLocationScope(workspace.tenantId, data);
     table = "supporters";
     payload = {
       tenant_id: workspace.tenantId,
@@ -298,6 +310,41 @@ export async function POST(request: Request, context: { params: Promise<{ workfl
       consent_to_contact: data.consentToContact,
       notes: data.notes || null,
     };
+
+    if (data.supporterId) {
+      const { data: updated, error } = await supabase
+        .from(table)
+        .update(payload)
+        .eq("id", data.supporterId)
+        .eq("tenant_id", workspace.tenantId)
+        .eq("candidate_id", workspace.candidateId)
+        .select("id, full_name, phone_number, support_level, key_issue, volunteer_interest, created_at")
+        .single();
+      if (error || !updated) {
+        return NextResponse.json({ error: "Could not update supporter.", detail: error?.message }, { status: 500 });
+      }
+      await writeAudit({
+        tenantId: workspace.tenantId,
+        candidateId: workspace.candidateId,
+        action: "Update",
+        module: name,
+        recordId: updated.id,
+        newValue: payload,
+      });
+      return NextResponse.json({
+        id: updated.id,
+        status: "Saved",
+        reference: shortCode("JUK"),
+        supporter: {
+          ...updated,
+          county_name: data.countyName || "",
+          constituency_name: data.constituencyName || "",
+          ward_name: data.wardName || "",
+          village_name: data.villageName || "",
+          polling_station_name: data.pollingStationName || "",
+        },
+      });
+    }
   }
 
   if (name === "volunteer") {

@@ -317,10 +317,15 @@ type LiveBootstrap = {
     volunteer_interest: boolean;
     gender?: string | null;
     age_group?: string | null;
+    county_id?: string | null;
     county_name?: string | null;
+    constituency_id?: string | null;
     constituency_name?: string | null;
+    ward_id?: string | null;
     ward_name?: string | null;
+    village_id?: string | null;
     village_name?: string | null;
+    polling_station_id?: string | null;
     polling_station_name?: string | null;
     created_at: string;
   }>;
@@ -351,6 +356,7 @@ type LiveSupporter = {
   constituency: string;
   ward: string;
   pollingStation: string;
+  pollingStationId: string;
   supportLevel: SupportLevel;
   keyIssue: string;
   volunteerInterest: boolean;
@@ -378,6 +384,7 @@ function normalizeSupporter(record: LiveBootstrap["supporters"][number]): LiveSu
     constituency: record.constituency_name || "Not assigned",
     ward: record.ward_name || "Not assigned",
     pollingStation: record.polling_station_name || record.village_name || "Not assigned",
+    pollingStationId: record.polling_station_id || "",
     supportLevel: record.support_level,
     keyIssue: record.key_issue || "Not recorded",
     volunteerInterest: record.volunteer_interest,
@@ -578,6 +585,7 @@ export default function Home() {
   const [supporterVillage, setSupporterVillage] = useState("");
   const [supporterPollingStation, setSupporterPollingStation] = useState("");
   const [supporterKeyIssue, setSupporterKeyIssue] = useState("");
+  const [editingSupporterId, setEditingSupporterId] = useState("");
   const [overrideDuplicate, setOverrideDuplicate] = useState(false);
   const [selectedParty, setSelectedParty] = useState(campaign.politicalParty);
   const [aiQuestion, setAiQuestion] = useState("Which wards need attention this week?");
@@ -768,6 +776,7 @@ export default function Home() {
     if (effectiveFocusArea.level === "local" || effectiveFocusArea.level === "pollingStation") return station.name === effectiveFocusArea.pollingStationName || station.ward === effectiveFocusArea.wardName;
     return true;
   });
+  const stationDropdownOptions = stationOptionsForCurrentArea.length ? stationOptionsForCurrentArea : candidatePollingStations;
   const selectedStationRecord = candidatePollingStations.find((station) => station.name === supporterPollingStation);
   const totalSupporters = liveBootstrap?.summary.supporters ?? workspaceSupporters.length;
   const totalVolunteers = liveBootstrap?.summary.volunteers ?? liveVolunteers.length;
@@ -978,8 +987,33 @@ export default function Home() {
   const duplicate = useMemo(() => {
     const normalizedPhone = phone.replace(/\D/g, "");
     if (!name.trim() && !normalizedPhone) return false;
-    return workspaceSupporters.some((supporter) => (normalizedPhone.length >= 7 && supporter.phoneNumber.replace(/\D/g, "") === normalizedPhone) || (name.trim().length >= 2 && supporter.fullName.toLowerCase() === name.toLowerCase().trim()));
-  }, [name, phone, workspaceSupporters]);
+    return workspaceSupporters.some((supporter) => supporter.id !== editingSupporterId && ((normalizedPhone.length >= 7 && supporter.phoneNumber.replace(/\D/g, "") === normalizedPhone) || (name.trim().length >= 2 && supporter.fullName.toLowerCase() === name.toLowerCase().trim())));
+  }, [editingSupporterId, name, phone, workspaceSupporters]);
+
+  function resetSupporterForm() {
+    setEditingSupporterId("");
+    setName("");
+    setPhone("");
+    setSupportLevel("Unknown");
+    setSupporterVillage("");
+    setSupporterPollingStation("");
+    setSupporterKeyIssue("");
+    setOverrideDuplicate(false);
+  }
+
+  function editSupporter(supporter: LiveSupporter) {
+    setEditingSupporterId(supporter.id);
+    setName(supporter.fullName);
+    setPhone(supporter.phoneNumber);
+    setSupportLevel(supporter.supportLevel);
+    setSupporterWard(supporter.ward === "Not assigned" ? "" : supporter.ward);
+    setSupporterVillage("");
+    setSupporterPollingStation(supporter.pollingStation === "Not assigned" ? "" : supporter.pollingStation);
+    setSupporterKeyIssue(supporter.keyIssue === "Not recorded" ? "" : supporter.keyIssue);
+    setOverrideDuplicate(false);
+    scrollToSection("Supporters");
+    window.setTimeout(() => document.getElementById("supporter-form")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+  }
 
   const supportLevelData = groupCount(workspaceSupporters, "supportLevel");
   const focusDataKey = analysisLevel === "county" ? "county" : analysisLevel === "constituency" ? "constituency" : analysisLevel === "local" ? "pollingStation" : "ward";
@@ -1647,14 +1681,14 @@ export default function Home() {
         throw new Error(result.error ?? "Workflow could not be saved.");
       }
       if (workflow === "supporter" && result.supporter) {
-        setLiveSupporters((current) => [normalizeSupporter(result.supporter), ...(current ?? [])]);
-        setName("");
-        setPhone("");
-        setSupportLevel("Unknown");
-        setSupporterVillage("");
-        setSupporterPollingStation("");
-        setSupporterKeyIssue("");
-        setOverrideDuplicate(false);
+        const savedSupporter = normalizeSupporter(result.supporter);
+        setLiveSupporters((current) => {
+          const rows = current ?? [];
+          return editingSupporterId
+            ? rows.map((supporter) => supporter.id === savedSupporter.id ? savedSupporter : supporter)
+            : [savedSupporter, ...rows];
+        });
+        resetSupporterForm();
       }
       if (["communicationRoom", "communicationMessage", "issue", "issueStatus", "fieldVisit", "aiContent", "task", "event"].includes(workflow)) {
         await refreshWorkspace();
@@ -4016,6 +4050,7 @@ export default function Home() {
                       <th className="px-4 py-3">Support</th>
                       <th className="px-4 py-3">Issue</th>
                       <th className="px-4 py-3">Volunteer</th>
+                      <th className="px-4 py-3">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -4032,6 +4067,15 @@ export default function Home() {
                         </td>
                         <td className="px-4 py-3 text-slate-600">{supporter.keyIssue}</td>
                         <td className="px-4 py-3 text-slate-600">{supporter.volunteerInterest ? "Yes" : "No"}</td>
+                        <td className="px-4 py-3">
+                          <button
+                            className="inline-flex h-8 items-center justify-center rounded-md border border-sky-200 bg-sky-50 px-3 text-xs font-black text-sky-700 transition hover:bg-sky-100"
+                            onClick={() => editSupporter(supporter)}
+                            type="button"
+                          >
+                            Edit
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -4040,8 +4084,17 @@ export default function Home() {
             </div>
 
             <div id="supporter-form" className="scroll-mt-24 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-              <h2 className="text-sm font-bold text-slate-950">Quick Add Supporter</h2>
-              <p className="mt-1 text-sm text-slate-500">Capture supporters inside {electiveScopeLabel}. Area options follow the candidate&apos;s elective level.</p>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-950">{editingSupporterId ? "Edit Supporter" : "Quick Add Supporter"}</h2>
+                  <p className="mt-1 text-sm text-slate-500">Capture supporters inside {electiveScopeLabel}. Wards and polling stations follow the candidate&apos;s campaign area.</p>
+                </div>
+                {editingSupporterId ? (
+                  <button className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-black text-slate-600 transition hover:bg-slate-50" onClick={resetSupporterForm} type="button">
+                    Cancel edit
+                  </button>
+                ) : null}
+              </div>
               <div className="mt-4 space-y-3">
                 <label className="block text-sm font-semibold text-slate-700">
                   Full name
@@ -4068,20 +4121,21 @@ export default function Home() {
                   </label>
                   <label className="block text-sm font-semibold text-slate-700">
                     Polling station
-                    {stationOptionsForCurrentArea.length ? (
+                    {stationDropdownOptions.length ? (
                       <select
                         value={supporterPollingStation}
                         onChange={(event) => {
                           const station = candidatePollingStations.find((row) => row.name === event.target.value);
                           setSupporterPollingStation(event.target.value);
                           if (station?.village) setSupporterVillage(station.village);
+                          if (station?.ward) setSupporterWard(station.ward);
                         }}
                         className="mt-1 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-sky-500"
                       >
                         <option value="">Choose polling station</option>
-                        {stationOptionsForCurrentArea.map((station) => (
+                        {stationDropdownOptions.map((station) => (
                           <option key={station.id} value={station.name}>
-                            {station.name} - {station.registeredVoters.toLocaleString()} voters
+                            {station.name}{station.ward ? ` - ${station.ward}` : ""} - {station.registeredVoters.toLocaleString()} voters
                           </option>
                         ))}
                       </select>
@@ -4117,9 +4171,9 @@ export default function Home() {
                     </label>
                   </div>
                 )}
-                <button disabled={!name.trim() || phone.replace(/\D/g, "").length < 7 || (duplicate && !overrideDuplicate)} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-300" onClick={() => void persistWorkflow("supporter", { fullName: name, phoneNumber: phone, supportLevel, ...selectedLocationPayload, villageName: selectedStationRecord?.village || supporterVillage, pollingStationName: supporterPollingStation, keyIssue: supporterKeyIssue, consentToContact: true, notes: overrideDuplicate ? "Duplicate override approved." : "" }, `${name.trim() || "Supporter"} saved in ${effectiveFocusArea.label || effectiveSupporterWard || electiveScopeLabel}.`, "Supporters")} type="button">
+                <button disabled={!name.trim() || phone.replace(/\D/g, "").length < 7 || (duplicate && !overrideDuplicate)} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-300" onClick={() => void persistWorkflow("supporter", { supporterId: editingSupporterId || undefined, fullName: name, phoneNumber: phone, supportLevel, ...selectedLocationPayload, countyName: selectedStationRecord?.county || selectedLocationPayload.countyName, constituencyName: selectedStationRecord?.constituency || selectedLocationPayload.constituencyName, wardName: selectedStationRecord?.ward || selectedLocationPayload.wardName, villageName: selectedStationRecord?.village || supporterVillage, pollingStationName: supporterPollingStation, pollingStationId: selectedStationRecord?.id || undefined, keyIssue: supporterKeyIssue, consentToContact: true, notes: overrideDuplicate ? "Duplicate override approved." : "" }, `${name.trim() || "Supporter"} ${editingSupporterId ? "updated" : "saved"} in ${selectedStationRecord?.ward || effectiveFocusArea.label || effectiveSupporterWard || electiveScopeLabel}.`, "Supporters")} type="button">
                   <Plus size={16} />
-                  Save Supporter
+                  {editingSupporterId ? "Save Changes" : "Save Supporter"}
                 </button>
               </div>
             </div>
