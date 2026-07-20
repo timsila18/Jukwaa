@@ -419,6 +419,42 @@ function liveDate(record: LiveRecord | undefined, key: string, fallback = "") {
   return value.slice(0, 16).replace("T", " ");
 }
 
+function liveDateValue(record: LiveRecord | undefined, key: string) {
+  const value = record?.[key];
+  if (typeof value !== "string" || !value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isSameLocalDate(date: Date, other = new Date()) {
+  return date.getFullYear() === other.getFullYear() && date.getMonth() === other.getMonth() && date.getDate() === other.getDate();
+}
+
+function daysAgoLabel(date: Date | null) {
+  if (!date) return "No activity yet";
+  const now = new Date();
+  if (isSameLocalDate(date, now)) return "Updated today";
+  const diffDays = Math.max(1, Math.floor((now.getTime() - date.getTime()) / 86400000));
+  if (diffDays === 1) return "Updated yesterday";
+  if (diffDays < 7) return `Updated ${diffDays} days ago`;
+  return `Updated ${date.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
+}
+
+function latestDateFromRows(rows: LiveRecord[], keys: string[]) {
+  return rows.reduce<Date | null>((latest, row) => {
+    const date = keys.map((key) => liveDateValue(row, key)).find(Boolean) ?? null;
+    if (!date) return latest;
+    return !latest || date.getTime() > latest.getTime() ? date : latest;
+  }, null);
+}
+
+function countRowsToday(rows: LiveRecord[], keys: string[]) {
+  return rows.filter((row) => {
+    const date = keys.map((key) => liveDateValue(row, key)).find(Boolean);
+    return date ? isSameLocalDate(date) : false;
+  }).length;
+}
+
 function readableNameFromContact(value?: string | null) {
   if (!value) return "";
   const trimmed = value.trim();
@@ -1417,6 +1453,13 @@ export default function Home() {
     setLiveSupporters(payload.supporters.map(normalizeSupporter));
   }
 
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      void refreshWorkspace();
+    }, 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
+
   const readinessLabel = currentRole === "Campaign Manager" ? "Manager Execution Readiness" : currentRole === "Polling Agent" ? "Station Readiness" : currentRole === "Volunteer" ? "Field Readiness" : "Campaign Readiness";
   const readinessHelper = currentRole === "Campaign Manager" ? `Your execution cockpit for ${referenceCandidateName}'s ${electiveScopeLabel} campaign.` : currentRole === "Polling Agent" ? `Focus on ${memberAssignmentLabel} station tasks, incidents, turnout, and results.` : currentRole === "Volunteer" ? `Focus on field tasks, supporters, issues, and visits in ${memberAssignmentLabel}.` : !isOwnerAccount ? `Your ${currentRole} tools are scoped to ${memberAssignmentLabel}.` : "You are making great progress.";
   useEffect(() => {
@@ -1432,12 +1475,38 @@ export default function Home() {
     meetingPath: liveBootstrap?.solcoIntegration?.meeting_path || solcoIntegration.meetingPath,
   };
   const roomJoinUrl = (roomName: string) => `${workspaceSolco.workspaceUrl}${workspaceSolco.meetingPath.replace("{roomName}", roomName)}`;
+  const supporterRows = (liveBootstrap?.supporters ?? []) as LiveRecord[];
+  const liveVolunteerRows = liveVolunteers as LiveRecord[];
+  const livePollingAgentRows = livePollingAgents as LiveRecord[];
+  const liveTaskRows = liveTasks as LiveRecord[];
+  const liveEventRows = liveEvents as LiveRecord[];
+  const supportersToday = countRowsToday(supporterRows, ["created_at"]);
+  const volunteersToday = countRowsToday(liveVolunteerRows, ["created_at", "join_date"]);
+  const pollingAgentsToday = countRowsToday(livePollingAgentRows, ["created_at", "last_seen_at"]);
+  const tasksToday = countRowsToday(liveTaskRows, ["created_at", "due_date"]);
+  const eventsToday = countRowsToday(liveEventRows, ["created_at", "event_date"]);
+  const openTasksCount = Math.max(0, totalTasks - tasksCompletedCount);
+  const upcomingEventsCount = liveEvents.filter((event) => {
+    const eventDate = liveDateValue(event, "event_date");
+    if (!eventDate) return false;
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    return eventDate.getTime() >= todayStart.getTime();
+  }).length;
+  const metricFreshness = {
+    supporters: daysAgoLabel(latestDateFromRows(supporterRows, ["created_at"])),
+    volunteers: daysAgoLabel(latestDateFromRows(liveVolunteerRows, ["created_at", "join_date"])),
+    pollingAgents: daysAgoLabel(latestDateFromRows(livePollingAgentRows, ["last_seen_at", "created_at"])),
+    tasks: daysAgoLabel(latestDateFromRows(liveTaskRows, ["created_at", "due_date"])),
+    events: daysAgoLabel(latestDateFromRows(liveEventRows, ["event_date", "created_at"])),
+  };
+  const metricHelper = (todayCount: number, fallback: string) => todayCount ? `${todayCount.toLocaleString()} added today` : fallback;
   const dashboardMetrics = [
-    { label: "Supporters", value: totalSupporters.toLocaleString(), helper: "live workspace total", icon: Users, tone: "sky" },
-    { label: "Volunteers", value: totalVolunteers.toLocaleString(), helper: "live workspace total", icon: UserCheck, tone: "gold" },
-    { label: "Polling Agents", value: totalPollingAgents.toLocaleString(), helper: "live workspace total", icon: ShieldCheck, tone: "emerald" },
-    { label: "Tasks Completed", value: `${tasksCompletedPercent}%`, helper: `${tasksCompletedCount.toLocaleString()} of ${totalTasks.toLocaleString()} tasks`, icon: CheckCircle2, tone: "violet" },
-    { label: "Events", value: eventsCount.toLocaleString(), helper: "live workspace total", icon: CalendarDays, tone: "red" },
+    { label: "Supporters", value: totalSupporters.toLocaleString(), helper: metricHelper(supportersToday, `${workspaceSupporters.filter((supporter) => supporter.supportLevel === "Strong Supporter").length.toLocaleString()} strong supporters`), freshness: metricFreshness.supporters, icon: Users, tone: "sky", section: "Supporters" },
+    { label: "Volunteers", value: totalVolunteers.toLocaleString(), helper: metricHelper(volunteersToday, `${liveVolunteers.filter((row) => liveText(row, "status", "") === "Active").length.toLocaleString()} active volunteers`), freshness: metricFreshness.volunteers, icon: UserCheck, tone: "gold", section: "Volunteers" },
+    { label: "Polling Agents", value: totalPollingAgents.toLocaleString(), helper: metricHelper(pollingAgentsToday, `${livePollingAgents.filter((row) => liveText(row, "status", "") === "Active").length.toLocaleString()} active agents`), freshness: metricFreshness.pollingAgents, icon: ShieldCheck, tone: "emerald", section: "Polling Agents" },
+    { label: "Tasks Completed", value: `${tasksCompletedPercent}%`, helper: totalTasks ? `${tasksCompletedCount.toLocaleString()} done, ${openTasksCount.toLocaleString()} open` : "Create the first task", freshness: tasksToday ? `${tasksToday.toLocaleString()} task updates today` : metricFreshness.tasks, icon: CheckCircle2, tone: "violet", section: "Tasks & Field Ops" },
+    { label: "Events", value: eventsCount.toLocaleString(), helper: metricHelper(eventsToday, `${upcomingEventsCount.toLocaleString()} upcoming events`), freshness: metricFreshness.events, icon: CalendarDays, tone: "red", section: "Events" },
   ];
   const actionQueue = [
     { label: "Supporter Records", value: totalSupporters, icon: Users, tone: "sky", section: "Supporters" },
@@ -2311,12 +2380,16 @@ export default function Home() {
 
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
               {dashboardMetrics.map((metric) => (
-                <section key={metric.label} className="j-dashboard-card rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                <button key={metric.label} className="j-dashboard-card group rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-md" onClick={() => scrollToSection(metric.section)} type="button">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-bold text-slate-700">{metric.label}</p>
                       <p className="mt-2 text-3xl font-black tracking-tight text-slate-950">{metric.value}</p>
-                      <p className="mt-2 text-xs font-black text-emerald-600">↑ {metric.helper}</p>
+                      <p className="mt-2 text-xs font-black text-emerald-600">{metric.helper}</p>
+                      <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-500 ring-1 ring-slate-100">
+                        <Activity size={12} />
+                        {metric.freshness}
+                      </p>
                     </div>
                     <div className={`grid h-11 w-11 place-items-center rounded-lg ${
                       metric.tone === "gold" ? "bg-amber-50 text-amber-700 ring-1 ring-amber-100"
@@ -2328,10 +2401,9 @@ export default function Home() {
                       <metric.icon size={20} />
                     </div>
                   </div>
-                </section>
+                </button>
               ))}
             </div>
-
             <div className="mt-6 grid gap-5 xl:grid-cols-[1.22fr_1.05fr_1fr]">
               <section className="j-dashboard-card rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="mb-4 flex items-center justify-between">
@@ -4821,3 +4893,4 @@ export default function Home() {
     </main>
   );
 }
+
