@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ClipboardCheck,
+  Copy,
   Download,
   Gauge,
   Globe2,
@@ -684,6 +685,9 @@ export default function Home() {
   const [liveSupporters, setLiveSupporters] = useState<LiveSupporter[] | null>(null);
   const [bootstrapError, setBootstrapError] = useState("");
   const [bootstrapLoading, setBootstrapLoading] = useState(true);
+  const [resetCodeMemberId, setResetCodeMemberId] = useState("");
+  const [resetCodeLoading, setResetCodeLoading] = useState(false);
+  const [resetCodeResult, setResetCodeResult] = useState<{ code: string; expiresAt: string; memberName: string } | null>(null);
   const platformMetrics = platformWorkspaceMetrics();
   const brandingReview = useMemo(() => validateWorkspaceBranding(candidateBranding), []);
 
@@ -1248,6 +1252,7 @@ export default function Home() {
     ...volunteerContactRows,
     ...pollingAgentContactRows,
   ].filter((contact, index, rows) => contact.name && rows.findIndex((row) => row.source === contact.source && row.id === contact.id) === index);
+  const resetCodeMemberOptions = memberContactRows.filter((member) => member.id && member.email && member.status === "Active");
   const taskAssigneeOptions = [
     ...volunteerContactRows.map((contact) => ({ ...contact, assignmentType: "Volunteer" as const })),
     ...memberContactRows.map((contact) => ({ ...contact, assignmentType: "Campaign Member" as const })),
@@ -1798,6 +1803,42 @@ export default function Home() {
     } catch (error) {
       runAction(error instanceof Error ? error.message : "Workflow could not be saved.", sectionLabel);
     }
+  }
+
+  async function generatePasswordResetCode() {
+    const memberId = resetCodeMemberId || resetCodeMemberOptions[0]?.id || "";
+    if (!memberId) {
+      runAction("Choose an active team member before generating a reset code.", "Team & Roles");
+      return;
+    }
+    setResetCodeLoading(true);
+    setResetCodeResult(null);
+    try {
+      const response = await fetch("/api/team/reset-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ memberId }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Could not generate reset code.");
+      setResetCodeResult({
+        code: String(data.resetCode || ""),
+        expiresAt: data.expiresAt ? new Date(data.expiresAt).toLocaleString() : "30 minutes",
+        memberName: String(data.member?.fullName || "Team member"),
+      });
+      runAction("Password reset code generated. Give it only to the selected user.", "Team & Roles");
+    } catch (error) {
+      runAction(error instanceof Error ? error.message : "Could not generate reset code.", "Team & Roles");
+    } finally {
+      setResetCodeLoading(false);
+    }
+  }
+
+  async function copyResetCode() {
+    if (!resetCodeResult?.code) return;
+    await navigator.clipboard?.writeText(resetCodeResult.code);
+    runAction("Reset code copied.", "Team & Roles");
   }
 
   async function deleteSupporter(supporter: LiveSupporter) {
@@ -3484,6 +3525,52 @@ export default function Home() {
                   </div>
                 ))}
                 {workspaceInvitations.length === 0 ? emptyState(`No team invitations have been created for ${electiveScopeLabel} yet.`) : null}
+              </div>
+              <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50/80 p-3">
+                <div className="flex items-start gap-3">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white text-amber-700 shadow-sm">
+                    <KeyRound size={17} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-black text-slate-950">Password Reset Codes</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-600">Generate a 30-minute code for an active team member, then give it to them to reset their password.</p>
+                  </div>
+                </div>
+                <div className="mt-3 grid gap-2">
+                  <select
+                    className="h-10 rounded-md border border-amber-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-amber-400"
+                    disabled={!resetCodeMemberOptions.length || resetCodeLoading}
+                    onChange={(event) => setResetCodeMemberId(event.target.value)}
+                    value={resetCodeMemberId || resetCodeMemberOptions[0]?.id || ""}
+                  >
+                    {resetCodeMemberOptions.map((member) => (
+                      <option key={member.id} value={member.id}>{member.name} - {member.role}</option>
+                    ))}
+                  </select>
+                  <button
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-bold text-white hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={!resetCodeMemberOptions.length || resetCodeLoading}
+                    onClick={() => void generatePasswordResetCode()}
+                    type="button"
+                  >
+                    <KeyRound size={15} />
+                    {resetCodeLoading ? "Generating..." : "Generate Reset Code"}
+                  </button>
+                </div>
+                {resetCodeResult ? (
+                  <div className="mt-3 rounded-lg border border-amber-200 bg-white p-3">
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Reset code for {resetCodeResult.memberName}</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <code className="rounded-md bg-slate-950 px-3 py-2 font-mono text-sm font-black text-white">{resetCodeResult.code}</code>
+                      <button className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 px-3 text-xs font-bold text-slate-700 hover:bg-slate-50" onClick={() => void copyResetCode()} type="button">
+                        <Copy size={14} />
+                        Copy
+                      </button>
+                    </div>
+                    <p className="mt-2 text-xs text-slate-500">Expires {resetCodeResult.expiresAt}.</p>
+                  </div>
+                ) : null}
+                {!resetCodeMemberOptions.length ? <p className="mt-3 text-xs font-semibold text-amber-800">No active team members with login details are available yet.</p> : null}
               </div>
             </div>
 
