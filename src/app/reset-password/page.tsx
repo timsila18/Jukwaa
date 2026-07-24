@@ -23,6 +23,7 @@ export default function ResetPasswordPage() {
     }
     const response = await fetch("/api/auth/reset", {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
@@ -41,9 +42,10 @@ export default function ResetPasswordPage() {
         <Link className="text-sm font-bold text-sky-700" href="/login">Back to login</Link>
         <div className="mt-6 grid h-11 w-11 place-items-center rounded-lg bg-slate-100 text-slate-800"><LockKeyhole size={20} /></div>
         <h1 className="mt-4 text-2xl font-bold text-slate-950">Reset Password</h1>
+        <p className="mt-2 text-sm leading-6 text-slate-600">If you are already logged in, you can leave the reset code blank. If you are logged out, use your joining/reset code from the campaign admin.</p>
         <form className="mt-6 space-y-4" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
           <label className="block text-sm font-semibold text-slate-700">Phone or email<input autoComplete="username" className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => update("login", event.target.value)} value={form.login} /></label>
-          <label className="block text-sm font-semibold text-slate-700">Reset code<input autoComplete="one-time-code" className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm uppercase outline-none focus:border-sky-500" onChange={(event) => update("resetCode", event.target.value.toUpperCase())} value={form.resetCode} /></label>
+          <label className="block text-sm font-semibold text-slate-700">Reset code <span className="font-normal text-slate-500">(blank if already logged in)</span><input autoComplete="one-time-code" className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm uppercase outline-none focus:border-sky-500" onChange={(event) => update("resetCode", event.target.value.toUpperCase())} value={form.resetCode} /></label>
           <label className="block text-sm font-semibold text-slate-700">
             New password
             <span className="mt-1 flex h-11 w-full items-center rounded-md border border-slate-200 bg-white px-3 focus-within:border-sky-500">

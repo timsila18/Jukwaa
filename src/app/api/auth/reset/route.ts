@@ -4,11 +4,11 @@ import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
 import { getLooseSupabaseAdmin, getSupabaseAdmin } from "@/lib/supabase";
 import { enforceRateLimit, requestKey } from "@/lib/rate-limit";
-import { attachSessionCookies, attachWorkspaceSessionCookie, loginEmail, type WorkspaceRole } from "@/lib/auth-session";
+import { attachSessionCookies, attachWorkspaceSessionCookie, getSessionContext, loginEmail, type WorkspaceRole } from "@/lib/auth-session";
 
 const schema = z.object({
   login: z.string().trim().min(3),
-  resetCode: z.string().trim().min(6),
+  resetCode: z.string().trim().optional(),
   password: z.string().min(8),
 });
 
@@ -66,7 +66,7 @@ export async function POST(request: Request) {
   if (!limited.allowed) return NextResponse.json({ error: "Too many reset attempts. Try again shortly." }, { status: 429 });
 
   const parsed = schema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ error: "Phone/email, reset code, and new password are required." }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ error: "Phone/email and new password are required." }, { status: 400 });
 
   const email = loginEmail(parsed.data.login);
   const admin = getLooseSupabaseAdmin();
@@ -76,10 +76,10 @@ export async function POST(request: Request) {
     .eq("email", email)
     .maybeSingle();
   let member = memberResult.data;
-  const resetCode = parsed.data.resetCode.trim().toUpperCase();
+  const resetCode = parsed.data.resetCode?.trim().toUpperCase() ?? "";
   let invitationForCode: ResetInvitation | null = null;
 
-  if (!member) {
+  if (!member && resetCode) {
     const invitationResult = await admin
       .from("invitations")
       .select("id, tenant_id, candidate_id, invited_phone, invited_email, invitation_code, status, expiry_date")
@@ -114,44 +114,63 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No active JUKWAA account was found for those details." }, { status: 404 });
   }
 
-  const { data: reset } = await admin
-    .from("password_reset_codes")
-    .select("id, expires_at, status")
-    .eq("member_id", member.id)
-    .eq("login_identifier", email)
+  let resetId = "";
+  let resetSource: "Reset Code" | "Joining Code" | "Active Session" = "Active Session";
+
+  if (!resetCode) {
+    const session = await getSessionContext(request);
+    const sameUser = session?.memberId === member.id || session?.userId === member.user_id;
+    const sameWorkspaceAdmin = session
+      && session.tenantId === member.tenant_id
+      && session.candidateId === member.candidate_id
+      && ["Candidate", "Campaign Manager", "Admin"].includes(session.role);
+
+    if (!session || (!sameUser && !sameWorkspaceAdmin && !session.isPlatformAdmin)) {
+      return NextResponse.json(
+        { error: "Reset code is required when you are not already logged in as this user or a campaign admin." },
+        { status: 403 },
+      );
+    }
+  } else {
+    const { data: reset } = await admin
+      .from("password_reset_codes")
+      .select("id, expires_at, status")
+      .eq("member_id", member.id)
+      .eq("login_identifier", email)
       .eq("reset_code_hash", hashCode(resetCode))
-    .eq("status", "Pending")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+      .eq("status", "Pending")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-  let resetId = reset?.id ?? "";
-  let resetSource: "Reset Code" | "Joining Code" = "Reset Code";
+    resetId = reset?.id ?? "";
+    resetSource = "Reset Code";
 
-  if (!reset || new Date(reset.expires_at).getTime() < Date.now()) {
-    if (reset) await admin.from("password_reset_codes").update({ status: "Expired" }).eq("id", reset.id);
-    if (!invitationForCode) {
-      const { data: invitation } = await admin
-        .from("invitations")
-        .select("id, tenant_id, candidate_id, invited_phone, invited_email, invitation_code, status, expiry_date")
-        .eq("invitation_code", resetCode)
-        .maybeSingle();
-      invitationForCode = invitation as ResetInvitation | null;
+    if (!reset || new Date(reset.expires_at).getTime() < Date.now()) {
+      if (reset) await admin.from("password_reset_codes").update({ status: "Expired" }).eq("id", reset.id);
+      if (!invitationForCode) {
+        const { data: invitation } = await admin
+          .from("invitations")
+          .select("id, tenant_id, candidate_id, invited_phone, invited_email, invitation_code, status, expiry_date")
+          .eq("invitation_code", resetCode)
+          .maybeSingle();
+        invitationForCode = invitation as ResetInvitation | null;
+      }
+
+      const invitationActive = invitationForCode
+        && ["Pending", "Accepted"].includes(String(invitationForCode.status))
+        && new Date(`${invitationForCode.expiry_date}T23:59:59`).getTime() >= Date.now()
+        && invitationForCode.tenant_id === member.tenant_id
+        && invitationForCode.candidate_id === member.candidate_id
+        && loginMatchesInvitation(parsed.data.login, invitationForCode);
+
+      if (!invitationActive) {
+        return NextResponse.json({ error: "Reset code is invalid or expired." }, { status: 410 });
+      }
+
+      resetId = "";
+      resetSource = "Joining Code";
     }
-
-    const invitationActive = invitationForCode
-      && ["Pending", "Accepted"].includes(String(invitationForCode.status))
-      && new Date(`${invitationForCode.expiry_date}T23:59:59`).getTime() >= Date.now()
-      && invitationForCode.tenant_id === member.tenant_id
-      && invitationForCode.candidate_id === member.candidate_id
-      && loginMatchesInvitation(parsed.data.login, invitationForCode);
-
-    if (!invitationActive) {
-      return NextResponse.json({ error: "Reset code is invalid or expired." }, { status: 410 });
-    }
-
-    resetId = "";
-    resetSource = "Joining Code";
   }
 
   const authAdmin = getSupabaseAdmin();
@@ -169,17 +188,18 @@ export async function POST(request: Request) {
     success: true,
   });
 
+  const authLoginEmail = member.email ?? email;
   const response = NextResponse.json({ status: "Password updated. Opening your dashboard...", redirectTo: "/" });
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (url && key) {
     const client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
-    const signedIn = await client.auth.signInWithPassword({ email, password: parsed.data.password });
+    const signedIn = await client.auth.signInWithPassword({ email: authLoginEmail, password: parsed.data.password });
     if (signedIn.data.session) attachSessionCookies(response, signedIn.data.session);
   }
   attachWorkspaceSessionCookie(response, {
     userId: member.user_id,
-    email,
+    email: authLoginEmail,
     fullName: member.full_name ?? null,
     phone: null,
     tenantId: member.tenant_id,
