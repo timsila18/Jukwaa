@@ -22,6 +22,10 @@ function loginEmail(value: string) {
   return `${phoneKey(trimmed)}@phone.jukwaa.local`;
 }
 
+function unique(values: Array<string | null | undefined>) {
+  return Array.from(new Set(values.map((value) => value?.trim().toLowerCase()).filter(Boolean))) as string[];
+}
+
 function loginMatchesInvitation(login: string, invitation: Record<string, string>) {
   const invitedEmail = invitation.invited_email?.toLowerCase();
   const invitedPhone = phoneKey(invitation.invited_phone ?? "");
@@ -46,6 +50,77 @@ function workspaceRole(value: string): WorkspaceRole {
     "Admin",
   ];
   return allowed.includes(value as WorkspaceRole) ? value as WorkspaceRole : "Volunteer";
+}
+
+type AuthAdmin = ReturnType<typeof getSupabaseAdmin>;
+
+async function findAuthUserByEmail(authAdmin: AuthAdmin, email: string) {
+  const normalized = email.toLowerCase();
+  for (let page = 1; page <= 20; page += 1) {
+    const { data, error } = await authAdmin.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) return { user: null, error };
+    const user = data.users.find((item) => item.email?.toLowerCase() === normalized) ?? null;
+    if (user) return { user, error: null };
+    if (data.users.length < 1000) break;
+  }
+  return { user: null, error: null };
+}
+
+async function createOrUpdateInvitedUser(input: {
+  authAdmin: AuthAdmin;
+  email: string;
+  password: string;
+  code: string;
+  invitation: {
+    invited_name: string | null;
+    invited_phone: string | null;
+    invited_email: string | null;
+    tenant_id: string;
+    candidate_id: string;
+    role: string;
+  };
+}) {
+  const { authAdmin, email, password, code, invitation } = input;
+  const userMetadata = {
+    full_name: invitation.invited_name,
+    invited_email: invitation.invited_email,
+    invited_phone: invitation.invited_phone,
+    jukwaa_join_code: code,
+  };
+  const appMetadata = {
+    tenant_id: invitation.tenant_id,
+    candidate_id: invitation.candidate_id,
+    role: invitation.role,
+  };
+
+  const created = await authAdmin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    phone_confirm: true,
+    user_metadata: userMetadata,
+    app_metadata: appMetadata,
+  });
+
+  if (created.data.user) return { user: created.data.user, error: null };
+
+  const message = created.error?.message?.toLowerCase() ?? "";
+  if (!message.includes("already") && !message.includes("registered") && !message.includes("exists")) {
+    return { user: null, error: created.error };
+  }
+
+  const found = await findAuthUserByEmail(authAdmin, email);
+  if (found.error || !found.user) return { user: null, error: found.error ?? created.error };
+
+  const updated = await authAdmin.auth.admin.updateUserById(found.user.id, {
+    password,
+    email_confirm: true,
+    phone_confirm: true,
+    user_metadata: { ...(found.user.user_metadata ?? {}), ...userMetadata },
+    app_metadata: { ...(found.user.app_metadata ?? {}), ...appMetadata },
+  });
+
+  return { user: updated.data.user ?? found.user, error: updated.error };
 }
 
 export async function POST(request: Request) {
@@ -74,8 +149,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "That joining code was not found." }, { status: 404 });
   }
 
-  if (invitation.status !== "Pending") {
-    return NextResponse.json({ error: "That joining code has already been used or revoked." }, { status: 409 });
+  if (!["Pending", "Accepted"].includes(String(invitation.status))) {
+    return NextResponse.json({ error: "That joining code has been revoked or is no longer active." }, { status: 409 });
   }
 
   if (new Date(`${invitation.expiry_date}T23:59:59`) < new Date()) {
@@ -88,25 +163,29 @@ export async function POST(request: Request) {
   }
 
   const email = loginEmail(input.login);
-  const created = await authAdmin.auth.admin.createUser({
+  const memberEmailAliases = unique([
+    email,
+    invitation.invited_email,
+    invitation.invited_phone ? loginEmail(invitation.invited_phone) : null,
+  ]);
+  const authUser = await createOrUpdateInvitedUser({
+    authAdmin,
     email,
     password: input.password,
-    email_confirm: true,
-    phone_confirm: true,
-    user_metadata: {
-      full_name: invitation.invited_name,
-      jukwaa_join_code: code,
-    },
-    app_metadata: {
+    code,
+    invitation: {
+      invited_name: invitation.invited_name ?? null,
+      invited_phone: invitation.invited_phone ?? null,
+      invited_email: invitation.invited_email ?? null,
       tenant_id: invitation.tenant_id,
       candidate_id: invitation.candidate_id,
       role: invitation.role,
     },
   });
 
-  if (created.error || !created.data.user) {
+  if (authUser.error || !authUser.user) {
     return NextResponse.json(
-      { error: "Could not create login. If this phone/email already joined, use login or reset password.", detail: created.error?.message },
+      { error: "Could not prepare this login. Ask your campaign admin to regenerate the joining code.", detail: authUser.error?.message },
       { status: 409 },
     );
   }
@@ -115,20 +194,23 @@ export async function POST(request: Request) {
     .from("campaign_members")
     .select("id")
     .eq("tenant_id", invitation.tenant_id)
-    .eq("email", email)
+    .eq("candidate_id", invitation.candidate_id)
+    .in("email", memberEmailAliases.length ? memberEmailAliases : [email])
+    .order("created_at", { ascending: true })
+    .limit(1)
     .maybeSingle();
 
   let memberId = String(existingMember?.id ?? "");
   if (existingMember) {
     await admin
       .from("campaign_members")
-      .update({ user_id: created.data.user.id, full_name: invitation.invited_name, role: invitation.role, status: "Active", candidate_id: invitation.candidate_id })
+      .update({ user_id: authUser.user.id, full_name: invitation.invited_name, role: invitation.role, status: "Active", candidate_id: invitation.candidate_id })
       .eq("id", existingMember.id);
   } else {
     const { data: newMember } = await admin.from("campaign_members").insert({
       tenant_id: invitation.tenant_id,
       candidate_id: invitation.candidate_id,
-      user_id: created.data.user.id,
+      user_id: authUser.user.id,
       email,
       full_name: invitation.invited_name,
       role: invitation.role,
@@ -160,7 +242,7 @@ export async function POST(request: Request) {
     status: "Joined",
     login: input.login,
     email,
-    userId: created.data.user.id,
+    userId: authUser.user.id,
     redirectTo: "/",
   });
 
@@ -172,7 +254,7 @@ export async function POST(request: Request) {
     if (signedIn.data.session) attachSessionCookies(response, signedIn.data.session);
   }
   attachWorkspaceSessionCookie(response, {
-    userId: created.data.user.id,
+    userId: authUser.user.id,
     email,
     fullName: invitation.invited_name,
     phone: invitation.invited_phone || null,

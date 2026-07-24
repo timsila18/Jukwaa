@@ -138,6 +138,46 @@ async function findLoginMembers(input: {
   return mergeMembers(byUser, byEmail);
 }
 
+async function findFallbackAuthEmails(input: {
+  admin: ReturnType<typeof getLooseSupabaseAdmin>;
+  login: string;
+  authEmail: string;
+}) {
+  const { admin, login, authEmail } = input;
+  const normalizedEmail = normalizeEmail(login);
+  if (!normalizedEmail) return [];
+
+  const { data: invitations } = await admin
+    .from("invitations")
+    .select("tenant_id, candidate_id, invited_email, invited_phone, status")
+    .eq("invited_email", normalizedEmail)
+    .in("status", ["Pending", "Accepted"])
+    .limit(20);
+
+  const fallbackEmails: string[] = [];
+  for (const invitation of Array.isArray(invitations) ? invitations : []) {
+    const row = invitation as {
+      tenant_id?: string;
+      candidate_id?: string;
+      invited_email?: string | null;
+      invited_phone?: string | null;
+    };
+    if (!row.tenant_id || !row.candidate_id) continue;
+    const aliases = unique([authEmail, row.invited_email, phoneAlias(row.invited_phone)]);
+    const members = await findLoginMembers({
+      admin,
+      emails: aliases,
+      tenantId: row.tenant_id,
+      candidateId: row.candidate_id,
+    });
+    for (const member of members) {
+      if (member.email && member.email !== authEmail) fallbackEmails.push(member.email);
+    }
+  }
+
+  return unique(fallbackEmails);
+}
+
 function workspaceRole(value: unknown): WorkspaceRole {
   const allowed: WorkspaceRole[] = [
     "Candidate",
@@ -256,10 +296,24 @@ export async function POST(request: Request) {
   }
 
   const email = loginEmail(parsed.data.login);
+  let authEmail = email;
   const supabase = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password: parsed.data.password });
+  let { data, error } = await supabase.auth.signInWithPassword({ email: authEmail, password: parsed.data.password });
 
   const admin = getLooseSupabaseAdmin();
+  if (error) {
+    const fallbackEmails = await findFallbackAuthEmails({ admin, login: parsed.data.login, authEmail });
+    for (const fallbackEmail of fallbackEmails) {
+      const retry = await supabase.auth.signInWithPassword({ email: fallbackEmail, password: parsed.data.password });
+      if (!retry.error && retry.data.session) {
+        authEmail = fallbackEmail;
+        data = retry.data;
+        error = null;
+        break;
+      }
+    }
+  }
+
   if (error) {
     const identifiers = loginIdentifiers({ login: parsed.data.login, authEmail: email });
     const failedMembers = await findLoginMembers({ admin, emails: identifiers.emails, userId: EMPTY_USER_ID });
@@ -284,7 +338,7 @@ export async function POST(request: Request) {
 
   const identifiers = loginIdentifiers({
     login: parsed.data.login,
-    authEmail: email,
+    authEmail,
     userEmail: data.user.email,
     userPhone: data.user.phone,
     userMetadata: data.user.user_metadata as Record<string, unknown>,
@@ -297,7 +351,7 @@ export async function POST(request: Request) {
   if (!member) {
     member = await restoreLoginMember({
       admin,
-      email,
+      email: authEmail,
       emails: identifiers.emails,
       phones: identifiers.phones,
       userId: data.user.id,
@@ -319,7 +373,7 @@ export async function POST(request: Request) {
       attachSessionCookies(response, data.session);
       attachWorkspaceSessionCookie(response, {
         userId: data.user.id,
-        email,
+        email: authEmail,
         fullName: String(data.user.user_metadata?.full_name ?? "Platform Admin"),
         phone: null,
         tenantId: "",
@@ -347,7 +401,7 @@ export async function POST(request: Request) {
     candidate_id: member.candidate_id,
     member_id: member.id,
     event_type: "Login",
-    email,
+    email: authEmail,
     device_name: "Web",
     success: true,
   });

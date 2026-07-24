@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Copy, KeyRound, LockKeyhole, MessageCircle, UserCheck } from "lucide-react";
+import { Copy, Eye, EyeOff, KeyRound, LockKeyhole, MessageCircle, UserCheck } from "lucide-react";
 import { roles } from "@/lib/demo-data";
 
 export default function UserSignupPage() {
@@ -29,6 +29,7 @@ export default function UserSignupPage() {
   const [joinError, setJoinError] = useState("");
   const [isInviting, setIsInviting] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
+  const [showJoinPassword, setShowJoinPassword] = useState(false);
 
   function update(key: keyof typeof form, value: string) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -114,7 +115,7 @@ export default function UserSignupPage() {
             <UserCheck size={20} />
           </div>
           <h1 className="mt-4 text-2xl font-bold text-slate-950">Create or Invite Team Member</h1>
-          <p className="mt-2 text-sm leading-6 text-slate-600">Generate a one-time joining code and give it to the named team member. They create their password once and login normally after that.</p>
+          <p className="mt-2 text-sm leading-6 text-slate-600">Generate a joining code and give it to the named team member. They can create or refresh their password with that code while it is valid, then login normally after that.</p>
         </div>
         <form className="mt-6 grid gap-4 md:grid-cols-2" onSubmit={(event) => { event.preventDefault(); void createInvitation(); }}>
           <label className="block text-sm font-semibold text-slate-700">Full name<input autoComplete="name" className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => update("fullName", event.target.value)} value={form.fullName} /></label>
@@ -156,7 +157,7 @@ export default function UserSignupPage() {
           <LockKeyhole size={20} />
         </div>
         <h2 className="mt-4 text-2xl font-bold text-slate-950">Join With Code</h2>
-        <p className="mt-2 text-sm leading-6 text-slate-600">Use the joining code once to create your password. After that, login with your phone or email and password.</p>
+        <p className="mt-2 text-sm leading-6 text-slate-600">Use the joining code from your campaign admin to create or refresh your password. After that, login with your phone or email and password.</p>
         <form className="mt-6 space-y-4" onSubmit={(event) => { event.preventDefault(); void joinWorkspace(); }}>
           <label className="block text-sm font-semibold text-slate-700">
             Joining code
@@ -168,11 +169,16 @@ export default function UserSignupPage() {
           </label>
           <label className="block text-sm font-semibold text-slate-700">
             Create password
-            <input autoComplete="new-password" className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => updateJoin("password", event.target.value)} placeholder="At least 8 characters" type="password" value={joinForm.password} />
+            <span className="mt-1 flex h-11 w-full items-center rounded-md border border-slate-200 bg-white px-3 focus-within:border-sky-500">
+              <input autoComplete="new-password" className="h-full min-w-0 flex-1 text-sm outline-none" onChange={(event) => updateJoin("password", event.target.value)} placeholder="At least 8 characters" type={showJoinPassword ? "text" : "password"} value={joinForm.password} />
+              <button aria-label={showJoinPassword ? "Hide password" : "Show password"} className="grid h-8 w-8 place-items-center rounded-md text-slate-500 hover:bg-slate-100" onClick={() => setShowJoinPassword((current) => !current)} type="button">
+                {showJoinPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </span>
           </label>
           <label className="block text-sm font-semibold text-slate-700">
             Confirm password
-            <input autoComplete="new-password" className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => updateJoin("confirmPassword", event.target.value)} placeholder="Repeat password" type="password" value={joinForm.confirmPassword} />
+            <input autoComplete="new-password" className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => updateJoin("confirmPassword", event.target.value)} placeholder="Repeat password" type={showJoinPassword ? "text" : "password"} value={joinForm.confirmPassword} />
           </label>
           <button className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-bold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400" disabled={isJoining} type="submit">
             <KeyRound size={16} />
