@@ -628,6 +628,8 @@ export default function Home() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [supportLevel, setSupportLevel] = useState<SupportLevel>("Unknown");
+  const [supporterCounty, setSupporterCounty] = useState("");
+  const [supporterConstituency, setSupporterConstituency] = useState("");
   const [supporterWard, setSupporterWard] = useState("");
   const [supporterVillage, setSupporterVillage] = useState("");
   const [supporterPollingStation, setSupporterPollingStation] = useState("");
@@ -818,20 +820,61 @@ export default function Home() {
     if (scopeLevel === "county" && campaignCounty) return wardsForCounty(campaignCounty).map((area) => area.ward);
     return campaignConstituency ? wardsForConstituency(campaignConstituency) : [];
   })();
-  const effectiveFocusArea = focusAreas.find((area) => area.label === supporterWard) ?? focusAreas[0] ?? { label: "", chartName: "", level: scopeLevel, countyName: campaignCounty, constituencyName: campaignConstituency, wardName: "" };
-  const effectiveSupporterWard = effectiveFocusArea.wardName || supporterWard || "";
+  const liveCountyOptions = Array.from(new Set(candidatePollingStations.map((station) => station.county).filter(Boolean))).sort((left, right) => left.localeCompare(right));
+  const supporterCountyOptions = isNationalRace
+    ? Array.from(new Set([...kenyaCounties, ...liveCountyOptions])).sort((left, right) => left.localeCompare(right))
+    : campaignCounty
+      ? [campaignCounty]
+      : liveCountyOptions;
+  const effectiveSupporterCounty =
+    (supporterCountyOptions.includes(supporterCounty) ? supporterCounty : "")
+    || campaignCounty
+    || supporterCountyOptions[0]
+    || "";
+  const liveConstituencyOptions = Array.from(new Set(candidatePollingStations
+    .filter((station) => !effectiveSupporterCounty || station.county === effectiveSupporterCounty)
+    .map((station) => station.constituency)
+    .filter(Boolean))).sort((left, right) => left.localeCompare(right));
+  const supporterConstituencyOptions = (() => {
+    if (isMcaRace || (!isNationalRace && !isCountyRace)) return campaignConstituency ? [campaignConstituency] : liveConstituencyOptions;
+    const official = effectiveSupporterCounty ? constituenciesForCounty(effectiveSupporterCounty) : [];
+    return Array.from(new Set([...official, ...liveConstituencyOptions])).sort((left, right) => left.localeCompare(right));
+  })();
+  const effectiveSupporterConstituency =
+    (supporterConstituencyOptions.includes(supporterConstituency) ? supporterConstituency : "")
+    || (supporterConstituencyOptions.includes(campaignConstituency) ? campaignConstituency : "")
+    || supporterConstituencyOptions[0]
+    || "";
+  const liveWardOptions = Array.from(new Set(candidatePollingStations
+    .filter((station) => (!effectiveSupporterCounty || station.county === effectiveSupporterCounty) && (!effectiveSupporterConstituency || station.constituency === effectiveSupporterConstituency))
+    .map((station) => station.ward)
+    .filter(Boolean))).sort((left, right) => left.localeCompare(right));
+  const supporterWardOptions = (() => {
+    if (isMcaRace) return campaignWard ? [campaignWard] : liveWardOptions;
+    const official = effectiveSupporterConstituency ? wardsForConstituency(effectiveSupporterConstituency) : [];
+    return Array.from(new Set([...official, ...liveWardOptions])).sort((left, right) => left.localeCompare(right));
+  })();
+  const effectiveSupporterWard =
+    (supporterWardOptions.includes(supporterWard) ? supporterWard : "")
+    || (supporterWardOptions.includes(campaignWard) ? campaignWard : "")
+    || "";
+  const selectedFocusLabel = isNationalRace
+    ? effectiveSupporterCounty
+    : isCountyRace
+      ? effectiveSupporterConstituency
+      : effectiveSupporterWard || supporterWard;
+  const effectiveFocusArea = focusAreas.find((area) => area.label === selectedFocusLabel) ?? focusAreas[0] ?? { label: "", chartName: "", level: scopeLevel, countyName: campaignCounty, constituencyName: campaignConstituency, wardName: "" };
   const focusAreaPlural = analysisLevel === "county" ? "counties" : analysisLevel === "constituency" ? "constituencies" : analysisLevel === "local" ? "local units" : "wards";
   const focusAreaSingular = analysisLevel === "county" ? "County" : analysisLevel === "constituency" ? "Constituency" : analysisLevel === "local" ? "Local unit" : "Ward";
   const selectedLocationPayload = {
-    countyName: effectiveFocusArea.countyName || campaignCounty,
-    constituencyName: effectiveFocusArea.constituencyName || campaignConstituency,
-    wardName: effectiveFocusArea.wardName || effectiveSupporterWard,
+    countyName: effectiveSupporterCounty || effectiveFocusArea.countyName || campaignCounty,
+    constituencyName: effectiveSupporterConstituency || effectiveFocusArea.constituencyName || campaignConstituency,
+    wardName: effectiveSupporterWard || effectiveFocusArea.wardName || supporterWard,
   };
   const stationOptionsForCurrentArea = candidatePollingStations.filter((station) => {
-    if (effectiveFocusArea.level === "county") return !effectiveFocusArea.countyName || station.county === effectiveFocusArea.countyName;
-    if (effectiveFocusArea.level === "constituency") return !effectiveFocusArea.constituencyName || station.constituency === effectiveFocusArea.constituencyName;
-    if (effectiveFocusArea.level === "ward") return !effectiveFocusArea.wardName || station.ward === effectiveFocusArea.wardName;
-    if (effectiveFocusArea.level === "local" || effectiveFocusArea.level === "pollingStation") return station.name === effectiveFocusArea.pollingStationName || station.ward === effectiveFocusArea.wardName;
+    if (effectiveSupporterCounty && station.county !== effectiveSupporterCounty) return false;
+    if (effectiveSupporterConstituency && station.constituency !== effectiveSupporterConstituency) return false;
+    if (effectiveSupporterWard && station.ward !== effectiveSupporterWard) return false;
     return true;
   });
   const stationDropdownOptions = stationOptionsForCurrentArea.length ? stationOptionsForCurrentArea : candidatePollingStations;
@@ -1054,6 +1097,9 @@ export default function Home() {
     setName("");
     setPhone("");
     setSupportLevel("Unknown");
+    setSupporterCounty("");
+    setSupporterConstituency("");
+    setSupporterWard("");
     setSupporterVillage("");
     setSupporterPollingStation("");
     setSupporterKeyIssue("");
@@ -1069,6 +1115,8 @@ export default function Home() {
     setName(supporter.fullName);
     setPhone(supporter.phoneNumber);
     setSupportLevel(supporter.supportLevel);
+    setSupporterCounty(supporter.county === "Not assigned" ? "" : supporter.county);
+    setSupporterConstituency(supporter.constituency === "Not assigned" ? "" : supporter.constituency);
     setSupporterWard(supporter.ward === "Not assigned" ? "" : supporter.ward);
     setSupporterVillage("");
     setSupporterPollingStation(supporter.pollingStation === "Not assigned" ? "" : supporter.pollingStation);
@@ -4373,14 +4421,59 @@ export default function Home() {
                   Phone number
                   <input value={phone} onChange={(event) => setPhone(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" />
                 </label>
+                {isNationalRace ? (
+                  <label className="block text-sm font-semibold text-slate-700">
+                    County in Kenya
+                    <select
+                      className="mt-1 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-sky-500"
+                      onChange={(event) => {
+                        setSupporterCounty(event.target.value);
+                        setSupporterConstituency("");
+                        setSupporterWard("");
+                        setSupporterPollingStation("");
+                      }}
+                      value={effectiveSupporterCounty}
+                    >
+                      {supporterCountyOptions.map((countyName) => <option key={countyName}>{countyName}</option>)}
+                    </select>
+                  </label>
+                ) : null}
+                {(isNationalRace || isCountyRace) ? (
+                  <label className="block text-sm font-semibold text-slate-700">
+                    Constituency in {effectiveSupporterCounty || electiveScopeLabel}
+                    {supporterConstituencyOptions.length ? (
+                      <select
+                        className="mt-1 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-sky-500"
+                        onChange={(event) => {
+                          setSupporterConstituency(event.target.value);
+                          setSupporterWard("");
+                          setSupporterPollingStation("");
+                        }}
+                        value={effectiveSupporterConstituency}
+                      >
+                        {supporterConstituencyOptions.map((constituencyName) => <option key={constituencyName}>{constituencyName}</option>)}
+                      </select>
+                    ) : (
+                      <input value={supporterConstituency} onChange={(event) => setSupporterConstituency(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" placeholder="Constituency" />
+                    )}
+                  </label>
+                ) : null}
                 <label className="block text-sm font-semibold text-slate-700">
-                  {focusAreaSingular} in {electiveScopeLabel}
-                  {focusAreas.length ? (
-                    <select className="mt-1 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-sky-500" onChange={(event) => setSupporterWard(event.target.value)} value={effectiveFocusArea.label}>
-                      {focusAreas.map((area) => <option key={area.label}>{area.label}</option>)}
+                  Ward in {effectiveSupporterConstituency || electiveScopeLabel}
+                  {supporterWardOptions.length ? (
+                    <select
+                      className="mt-1 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-sky-500"
+                      onChange={(event) => {
+                        setSupporterWard(event.target.value);
+                        setSupporterPollingStation("");
+                      }}
+                      value={effectiveSupporterWard}
+                    >
+                      <option value="">Choose ward</option>
+                      {supporterWardOptions.map((wardName) => <option key={wardName}>{wardName}</option>)}
                     </select>
                   ) : (
-                    <input value={supporterWard} onChange={(event) => setSupporterWard(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" placeholder={`${focusAreaSingular} or local area`} />
+                    <input value={supporterWard} onChange={(event) => setSupporterWard(event.target.value)} className="mt-1 h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" placeholder="Ward or local area" />
                   )}
                 </label>
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -4397,6 +4490,8 @@ export default function Home() {
                           const station = candidatePollingStations.find((row) => row.name === event.target.value);
                           setSupporterPollingStation(event.target.value);
                           if (station?.village) setSupporterVillage(station.village);
+                          if (station?.county) setSupporterCounty(station.county);
+                          if (station?.constituency) setSupporterConstituency(station.constituency);
                           if (station?.ward) setSupporterWard(station.ward);
                         }}
                         className="mt-1 h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-sky-500"
