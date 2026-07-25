@@ -2154,6 +2154,15 @@ export default function Home() {
             </div>
           ) : null}
         </div>
+        {liveBootstrap?.workspace.isPlatformAdmin ? (
+          <Link
+            className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-amber-400 px-3 text-sm font-black text-slate-950 shadow-sm ring-1 ring-amber-300 transition hover:bg-amber-300"
+            href="/admin/saas"
+          >
+            <ShieldCheck size={16} />
+            Open SaaS Admin
+          </Link>
+        ) : null}
         <nav className="mt-4 space-y-1">
           {visibleNavItems.map((item) => (
             <button
@@ -2230,6 +2239,15 @@ export default function Home() {
                 <input className="w-full bg-transparent outline-none placeholder:text-slate-400" onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search supporters, team, tasks, events..." value={searchQuery} />
                 <span className="rounded bg-slate-100 px-2 py-1 text-xs font-black text-slate-700">Ctrl K</span>
               </label>
+              {liveBootstrap?.workspace.isPlatformAdmin ? (
+                <Link
+                  className="hidden h-10 items-center justify-center gap-2 rounded-md bg-amber-400 px-3 text-xs font-black text-slate-950 shadow-sm ring-1 ring-amber-300 transition hover:bg-amber-300 sm:inline-flex"
+                  href="/admin/saas"
+                >
+                  <ShieldCheck size={15} />
+                  SaaS Admin
+                </Link>
+              ) : null}
               <div className="relative">
                 <button className={`relative grid h-10 w-10 place-items-center rounded-md border text-slate-950 shadow-sm transition hover:border-sky-200 hover:bg-sky-50 ${topbarPanel === "notifications" ? "border-sky-300 bg-sky-50" : "border-slate-200 bg-white"}`} aria-label="Notifications" onClick={() => setTopbarPanel((current) => current === "notifications" ? null : "notifications")} type="button">
                   <Bell size={18} />
