@@ -414,6 +414,13 @@ function liveNumber(record: LiveRecord | undefined, key: string, fallback = 0) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
+function geoKey(value: string | null | undefined) {
+  return String(value ?? "")
+    .toLowerCase()
+    .replace(/\b(county|city)\b/g, "")
+    .replace(/[^a-z0-9]+/g, "");
+}
+
 function liveDate(record: LiveRecord | undefined, key: string, fallback = "") {
   const value = record?.[key];
   if (typeof value !== "string" || !value) return fallback;
@@ -832,7 +839,7 @@ export default function Home() {
     || supporterCountyOptions[0]
     || "";
   const liveConstituencyOptions = Array.from(new Set(candidatePollingStations
-    .filter((station) => !effectiveSupporterCounty || station.county === effectiveSupporterCounty)
+    .filter((station) => !effectiveSupporterCounty || geoKey(station.county) === geoKey(effectiveSupporterCounty))
     .map((station) => station.constituency)
     .filter(Boolean))).sort((left, right) => left.localeCompare(right));
   const supporterConstituencyOptions = (() => {
@@ -846,7 +853,7 @@ export default function Home() {
     || supporterConstituencyOptions[0]
     || "";
   const liveWardOptions = Array.from(new Set(candidatePollingStations
-    .filter((station) => (!effectiveSupporterCounty || station.county === effectiveSupporterCounty) && (!effectiveSupporterConstituency || station.constituency === effectiveSupporterConstituency))
+    .filter((station) => (!effectiveSupporterCounty || geoKey(station.county) === geoKey(effectiveSupporterCounty)) && (!effectiveSupporterConstituency || geoKey(station.constituency) === geoKey(effectiveSupporterConstituency)))
     .map((station) => station.ward)
     .filter(Boolean))).sort((left, right) => left.localeCompare(right));
   const supporterWardOptions = (() => {
@@ -872,9 +879,9 @@ export default function Home() {
     wardName: effectiveSupporterWard || effectiveFocusArea.wardName || supporterWard,
   };
   const stationOptionsForCurrentArea = candidatePollingStations.filter((station) => {
-    if (effectiveSupporterCounty && station.county !== effectiveSupporterCounty) return false;
-    if (effectiveSupporterConstituency && station.constituency !== effectiveSupporterConstituency) return false;
-    if (effectiveSupporterWard && station.ward !== effectiveSupporterWard) return false;
+    if (effectiveSupporterCounty && geoKey(station.county) !== geoKey(effectiveSupporterCounty)) return false;
+    if (effectiveSupporterConstituency && geoKey(station.constituency) !== geoKey(effectiveSupporterConstituency)) return false;
+    if (effectiveSupporterWard && geoKey(station.ward) !== geoKey(effectiveSupporterWard)) return false;
     return true;
   });
   const stationDropdownOptions = stationOptionsForCurrentArea.length ? stationOptionsForCurrentArea : candidatePollingStations;

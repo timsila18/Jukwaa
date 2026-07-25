@@ -29,6 +29,11 @@ const planPricing: Record<string, number> = {
   Enterprise: 150000,
 };
 
+function officialPollingRegisterCounty(value: string | null) {
+  const county = value?.trim() ?? "";
+  return county.toLowerCase() === "nairobi" ? "Nairobi City" : county || null;
+}
+
 const positionGeography: Record<string, { county: boolean; constituency: boolean; ward: boolean }> = {
   Presidential: { county: false, constituency: false, ward: false },
   Governor: { county: true, constituency: false, ward: false },
@@ -266,7 +271,7 @@ export async function POST(request: Request) {
       await Promise.resolve(rpcClient.rpc("sync_workspace_polling_stations", {
         target_tenant: tenant.id,
         target_position: data.position,
-        target_county: county || null,
+        target_county: officialPollingRegisterCounty(county || null),
         target_constituency: constituency || null,
         target_ward: ward || null,
       }));

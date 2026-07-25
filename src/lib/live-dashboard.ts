@@ -2,6 +2,11 @@ import { getLooseSupabaseAdmin } from "@/lib/supabase";
 
 type DbRow = Record<string, unknown>;
 
+function officialPollingRegisterCounty(value: unknown) {
+  const county = typeof value === "string" ? value.trim() : "";
+  return county.toLowerCase() === "nairobi" ? "Nairobi City" : county || null;
+}
+
 export type LiveSnapshot = {
   workspace: {
     tenantId: string;
@@ -106,7 +111,7 @@ async function syncWorkspacePollingStations(input: {
     await Promise.resolve(admin.rpc("sync_workspace_polling_stations", {
       target_tenant: input.tenantId,
       target_position: input.position ?? null,
-      target_county: input.county ?? null,
+      target_county: officialPollingRegisterCounty(input.county),
       target_constituency: input.constituency ?? null,
       target_ward: input.ward ?? null,
     }));
