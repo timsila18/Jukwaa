@@ -112,6 +112,16 @@ type PlatformAdminRow = {
   created_at: string;
 };
 
+type CampaignMemberRow = {
+  id: string;
+  tenant_id: string;
+  candidate_id: string;
+  full_name: string | null;
+  email: string | null;
+  role: string | null;
+  status: string | null;
+};
+
 function rows<T>(data: unknown): T[] {
   return Array.isArray(data) ? (data as T[]) : [];
 }
@@ -122,7 +132,7 @@ function row<T>(data: unknown): T | null {
 
 async function loadSaasSnapshot() {
   const admin = getLooseSupabaseAdmin();
-  const [tenants, candidates, applications, payments, subscriptions, tickets, platformAdmins] = await Promise.all([
+  const [tenants, candidates, applications, payments, subscriptions, tickets, platformAdmins, campaignMembers] = await Promise.all([
     admin.from("tenants").select("id, name, slug, is_demo, created_at").order("created_at", { ascending: false }),
     admin
       .from("candidates")
@@ -146,6 +156,7 @@ async function loadSaasSnapshot() {
       .order("created_at", { ascending: false })
       .limit(50),
     admin.from("platform_admins").select("id, email, full_name, status, created_at").order("created_at", { ascending: false }),
+    admin.from("campaign_members").select("id, tenant_id, candidate_id, full_name, email, role, status").order("created_at", { ascending: false }).limit(500),
   ]);
 
   const tenantRows = rows<TenantRow>(tenants.data);
@@ -155,6 +166,7 @@ async function loadSaasSnapshot() {
   const subscriptionRows = rows<SubscriptionRow>(subscriptions.data);
   const ticketRows = rows<TicketRow>(tickets.data);
   const platformAdminRows = rows<PlatformAdminRow>(platformAdmins.data);
+  const campaignMemberRows = rows<CampaignMemberRow>(campaignMembers.data);
 
   const workspaces = candidateRows.map((candidate) => {
     const application = applicationRows.find((item) => item.candidate_id === candidate.id);
@@ -209,6 +221,7 @@ async function loadSaasSnapshot() {
     subscriptions: subscriptionRows,
     tickets: ticketRows,
     platformAdmins: platformAdminRows,
+    campaignMembers: campaignMemberRows,
   };
 }
 

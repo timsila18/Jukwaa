@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, CreditCard, RefreshCcw, ShieldCheck, Users, WalletCards, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Copy, CreditCard, KeyRound, RefreshCcw, ShieldCheck, Users, WalletCards, XCircle } from "lucide-react";
 
 type SaasWorkspace = {
   tenantId: string;
@@ -63,6 +63,7 @@ type SaasSnapshot = {
   subscriptions: Array<{ id: string; tenant_id: string; candidate_id: string; plan: string; status: string; expiry_date: string }>;
   tickets: Array<{ id: string; tenant_id: string | null; candidate_id: string | null; title: string; description: string | null; status: string; priority: string; created_at: string }>;
   platformAdmins: Array<{ id: string; email: string; full_name: string; status: string; created_at: string }>;
+  campaignMembers: Array<{ id: string; tenant_id: string; candidate_id: string; full_name: string | null; email: string | null; role: string | null; status: string | null }>;
 };
 
 function money(value: number) {
@@ -109,6 +110,10 @@ export default function SaasAdminPage() {
   const [workspaceView, setWorkspaceView] = useState<"queue" | "all">("queue");
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
+  const [resetWorkspaceId, setResetWorkspaceId] = useState("");
+  const [resetMemberId, setResetMemberId] = useState("");
+  const [resetBusy, setResetBusy] = useState(false);
+  const [resetResult, setResetResult] = useState<{ code: string; expiresAt: string; memberName: string } | null>(null);
 
   async function load() {
     setLoading(true);
@@ -147,6 +152,13 @@ export default function SaasAdminPage() {
   }, [query, snapshot, workspaceView]);
 
   const pendingPayments = useMemo(() => snapshot?.payments.filter((payment) => payment.status !== "Confirmed") ?? [], [snapshot]);
+  const activeResetWorkspaces = useMemo(() => snapshot?.workspaces.filter((workspace) => snapshot.campaignMembers.some((member) => member.candidate_id === workspace.candidateId && member.status === "Active" && member.email)) ?? [], [snapshot]);
+  const selectedResetWorkspaceId = resetWorkspaceId || activeResetWorkspaces[0]?.candidateId || "";
+  const resetMemberOptions = useMemo(
+    () => snapshot?.campaignMembers.filter((member) => member.candidate_id === selectedResetWorkspaceId && member.status === "Active" && member.email) ?? [],
+    [selectedResetWorkspaceId, snapshot],
+  );
+  const selectedResetMemberId = resetMemberId || resetMemberOptions[0]?.id || "";
 
   async function runAction(action: string, body: Record<string, string | undefined>) {
     setBusy(`${action}-${body.candidateId ?? body.applicationId ?? body.paymentId ?? body.ticketId}`);
@@ -166,6 +178,41 @@ export default function SaasAdminPage() {
     }
     setSnapshot(payload);
     setStatus(`${action} completed.`);
+  }
+
+  async function generateAdminResetCode() {
+    if (!selectedResetMemberId) {
+      setError("Choose a workspace member first.");
+      return;
+    }
+    setResetBusy(true);
+    setResetResult(null);
+    setStatus("");
+    setError("");
+    const response = await fetch("/api/admin/reset-code", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memberId: selectedResetMemberId }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    setResetBusy(false);
+    if (!response.ok) {
+      setError(payload.error ?? "Reset code could not be generated.");
+      return;
+    }
+    setResetResult({
+      code: String(payload.resetCode || ""),
+      expiresAt: payload.expiresAt ? new Date(payload.expiresAt).toLocaleString() : "30 minutes",
+      memberName: String(payload.member?.fullName || "Campaign member"),
+    });
+    setStatus("Reset code generated.");
+  }
+
+  async function copyResetCode() {
+    if (!resetResult?.code) return;
+    await navigator.clipboard?.writeText(resetResult.code);
+    setStatus("Reset code copied.");
   }
 
   return (
@@ -201,6 +248,78 @@ export default function SaasAdminPage() {
               <Kpi label="Locked" value={String(snapshot.summary.locked)} icon={AlertTriangle} />
               <Kpi label="Pending Payments" value={String(snapshot.summary.pendingPayments)} icon={CreditCard} />
               <Kpi label="Confirmed Revenue" value={money(snapshot.summary.revenueKes)} icon={WalletCards} />
+            </section>
+
+            <section className="j-table-shell mt-6 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <span className="grid h-11 w-11 place-items-center rounded-lg bg-amber-50 text-amber-700 ring-1 ring-amber-100">
+                    <KeyRound size={19} />
+                  </span>
+                  <div>
+                    <h2 className="text-base font-black text-slate-950">Password Reset Center</h2>
+                    <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">Generate a 30-minute reset code for any active candidate or campaign team member from the platform admin console.</p>
+                  </div>
+                </div>
+                {resetResult ? (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-600">Reset code for {resetResult.memberName}</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <code className="rounded-md bg-slate-950 px-3 py-2 font-mono text-sm font-black text-white">{resetResult.code}</code>
+                      <button className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 hover:bg-slate-50" onClick={() => void copyResetCode()} type="button">
+                        <Copy size={14} />
+                        Copy
+                      </button>
+                    </div>
+                    <p className="mt-2 text-xs text-slate-500">Expires {resetResult.expiresAt}.</p>
+                  </div>
+                ) : null}
+              </div>
+              <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_1fr_auto]">
+                <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                  Workspace
+                  <select
+                    className="mt-1 h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold normal-case tracking-normal text-slate-800 outline-none focus:border-sky-500"
+                    disabled={!activeResetWorkspaces.length || resetBusy}
+                    onChange={(event) => {
+                      setResetWorkspaceId(event.target.value);
+                      setResetMemberId("");
+                      setResetResult(null);
+                    }}
+                    value={selectedResetWorkspaceId}
+                  >
+                    {activeResetWorkspaces.map((workspace) => (
+                      <option key={workspace.candidateId} value={workspace.candidateId}>{workspace.candidateName} - {workspace.campaignName}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                  Member
+                  <select
+                    className="mt-1 h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold normal-case tracking-normal text-slate-800 outline-none focus:border-sky-500"
+                    disabled={!resetMemberOptions.length || resetBusy}
+                    onChange={(event) => {
+                      setResetMemberId(event.target.value);
+                      setResetResult(null);
+                    }}
+                    value={selectedResetMemberId}
+                  >
+                    {resetMemberOptions.map((member) => (
+                      <option key={member.id} value={member.id}>{member.full_name || member.email} - {member.role || "Member"}</option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  className="inline-flex h-11 items-center justify-center gap-2 self-end rounded-md bg-slate-950 px-4 text-sm font-black text-white shadow-sm hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={!selectedResetMemberId || resetBusy}
+                  onClick={() => void generateAdminResetCode()}
+                  type="button"
+                >
+                  <KeyRound size={16} />
+                  {resetBusy ? "Generating..." : "Generate Reset Code"}
+                </button>
+              </div>
+              {!activeResetWorkspaces.length ? <p className="mt-3 text-sm font-bold text-amber-700">No active campaign members with login details are available yet.</p> : null}
             </section>
 
             <section className="j-table-shell mt-6">
