@@ -2195,6 +2195,9 @@ export default function Home() {
           </button>
           {accountMenuOpen ? (
             <div className="mt-2 grid gap-2 rounded-md border border-white/10 bg-white/[0.055] p-2">
+              {liveBootstrap?.workspace.isPlatformAdmin ? (
+                <Link className="h-8 rounded-md px-2 py-2 text-left text-xs font-bold text-amber-200 hover:bg-amber-300/10" href="/admin/saas">Open SaaS Admin</Link>
+              ) : null}
               <button className="h-8 rounded-md px-2 text-left text-xs font-bold text-slate-200 hover:bg-white/10" onClick={() => scrollToSection(accountSection)} type="button">Open account workspace</button>
               <button className="h-8 rounded-md px-2 text-left text-xs font-bold text-slate-200 hover:bg-white/10" onClick={() => scrollToSection("Team & Roles")} type="button">Team & roles</button>
               <button className="h-8 rounded-md px-2 text-left text-xs font-bold text-red-200 hover:bg-red-500/10" onClick={() => void logout()} type="button">Logout</button>
