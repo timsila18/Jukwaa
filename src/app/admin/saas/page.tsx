@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, Copy, CreditCard, KeyRound, RefreshCcw, ShieldCheck, Users, WalletCards, XCircle } from "lucide-react";
+import { AlertTriangle, CalendarDays, CheckCircle2, Copy, CreditCard, Download, Edit3, KeyRound, Phone, Plus, RefreshCcw, Save, ShieldCheck, Trash2, Users, WalletCards, XCircle } from "lucide-react";
 
 type SaasWorkspace = {
   tenantId: string;
@@ -66,6 +66,47 @@ type SaasSnapshot = {
   campaignMembers: Array<{ id: string; tenant_id: string; candidate_id: string; full_name: string | null; email: string | null; role: string | null; status: string | null }>;
 };
 
+type OutreachStatus = "New" | "Contacted" | "Follow-up" | "Demo booked" | "Demo done" | "Converted" | "Not interested";
+
+type OutreachLead = {
+  id: string;
+  name: string;
+  seat: string;
+  contact: string | null;
+  phoneNumber: string | null;
+  status: OutreachStatus;
+  demoDate: string | null;
+  outcome: string | null;
+  nextFollowUp: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type OutreachState = {
+  leads: OutreachLead[];
+  summary: {
+    total: number;
+    contacted: number;
+    demosBooked: number;
+    converted: number;
+    followUpsDue: number;
+  };
+  storage?: string;
+};
+
+const emptyOutreachForm = {
+  name: "",
+  seat: "Governor",
+  contact: "WhatsApp",
+  phoneNumber: "",
+  status: "New" as OutreachStatus,
+  demoDate: "",
+  outcome: "",
+  nextFollowUp: "",
+  notes: "",
+};
+
 function money(value: number) {
   return `KES ${Math.round(value).toLocaleString()}`;
 }
@@ -84,6 +125,14 @@ function statusClass(status: string) {
 
 function Status({ value }: { value: string }) {
   return <span className={`rounded-md px-2 py-1 text-xs font-black ${statusClass(value)}`}>{value}</span>;
+}
+
+function outreachStatusClass(status: OutreachStatus) {
+  if (status === "Converted") return "bg-emerald-50 text-emerald-800 ring-emerald-100";
+  if (status === "Demo booked" || status === "Demo done") return "bg-sky-50 text-sky-800 ring-sky-100";
+  if (status === "Contacted" || status === "Follow-up") return "bg-amber-50 text-amber-800 ring-amber-100";
+  if (status === "Not interested") return "bg-red-50 text-red-700 ring-red-100";
+  return "bg-slate-100 text-slate-700 ring-slate-200";
 }
 
 function Kpi({ label, value, icon: Icon }: { label: string; value: string; icon: typeof Users }) {
@@ -114,6 +163,13 @@ export default function SaasAdminPage() {
   const [resetMemberId, setResetMemberId] = useState("");
   const [resetBusy, setResetBusy] = useState(false);
   const [resetResult, setResetResult] = useState<{ code: string; expiresAt: string; memberName: string } | null>(null);
+  const [outreach, setOutreach] = useState<OutreachState | null>(null);
+  const [outreachLoading, setOutreachLoading] = useState(true);
+  const [outreachBusy, setOutreachBusy] = useState("");
+  const [outreachQuery, setOutreachQuery] = useState("");
+  const [outreachFilter, setOutreachFilter] = useState<"All" | OutreachStatus>("All");
+  const [editingLeadId, setEditingLeadId] = useState("");
+  const [outreachForm, setOutreachForm] = useState(emptyOutreachForm);
 
   async function load() {
     setLoading(true);
@@ -132,6 +188,7 @@ export default function SaasAdminPage() {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void load();
+      void loadOutreach();
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
@@ -159,6 +216,29 @@ export default function SaasAdminPage() {
     [selectedResetWorkspaceId, snapshot],
   );
   const selectedResetMemberId = resetMemberId || resetMemberOptions[0]?.id || "";
+  const filteredLeads = useMemo(() => {
+    const value = outreachQuery.trim().toLowerCase();
+    const rows = outreach?.leads ?? [];
+    return rows.filter((lead) => {
+      const statusMatch = outreachFilter === "All" || lead.status === outreachFilter;
+      const queryMatch = !value || [lead.name, lead.seat, lead.contact, lead.phoneNumber, lead.status, lead.outcome, lead.notes]
+        .filter(Boolean)
+        .some((field) => String(field).toLowerCase().includes(value));
+      return statusMatch && queryMatch;
+    });
+  }, [outreach, outreachFilter, outreachQuery]);
+
+  async function loadOutreach() {
+    setOutreachLoading(true);
+    const response = await fetch("/api/admin/outreach", { credentials: "include" });
+    const payload = await response.json().catch(() => ({}));
+    if (response.ok) {
+      setOutreach(payload);
+    } else {
+      setError(payload.error ?? "Client outreach could not be loaded.");
+    }
+    setOutreachLoading(false);
+  }
 
   async function runAction(action: string, body: Record<string, string | undefined>) {
     setBusy(`${action}-${body.candidateId ?? body.applicationId ?? body.paymentId ?? body.ticketId}`);
@@ -215,6 +295,88 @@ export default function SaasAdminPage() {
     setStatus("Reset code copied.");
   }
 
+  async function saveOutreachLead() {
+    if (!outreachForm.name.trim() || !outreachForm.seat.trim()) {
+      setError("Add the candidate name and seat before saving the outreach record.");
+      return;
+    }
+    setOutreachBusy(editingLeadId ? `update-${editingLeadId}` : "create");
+    setStatus("");
+    setError("");
+    const response = await fetch("/api/admin/outreach", {
+      method: editingLeadId ? "PATCH" : "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: editingLeadId || undefined, ...outreachForm }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    setOutreachBusy("");
+    if (!response.ok) {
+      setError(payload.error ?? "Outreach record could not be saved.");
+      return;
+    }
+    setOutreach(payload);
+    setEditingLeadId("");
+    setOutreachForm(emptyOutreachForm);
+    setStatus(editingLeadId ? "Client outreach updated." : "Client outreach saved.");
+  }
+
+  async function updateOutreachStatus(lead: OutreachLead, nextStatus: OutreachStatus) {
+    setOutreachBusy(`${nextStatus}-${lead.id}`);
+    setError("");
+    setStatus("");
+    const response = await fetch("/api/admin/outreach", {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: lead.id, status: nextStatus }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    setOutreachBusy("");
+    if (!response.ok) {
+      setError(payload.error ?? "Outreach status could not be updated.");
+      return;
+    }
+    setOutreach(payload);
+    setStatus(`Marked ${lead.name} as ${nextStatus}.`);
+  }
+
+  async function deleteOutreachLead(lead: OutreachLead) {
+    const confirmed = window.confirm(`Delete outreach record for ${lead.name}?`);
+    if (!confirmed) return;
+    setOutreachBusy(`delete-${lead.id}`);
+    setError("");
+    setStatus("");
+    const response = await fetch(`/api/admin/outreach?id=${encodeURIComponent(lead.id)}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    const payload = await response.json().catch(() => ({}));
+    setOutreachBusy("");
+    if (!response.ok) {
+      setError(payload.error ?? "Outreach record could not be deleted.");
+      return;
+    }
+    setOutreach(payload);
+    setStatus("Client outreach deleted.");
+  }
+
+  function editOutreachLead(lead: OutreachLead) {
+    setEditingLeadId(lead.id);
+    setOutreachForm({
+      name: lead.name,
+      seat: lead.seat,
+      contact: lead.contact ?? "WhatsApp",
+      phoneNumber: lead.phoneNumber ?? "",
+      status: lead.status,
+      demoDate: lead.demoDate ?? "",
+      outcome: lead.outcome ?? "",
+      nextFollowUp: lead.nextFollowUp ?? "",
+      notes: lead.notes ?? "",
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   return (
     <main className="j-shell min-h-screen px-4 py-6 text-slate-900 lg:px-6">
       <section className="mx-auto max-w-7xl">
@@ -248,6 +410,146 @@ export default function SaasAdminPage() {
               <Kpi label="Locked" value={String(snapshot.summary.locked)} icon={AlertTriangle} />
               <Kpi label="Pending Payments" value={String(snapshot.summary.pendingPayments)} icon={CreditCard} />
               <Kpi label="Confirmed Revenue" value={money(snapshot.summary.revenueKes)} icon={WalletCards} />
+            </section>
+
+            <section className="j-table-shell mt-6 overflow-hidden">
+              <div className="border-b border-slate-200 bg-gradient-to-r from-sky-50 via-white to-amber-50 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-wide text-sky-700">Admin-only sales pipeline</p>
+                    <h2 className="mt-1 text-xl font-black text-slate-950">Client Outreach Tracker</h2>
+                    <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">Track candidates you are approaching, demo dates, follow-ups, and outcomes from the platform admin account.</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <a
+                      className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 shadow-sm hover:bg-slate-50"
+                      href="/api/admin/outreach?format=csv"
+                    >
+                      <Download size={16} />
+                      Export CSV
+                    </a>
+                    <button className="inline-flex h-10 items-center gap-2 rounded-md bg-slate-950 px-3 text-sm font-black text-white shadow-sm hover:bg-slate-900" onClick={() => void loadOutreach()} type="button">
+                      <RefreshCcw size={16} />
+                      Refresh Outreach
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                  <Kpi label="Prospects" value={String(outreach?.summary.total ?? 0)} icon={Users} />
+                  <Kpi label="Contacted" value={String(outreach?.summary.contacted ?? 0)} icon={Phone} />
+                  <Kpi label="Demos Booked" value={String(outreach?.summary.demosBooked ?? 0)} icon={CalendarDays} />
+                  <Kpi label="Converted" value={String(outreach?.summary.converted ?? 0)} icon={CheckCircle2} />
+                  <Kpi label="Follow-ups Due" value={String(outreach?.summary.followUpsDue ?? 0)} icon={AlertTriangle} />
+                </div>
+              </div>
+
+              <div className="grid gap-4 p-4 xl:grid-cols-[0.82fr_1.18fr]">
+                <div className="rounded-lg border border-slate-200 bg-white p-4">
+                  <h3 className="text-base font-black text-slate-950">{editingLeadId ? "Edit Outreach" : "Add Prospect"}</h3>
+                  <div className="mt-4 grid gap-3">
+                    <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                      Name
+                      <input className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm font-semibold normal-case text-slate-900 outline-none focus:border-sky-500" onChange={(event) => setOutreachForm((form) => ({ ...form, name: event.target.value }))} placeholder="Candidate name" value={outreachForm.name} />
+                    </label>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                        Seat
+                        <select className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm font-semibold normal-case text-slate-900 outline-none focus:border-sky-500" onChange={(event) => setOutreachForm((form) => ({ ...form, seat: event.target.value }))} value={outreachForm.seat}>
+                          {["President", "Governor", "Senator", "Woman Rep", "MP", "MCA", "Party Official", "Other"].map((seat) => <option key={seat} value={seat}>{seat}</option>)}
+                        </select>
+                      </label>
+                      <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                        Contact
+                        <select className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm font-semibold normal-case text-slate-900 outline-none focus:border-sky-500" onChange={(event) => setOutreachForm((form) => ({ ...form, contact: event.target.value }))} value={outreachForm.contact}>
+                          {["WhatsApp", "Call", "SMS", "Email", "Referral", "In-person"].map((contact) => <option key={contact} value={contact}>{contact}</option>)}
+                        </select>
+                      </label>
+                    </div>
+                    <input className="h-11 rounded-md border border-slate-200 px-3 text-sm font-semibold text-slate-900 outline-none focus:border-sky-500" onChange={(event) => setOutreachForm((form) => ({ ...form, phoneNumber: event.target.value }))} placeholder="Phone, email, or contact detail" value={outreachForm.phoneNumber} />
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                        Status
+                        <select className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm font-semibold normal-case text-slate-900 outline-none focus:border-sky-500" onChange={(event) => setOutreachForm((form) => ({ ...form, status: event.target.value as OutreachStatus }))} value={outreachForm.status}>
+                          {["New", "Contacted", "Follow-up", "Demo booked", "Demo done", "Converted", "Not interested"].map((item) => <option key={item} value={item}>{item}</option>)}
+                        </select>
+                      </label>
+                      <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                        Demo Date
+                        <input className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm font-semibold normal-case text-slate-900 outline-none focus:border-sky-500" onChange={(event) => setOutreachForm((form) => ({ ...form, demoDate: event.target.value }))} type="date" value={outreachForm.demoDate} />
+                      </label>
+                    </div>
+                    <label className="text-xs font-black uppercase tracking-wide text-slate-500">
+                      Next Follow-up
+                      <input className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm font-semibold normal-case text-slate-900 outline-none focus:border-sky-500" onChange={(event) => setOutreachForm((form) => ({ ...form, nextFollowUp: event.target.value }))} type="date" value={outreachForm.nextFollowUp} />
+                    </label>
+                    <input className="h-11 rounded-md border border-slate-200 px-3 text-sm font-semibold text-slate-900 outline-none focus:border-sky-500" onChange={(event) => setOutreachForm((form) => ({ ...form, outcome: event.target.value }))} placeholder="Outcome, e.g. Demo booked" value={outreachForm.outcome} />
+                    <textarea className="min-h-24 rounded-md border border-slate-200 p-3 text-sm font-semibold text-slate-900 outline-none focus:border-sky-500" onChange={(event) => setOutreachForm((form) => ({ ...form, notes: event.target.value }))} placeholder="Follow-up notes" value={outreachForm.notes} />
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <button className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-black text-white shadow-sm hover:bg-slate-900 disabled:opacity-60" disabled={Boolean(outreachBusy)} onClick={() => void saveOutreachLead()} type="button">
+                        {editingLeadId ? <Save size={16} /> : <Plus size={16} />}
+                        {outreachBusy === "create" ? "Saving..." : editingLeadId ? "Update Lead" : "Add Lead"}
+                      </button>
+                      <button className="h-11 rounded-md border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50" onClick={() => { setEditingLeadId(""); setOutreachForm(emptyOutreachForm); }} type="button">
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-slate-200 bg-white">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4">
+                    <div>
+                      <h3 className="text-base font-black text-slate-950">Follow-up Board</h3>
+                      <p className="mt-1 text-xs font-semibold text-slate-500">{outreach?.storage === "support_tickets" ? "Using safe fallback storage until the outreach table migration is applied." : "Stored in the platform outreach table."}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <select className="h-10 rounded-md border border-slate-200 px-3 text-sm font-bold text-slate-700 outline-none focus:border-sky-500" onChange={(event) => setOutreachFilter(event.target.value as "All" | OutreachStatus)} value={outreachFilter}>
+                        {["All", "New", "Contacted", "Follow-up", "Demo booked", "Demo done", "Converted", "Not interested"].map((item) => <option key={item} value={item}>{item}</option>)}
+                      </select>
+                      <input className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500 sm:w-64" onChange={(event) => setOutreachQuery(event.target.value)} placeholder="Search prospects" value={outreachQuery} />
+                    </div>
+                  </div>
+                  <div className="max-h-[560px] overflow-y-auto p-4">
+                    {outreachLoading ? <p className="rounded-md bg-slate-50 p-3 text-sm font-bold text-slate-500">Loading outreach...</p> : null}
+                    <div className="grid gap-3">
+                      {filteredLeads.map((lead) => (
+                        <article key={lead.id} className="rounded-lg border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-3 shadow-sm">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-black text-slate-950">{lead.name}</p>
+                              <p className="mt-1 text-xs font-semibold text-slate-500">{lead.seat} - {lead.contact || "Contact not set"} {lead.phoneNumber ? `- ${lead.phoneNumber}` : ""}</p>
+                            </div>
+                            <span className={`rounded-full px-3 py-1 text-xs font-black ring-1 ${outreachStatusClass(lead.status)}`}>{lead.status}</span>
+                          </div>
+                          <div className="mt-3 grid gap-2 text-xs font-semibold text-slate-600 sm:grid-cols-3">
+                            <span>Demo: {dateText(lead.demoDate)}</span>
+                            <span>Follow-up: {dateText(lead.nextFollowUp)}</span>
+                            <span>Updated: {dateText(lead.updatedAt)}</span>
+                          </div>
+                          {lead.outcome ? <p className="mt-2 text-sm font-bold text-slate-800">{lead.outcome}</p> : null}
+                          {lead.notes ? <p className="mt-1 text-sm leading-6 text-slate-600">{lead.notes}</p> : null}
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {(["Contacted", "Demo booked", "Follow-up", "Converted"] as OutreachStatus[]).map((nextStatus) => (
+                              <button key={nextStatus} className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs font-black text-slate-700 hover:bg-slate-50 disabled:opacity-60" disabled={Boolean(outreachBusy)} onClick={() => void updateOutreachStatus(lead, nextStatus)} type="button">
+                                {nextStatus}
+                              </button>
+                            ))}
+                            <button className="inline-flex h-8 items-center gap-1 rounded-md border border-sky-200 bg-sky-50 px-2 text-xs font-black text-sky-800 hover:bg-sky-100" onClick={() => editOutreachLead(lead)} type="button">
+                              <Edit3 size={13} />
+                              Edit
+                            </button>
+                            <button className="inline-flex h-8 items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 text-xs font-black text-red-700 hover:bg-red-100" onClick={() => void deleteOutreachLead(lead)} type="button">
+                              <Trash2 size={13} />
+                              Delete
+                            </button>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                    {!outreachLoading && !filteredLeads.length ? <p className="rounded-md bg-slate-50 p-3 text-sm font-bold text-slate-500">No outreach records yet. Add the first potential client on the left.</p> : null}
+                  </div>
+                </div>
+              </div>
             </section>
 
             <section className="j-table-shell mt-6 p-4">
