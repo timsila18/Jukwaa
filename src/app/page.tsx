@@ -1723,6 +1723,21 @@ export default function Home() {
     : `Manage ${activeSection.toLowerCase()} as ${currentRole} for ${referenceCandidateName}, ${candidateDescriptor}`;
   const activeSubtitle = activeSection === "Dashboard" ? personalWorkspaceSubtitle : moduleOwnershipSubtitle;
   const activeWorkspaceFeatures = workspaceFeatures[activeSection as keyof typeof workspaceFeatures] ?? workspaceFeatures.Dashboard;
+  const primaryActionLabels: Record<string, string> = {
+    Supporters: "Add Supporter",
+    Volunteers: "Invite Volunteer",
+    "Polling Agents": "Add Polling Agent",
+    "Tasks & Field Ops": "Create Task",
+    Events: "Create Event",
+    Communications: "Send Message",
+    "Issues & Manifesto": "Report Issue",
+    "Reports & Analytics": "Export Report",
+    "AI Campaign Studio": "Ask AI",
+    "Payments & Billing": "Record Payment",
+    "Team & Roles": "Invite Team",
+    Settings: "Open Settings",
+  };
+  const activePrimaryActionLabel = primaryActionLabels[activeSection] ?? `Open ${activeSection}`;
   const showAnalyticsPanels = activeSection === "Dashboard" || activeSection === "Reports & Analytics";
 
   function sectionClass(sectionId: string, baseClassName: string) {
@@ -2809,34 +2824,35 @@ export default function Home() {
           ) : null}
 
           {activeSection !== "Dashboard" ? (
-            <section className="j-workspace-hero mb-5 rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50 via-white to-amber-50/60 p-5 shadow-sm ring-1 ring-white">
-              <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
-                <div>
-                  <p className="inline-flex rounded-full border border-sky-100 bg-white px-3 py-1 text-xs font-black uppercase tracking-wide text-sky-700 shadow-sm">Active workspace</p>
-                  <h2 className="mt-2 text-2xl font-black text-slate-950">{activeWorkspaceFeatures.title}</h2>
-                  <p className="mt-2 max-w-3xl text-base leading-7 text-slate-600">{activeWorkspaceFeatures.description}</p>
+            <section className="j-enterprise-pagebar mb-5 p-4 lg:p-5">
+              <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="j-enterprise-kicker">Workspace</span>
+                    <span className="j-scope-pill truncate">{electiveScopeLabel}</span>
+                  </div>
+                  <h2 className="mt-2 text-xl font-black text-slate-950 lg:text-2xl">{activeWorkspaceFeatures.title}</h2>
+                  <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">{activeWorkspaceFeatures.description}</p>
                 </div>
-                <button className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-black text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-900" onClick={openPrimaryAction} type="button">
-                  <Plus size={17} />
-                  New {activeSection === "Payments & Billing" ? "Payment" : activeSection.split(" ")[0]}
+                <button className="j-action-primary inline-flex h-11 shrink-0 items-center justify-center gap-2 px-4 text-sm" onClick={openPrimaryAction} type="button">
+                  <Plus size={16} />
+                  {activePrimaryActionLabel}
                 </button>
               </div>
-              <div className="mt-5 grid gap-3 md:grid-cols-3">
+              <div className="mt-4 grid gap-2 lg:grid-cols-3">
                 {activeWorkspaceFeatures.cards.map((card) => {
                   const title = String(card[0]);
                   const description = String(card[1]);
                   const FeatureIcon = card[2] as typeof Users;
                   return (
-                    <div key={title} className="rounded-xl border border-slate-200 bg-white/90 p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-sky-200 hover:bg-white hover:shadow-md">
-                      <div className="flex items-start gap-3">
-                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-sky-50 to-emerald-50 text-sky-700 ring-1 ring-sky-100">
-                          <FeatureIcon size={19} />
-                        </span>
-                        <span>
-                          <span className="block text-base font-black text-slate-950">{title}</span>
-                          <span className="mt-1 block text-sm leading-6 text-slate-600">{description}</span>
-                        </span>
-                      </div>
+                    <div key={title} className="j-module-chip">
+                      <span className="j-module-chip-icon">
+                        <FeatureIcon size={17} />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-black text-slate-950">{title}</span>
+                        <span className="mt-0.5 block text-sm leading-5 text-slate-600">{description}</span>
+                      </span>
                     </div>
                   );
                 })}
@@ -4334,9 +4350,9 @@ export default function Home() {
             </ChartCard>
           </section>
 
-          <section id="supporters" className={sectionClass("supporters", "scroll-mt-24 grid gap-4 2xl:grid-cols-[1.5fr_0.8fr]")}>
-            <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4">
+          <section id="supporters" className={sectionClass("supporters", "scroll-mt-24 grid gap-4 2xl:grid-cols-[minmax(0,1.65fr)_420px]")}>
+            <div className="j-table-shell">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white p-4">
                 <div>
                   <h2 className="text-sm font-bold text-slate-950">Supporter CRM</h2>
                   <p className="text-sm text-slate-500">Consent-aware supporter records with duplicate detection.</p>
@@ -4407,7 +4423,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div id="supporter-form" className="scroll-mt-24 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <div id="supporter-form" className="j-panel scroll-mt-24 p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h2 className="text-sm font-bold text-slate-950">{editingSupporterId ? "Edit Supporter" : "Quick Add Supporter"}</h2>

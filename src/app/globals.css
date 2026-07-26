@@ -674,3 +674,187 @@ textarea {
   background: linear-gradient(180deg, rgb(15 23 42 / 0.98), rgb(8 15 29 / 0.98)) !important;
   border-color: rgb(148 163 184 / 0.24) !important;
 }
+
+/* Enterprise polish pass: keep JUKWAA's structure, make the surface language calmer and crisper. */
+.j-shell {
+  background: #f4f7fa;
+}
+
+.j-workspace-content {
+  background: #f4f7fa;
+}
+
+.j-premium-shell {
+  background: #07111f;
+  box-shadow: none;
+}
+
+.j-premium-shell img {
+  filter: drop-shadow(0 8px 18px rgb(0 0 0 / 0.18));
+}
+
+.j-premium-nav {
+  border-radius: 0.375rem;
+  color: #b7c4d6;
+}
+
+.j-premium-nav:hover {
+  background: rgb(255 255 255 / 0.055);
+  color: #ffffff;
+}
+
+.j-premium-nav-active {
+  background: rgb(255 255 255 / 0.07);
+  box-shadow: inset 3px 0 0 #c89b3c;
+  color: #ffffff;
+}
+
+.j-main-topbar {
+  background: #ffffff !important;
+  border-color: #e3e9f0 !important;
+  box-shadow: none;
+}
+
+.j-panel,
+.j-table-shell,
+.j-kpi,
+#dashboard .j-dashboard-card {
+  border-color: #dce4ee;
+  background: #ffffff;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 2px rgb(7 17 31 / 0.04), 0 8px 18px rgb(7 17 31 / 0.045);
+}
+
+.j-panel:hover,
+#dashboard .j-dashboard-card:hover {
+  transform: none;
+  border-color: #cfd9e6;
+  box-shadow: 0 1px 2px rgb(7 17 31 / 0.05), 0 10px 22px rgb(7 17 31 / 0.055);
+}
+
+#dashboard .j-command-center {
+  border-radius: 0.5rem;
+  border-color: #d8e0ea;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgb(7 17 31 / 0.04), 0 10px 24px rgb(7 17 31 / 0.045);
+}
+
+.j-enterprise-pagebar {
+  border: 1px solid #dbe4ef;
+  border-radius: 0.5rem;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgb(7 17 31 / 0.04), 0 8px 18px rgb(7 17 31 / 0.04);
+}
+
+.j-enterprise-kicker {
+  display: inline-flex;
+  height: 1.625rem;
+  align-items: center;
+  border-radius: 0.25rem;
+  border: 1px solid #dbe8ff;
+  background: #f4f8ff;
+  padding: 0 0.625rem;
+  color: #075985;
+  font-size: 0.6875rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.j-scope-pill {
+  display: inline-flex;
+  max-width: 100%;
+  height: 1.625rem;
+  align-items: center;
+  border-radius: 0.25rem;
+  border: 1px solid #f1dfaa;
+  background: #fff8e6;
+  padding: 0 0.625rem;
+  color: #755317;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.j-action-primary {
+  border-radius: 0.375rem;
+  background: #07111f;
+  color: #ffffff;
+  font-weight: 850;
+  box-shadow: 0 8px 16px rgb(7 17 31 / 0.14);
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.j-action-primary:hover {
+  background: #102038;
+  box-shadow: 0 10px 20px rgb(7 17 31 / 0.18);
+}
+
+.j-module-chip {
+  display: flex;
+  min-height: 5.25rem;
+  align-items: flex-start;
+  gap: 0.75rem;
+  border: 1px solid #dfe7f1;
+  border-radius: 0.5rem;
+  background: #ffffff;
+  padding: 1rem;
+}
+
+.j-module-chip-icon {
+  display: grid;
+  height: 2.25rem;
+  width: 2.25rem;
+  flex: none;
+  place-items: center;
+  border-radius: 0.375rem;
+  border: 1px solid #dbe8ff;
+  background: #f4f8ff;
+  color: #075985;
+}
+
+.j-table-shell thead {
+  background: #f6f8fb;
+}
+
+.j-table-shell tbody tr:hover {
+  background: #f8fbff;
+}
+
+:root.dark .j-shell,
+:root.dark .j-workspace-content {
+  background: #07111f;
+}
+
+:root.dark .j-enterprise-pagebar,
+:root.dark .j-panel,
+:root.dark .j-table-shell,
+:root.dark .j-kpi,
+:root.dark #dashboard .j-dashboard-card,
+:root.dark #dashboard .j-command-center {
+  border-color: rgb(148 163 184 / 0.22) !important;
+  background: #0d1728 !important;
+  box-shadow: none;
+}
+
+:root.dark .j-module-chip {
+  border-color: rgb(148 163 184 / 0.22);
+  background: #0d1728;
+}
+
+:root.dark .j-module-chip-icon {
+  border-color: rgb(59 130 246 / 0.24);
+  background: rgb(59 130 246 / 0.09);
+  color: #93c5fd;
+}
+
+:root.dark .j-enterprise-kicker {
+  border-color: rgb(59 130 246 / 0.28);
+  background: rgb(59 130 246 / 0.09);
+  color: #93c5fd;
+}
+
+:root.dark .j-scope-pill {
+  border-color: rgb(200 155 60 / 0.34);
+  background: rgb(200 155 60 / 0.11);
+  color: #f6d58a;
+}
