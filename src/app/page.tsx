@@ -91,6 +91,7 @@ const navItems = [
   { label: "Events", icon: CalendarDays },
   { label: "Communications", icon: MessageSquare },
   { label: "Issues & Manifesto", icon: HandCoins },
+  { label: "Polls & Pulse", icon: Vote, badge: "LIVE" },
   { label: "Reports & Analytics", icon: BarChart3 },
   { label: "AI Campaign Studio", icon: Brain, badge: "NEW" },
   { label: "Payments & Billing", icon: WalletCards },
@@ -99,16 +100,16 @@ const navItems = [
 ];
 
 const roleNavItems: Record<string, string[]> = {
-  Candidate: ["Dashboard", "Supporters", "Volunteers", "Polling Agents", "Tasks & Field Ops", "Events", "Communications", "Issues & Manifesto", "Reports & Analytics", "AI Campaign Studio", "Payments & Billing", "Team & Roles", "Settings"],
-  Admin: ["Dashboard", "Supporters", "Volunteers", "Polling Agents", "Tasks & Field Ops", "Events", "Communications", "Issues & Manifesto", "Reports & Analytics", "AI Campaign Studio", "Payments & Billing", "Team & Roles", "Settings"],
-  "Campaign Manager": ["Dashboard", "Supporters", "Volunteers", "Polling Agents", "Tasks & Field Ops", "Events", "Communications", "Issues & Manifesto", "Reports & Analytics", "AI Campaign Studio", "Team & Roles"],
-  "Constituency Coordinator": ["Dashboard", "Supporters", "Volunteers", "Tasks & Field Ops", "Events", "Communications", "Issues & Manifesto", "Reports & Analytics"],
-  "Ward Coordinator": ["Dashboard", "Supporters", "Volunteers", "Tasks & Field Ops", "Events", "Communications", "Issues & Manifesto", "Reports & Analytics"],
-  "Village Coordinator": ["Dashboard", "Supporters", "Tasks & Field Ops", "Events", "Communications", "Issues & Manifesto"],
-  Volunteer: ["Dashboard", "Supporters", "Tasks & Field Ops", "Events", "Communications", "Issues & Manifesto"],
-  "Polling Agent": ["Dashboard", "Polling Agents", "Tasks & Field Ops", "Communications", "Reports & Analytics"],
-  "Media Team": ["Dashboard", "Communications", "AI Campaign Studio", "Events", "Reports & Analytics"],
-  "Data Clerk": ["Dashboard", "Supporters", "Polling Agents", "Reports & Analytics", "Tasks & Field Ops"],
+  Candidate: ["Dashboard", "Supporters", "Volunteers", "Polling Agents", "Tasks & Field Ops", "Events", "Communications", "Issues & Manifesto", "Polls & Pulse", "Reports & Analytics", "AI Campaign Studio", "Payments & Billing", "Team & Roles", "Settings"],
+  Admin: ["Dashboard", "Supporters", "Volunteers", "Polling Agents", "Tasks & Field Ops", "Events", "Communications", "Issues & Manifesto", "Polls & Pulse", "Reports & Analytics", "AI Campaign Studio", "Payments & Billing", "Team & Roles", "Settings"],
+  "Campaign Manager": ["Dashboard", "Supporters", "Volunteers", "Polling Agents", "Tasks & Field Ops", "Events", "Communications", "Issues & Manifesto", "Polls & Pulse", "Reports & Analytics", "AI Campaign Studio", "Team & Roles"],
+  "Constituency Coordinator": ["Dashboard", "Supporters", "Volunteers", "Tasks & Field Ops", "Events", "Communications", "Issues & Manifesto", "Polls & Pulse", "Reports & Analytics"],
+  "Ward Coordinator": ["Dashboard", "Supporters", "Volunteers", "Tasks & Field Ops", "Events", "Communications", "Issues & Manifesto", "Polls & Pulse", "Reports & Analytics"],
+  "Village Coordinator": ["Dashboard", "Supporters", "Tasks & Field Ops", "Events", "Communications", "Issues & Manifesto", "Polls & Pulse"],
+  Volunteer: ["Dashboard", "Supporters", "Tasks & Field Ops", "Events", "Communications", "Issues & Manifesto", "Polls & Pulse"],
+  "Polling Agent": ["Dashboard", "Polling Agents", "Tasks & Field Ops", "Communications", "Polls & Pulse", "Reports & Analytics"],
+  "Media Team": ["Dashboard", "Communications", "Polls & Pulse", "AI Campaign Studio", "Events", "Reports & Analytics"],
+  "Data Clerk": ["Dashboard", "Supporters", "Polling Agents", "Polls & Pulse", "Reports & Analytics", "Tasks & Field Ops"],
 };
 
 const roleProfiles: Record<string, { title: string; subtitle: string; badge: string; gradient: string; quickActions: Array<[string, typeof Users, string]> }> = {
@@ -192,6 +193,7 @@ const sectionTargets: Record<string, string> = {
   "Tasks & Field Ops": "field-operations",
   "Community Issues": "community-issues",
   "Issues & Manifesto": "community-issues",
+  "Polls & Pulse": "polls-pulse",
   "Events & Rallies": "events-rallies",
   Events: "events-rallies",
   "Territory Coverage": "territory-coverage",
@@ -304,6 +306,10 @@ type LiveBootstrap = {
     unreadNotifications?: number;
     messagesOpen?: number;
     aiContent?: number;
+    polls?: number;
+    activePolls?: number;
+    pollResponses?: number;
+    pollActionsOpen?: number;
   };
   livekit?: {
     configured: boolean;
@@ -355,6 +361,14 @@ type LiveBootstrap = {
   invitations?: LiveRecord[];
   pollingResults?: LiveRecord[];
   pollingStations?: LiveRecord[];
+  polls?: LiveRecord[];
+  pollQuestions?: LiveRecord[];
+  pollOptions?: LiveRecord[];
+  pollResponses?: LiveRecord[];
+  pollAnswers?: LiveRecord[];
+  pollActionItems?: LiveRecord[];
+  pollSnapshots?: LiveRecord[];
+  pollTemplates?: LiveRecord[];
 };
 
 type LiveRecord = Record<string, unknown>;
@@ -689,6 +703,28 @@ export default function Home() {
   const [issueCategory, setIssueCategory] = useState("Other");
   const [issuePriority, setIssuePriority] = useState("Medium");
   const [issueDescription, setIssueDescription] = useState("");
+  const [pollPulseTab, setPollPulseTab] = useState("Overview");
+  const [pollTitle, setPollTitle] = useState("");
+  const [pollDescription, setPollDescription] = useState("");
+  const [pollType, setPollType] = useState("Issue Pulse");
+  const [pollVisibility, setPollVisibility] = useState("Campaign Team");
+  const [pollStatus, setPollStatus] = useState("Draft");
+  const [pollStartDate, setPollStartDate] = useState("");
+  const [pollEndDate, setPollEndDate] = useState("");
+  const [pollTargetResponses, setPollTargetResponses] = useState("100");
+  const [pollQuestion, setPollQuestion] = useState("What is the top issue in your area?");
+  const [pollQuestionType, setPollQuestionType] = useState("single_choice");
+  const [pollOptionsText, setPollOptionsText] = useState("Water\nRoads\nHealthcare\nJobs\nEducation\nSecurity");
+  const [pollRequireConsent, setPollRequireConsent] = useState(true);
+  const [pollCollectDemographics, setPollCollectDemographics] = useState(true);
+  const [pollResponsePollId, setPollResponsePollId] = useState("");
+  const [pollResponseName, setPollResponseName] = useState("");
+  const [pollResponseAnswer, setPollResponseAnswer] = useState("");
+  const [pollResponseOptionId, setPollResponseOptionId] = useState("");
+  const [pollResponseMethod, setPollResponseMethod] = useState("Field Agent");
+  const [pollActionTitle, setPollActionTitle] = useState("");
+  const [pollActionDescription, setPollActionDescription] = useState("");
+  const [pollActionPriority, setPollActionPriority] = useState("Medium");
   const [searchQuery, setSearchQuery] = useState("");
   const [liveBootstrap, setLiveBootstrap] = useState<LiveBootstrap | null>(null);
   const [liveSupporters, setLiveSupporters] = useState<LiveSupporter[] | null>(null);
@@ -715,6 +751,12 @@ export default function Home() {
   const liveAuditLogs = liveBootstrap?.auditLogs ?? [];
   const livePollingResults = liveBootstrap?.pollingResults ?? [];
   const livePollingStations = liveBootstrap?.pollingStations ?? [];
+  const livePolls = liveBootstrap?.polls ?? [];
+  const livePollQuestions = liveBootstrap?.pollQuestions ?? [];
+  const livePollOptions = liveBootstrap?.pollOptions ?? [];
+  const livePollResponses = liveBootstrap?.pollResponses ?? [];
+  const livePollAnswers = liveBootstrap?.pollAnswers ?? [];
+  const livePollActionItems = liveBootstrap?.pollActionItems ?? [];
   const usingLiveData = true;
   const campaignCounty = liveBootstrap?.campaign?.county || campaign.county;
   const campaignConstituency = liveBootstrap?.campaign?.constituency || campaign.constituency;
@@ -1575,6 +1617,31 @@ export default function Home() {
     { label: "Open Issues", value: liveBootstrap?.summary.issues ?? 0, icon: Siren, tone: "red", section: "Issues & Manifesto" },
     { label: "Tasks Overdue", value: liveBootstrap?.summary.tasksOverdue ?? 0, icon: AlertTriangle, tone: "amber", section: "Tasks & Field Ops" },
   ];
+  const activePollRows = livePolls.filter((poll) => ["Active", "Scheduled"].includes(liveText(poll, "status", "")));
+  const selectedPollId = pollResponsePollId || activePollRows[0]?.id?.toString() || livePolls[0]?.id?.toString() || "";
+  const selectedPoll = livePolls.find((poll) => String(poll.id) === selectedPollId);
+  const selectedPollQuestions = livePollQuestions.filter((question) => String(question.poll_id) === selectedPollId).sort((a, b) => liveNumber(a, "display_order") - liveNumber(b, "display_order"));
+  const selectedPollQuestion = selectedPollQuestions[0];
+  const selectedPollOptions = selectedPollQuestion
+    ? livePollOptions.filter((option) => String(option.question_id) === String(selectedPollQuestion.id)).sort((a, b) => liveNumber(a, "display_order") - liveNumber(b, "display_order"))
+    : [];
+  const pollResponsesForSelected = selectedPollId ? livePollResponses.filter((response) => String(response.poll_id) === selectedPollId) : livePollResponses;
+  const pollAreaField = isNationalRace ? "county_name" : isCountyRace ? "constituency_name" : isMcaRace ? "polling_station_name" : "ward_name";
+  const pollAreaData = groupCount(pollResponsesForSelected, pollAreaField).slice(0, 8);
+  const pollOptionData = selectedPollOptions.map((option) => {
+    const value = livePollAnswers.filter((answer) => String(answer.option_id) === String(option.id)).length;
+    return { name: liveText(option, "option_text"), value };
+  });
+  const topPollIssue = pollOptionData.slice().sort((a, b) => b.value - a.value)[0];
+  const pollResponseRate = selectedPoll && Number(selectedPoll.target_response_count ?? 0)
+    ? Math.min(100, Math.round((pollResponsesForSelected.length / Number(selectedPoll.target_response_count)) * 100))
+    : 0;
+  const pulseMetricRows = [
+    { label: "Polls", value: livePolls.length.toLocaleString(), helper: `${activePollRows.length.toLocaleString()} active or scheduled`, icon: Vote, tone: "sky" },
+    { label: "Responses", value: livePollResponses.length.toLocaleString(), helper: `${pollResponsesForSelected.length.toLocaleString()} in selected poll`, icon: MessageSquare, tone: "emerald" },
+    { label: "Response Rate", value: `${pollResponseRate}%`, helper: selectedPoll ? `${pollResponsesForSelected.length}/${Number(selectedPoll.target_response_count ?? 0).toLocaleString()} target` : "Create a poll target", icon: Gauge, tone: "gold" },
+    { label: "Open Actions", value: livePollActionItems.filter((item) => !["Resolved", "Archived"].includes(liveText(item, "status", ""))).length.toLocaleString(), helper: "Insights awaiting follow-up", icon: ClipboardCheck, tone: "red" },
+  ];
   const progressRows = [
     ["Organization", 85, Building2],
     ["Field Operations", 68, ClipboardCheck],
@@ -1671,6 +1738,15 @@ export default function Home() {
         ["Manifesto Link", "Connect issues to campaign pledges and follow-up messages.", HandCoins],
       ],
     },
+    "Polls & Pulse": {
+      title: "Polls & Campaign Pulse",
+      description: "Create campaign polls, collect field responses, detect sentiment shifts, and convert insights into action.",
+      cards: [
+        ["Poll Builder", "Launch issue pulses, message tests, approval checks, and field surveys.", Vote],
+        ["Live Pulse", "Track responses by candidate geography, sentiment, and urgent issues.", Activity],
+        ["Action Centre", "Turn poll findings into tasks, follow-ups, and leadership briefs.", ClipboardCheck],
+      ],
+    },
     "Reports & Analytics": {
       title: "Reports & Analytics",
       description: "Export campaign reports, analyze performance, and prepare leadership-ready summaries.",
@@ -1731,6 +1807,7 @@ export default function Home() {
     Events: "Create Event",
     Communications: "Send Message",
     "Issues & Manifesto": "Report Issue",
+    "Polls & Pulse": "Create Poll",
     "Reports & Analytics": "Export Report",
     "AI Campaign Studio": "Ask AI",
     "Payments & Billing": "Record Payment",
@@ -1762,6 +1839,7 @@ export default function Home() {
       "Tasks & Field Ops": "field-operations",
       Events: "events-rallies",
       "Issues & Manifesto": "field-operations",
+      "Polls & Pulse": "polls-pulse",
       Communications: "communications",
       "AI Campaign Studio": "ai-assistant",
       "Reports & Analytics": "reports",
@@ -1866,7 +1944,7 @@ export default function Home() {
         });
         resetSupporterForm();
       }
-      if (["communicationRoom", "communicationMessage", "issue", "issueStatus", "fieldVisit", "aiContent", "task", "event"].includes(workflow)) {
+      if (["communicationRoom", "communicationMessage", "issue", "issueStatus", "fieldVisit", "aiContent", "task", "event", "poll", "pollResponse", "pollAction", "pollStatus"].includes(workflow)) {
         await refreshWorkspace();
       }
       runAction(successMessage, sectionLabel);
@@ -2141,6 +2219,122 @@ export default function Home() {
   function submitCampaignMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     void saveCampaignMessage();
+  }
+
+  function pollOptionLines() {
+    return pollOptionsText
+      .split(/\n|,/)
+      .map((option) => option.trim())
+      .filter(Boolean)
+      .slice(0, 8);
+  }
+
+  async function savePoll(nextStatus = pollStatus) {
+    await persistWorkflow(
+      "poll",
+      {
+        title: pollTitle,
+        description: pollDescription,
+        pollType,
+        visibility: pollVisibility,
+        status: nextStatus,
+        startDate: pollStartDate,
+        endDate: pollEndDate,
+        targetResponseCount: Number(pollTargetResponses || 0),
+        allowAnonymous: true,
+        requireConsent: pollRequireConsent,
+        collectLocation: true,
+        collectDemographics: pollCollectDemographics,
+        methodologyNote: `Campaign pulse for ${referenceCandidateName} in ${electiveScopeLabel}. This is operational campaign intelligence, not an official electoral poll.`,
+        questions: [{
+          questionText: pollQuestion,
+          questionType: pollQuestionType,
+          required: true,
+          options: pollOptionLines(),
+        }],
+      },
+      nextStatus === "Active" ? "Poll created and published." : "Poll saved.",
+      "Polls & Pulse",
+    );
+    setPollTitle("");
+    setPollDescription("");
+    setPollOptionsText("Water\nRoads\nHealthcare\nJobs\nEducation\nSecurity");
+    setPollQuestion("What is the top issue in your area?");
+    await refreshWorkspace();
+  }
+
+  async function updatePollStatus(pollId: string, status: string) {
+    await persistWorkflow("pollStatus", { pollId, status }, `Poll marked ${status}.`, "Polls & Pulse");
+    await refreshWorkspace();
+  }
+
+  async function submitPollResponse(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const questionId = String(selectedPollQuestion?.id ?? "");
+    if (!selectedPollId || !questionId) {
+      runAction("Create or select a poll before recording a response.", "Polls & Pulse");
+      return;
+    }
+    await persistWorkflow(
+      "pollResponse",
+      {
+        pollId: selectedPollId,
+        respondentName: pollResponseName,
+        collectionMethod: pollResponseMethod,
+        ...selectedLocationPayload,
+        countyName: selectedStationRecord?.county || selectedLocationPayload.countyName,
+        constituencyName: selectedStationRecord?.constituency || selectedLocationPayload.constituencyName,
+        wardName: selectedStationRecord?.ward || selectedLocationPayload.wardName,
+        villageName: selectedStationRecord?.village || supporterVillage,
+        pollingStationName: supporterPollingStation,
+        pollingStationId: selectedStationRecord?.id || undefined,
+        consentToProcess: true,
+        answers: [{
+          questionId,
+          optionId: pollResponseOptionId,
+          textAnswer: pollResponseAnswer,
+        }],
+      },
+      "Poll response captured.",
+      "Polls & Pulse",
+    );
+    setPollResponseName("");
+    setPollResponseAnswer("");
+    setPollResponseOptionId("");
+    await refreshWorkspace();
+  }
+
+  async function savePollAction(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await persistWorkflow(
+      "pollAction",
+      {
+        pollId: selectedPollId || undefined,
+        title: pollActionTitle,
+        description: pollActionDescription,
+        insightCategory: "Issues",
+        priority: pollActionPriority,
+        status: "Open",
+        assignedTeam: `${electiveScopeLabel} field team`,
+        ...selectedLocationPayload,
+        countyName: selectedStationRecord?.county || selectedLocationPayload.countyName,
+        constituencyName: selectedStationRecord?.constituency || selectedLocationPayload.constituencyName,
+        wardName: selectedStationRecord?.ward || selectedLocationPayload.wardName,
+        villageName: selectedStationRecord?.village || supporterVillage,
+        pollingStationName: supporterPollingStation,
+      },
+      "Poll insight action saved.",
+      "Polls & Pulse",
+    );
+    setPollActionTitle("");
+    setPollActionDescription("");
+    await refreshWorkspace();
+  }
+
+  async function copyPollLink(pollId: string) {
+    const link = `${window.location.origin}/polls/${pollId}`;
+    await navigator.clipboard?.writeText(link);
+    runAction("Public poll link copied.", "Polls & Pulse");
   }
 
   async function askJukwaaAi(event: FormEvent<HTMLFormElement>) {
@@ -4348,6 +4542,284 @@ export default function Home() {
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>
+          </section>
+
+          <section id="polls-pulse" className={sectionClass("polls-pulse", "scroll-mt-24 space-y-4")}>
+            <div className="j-panel overflow-hidden">
+              <div className="border-b border-slate-200 bg-gradient-to-r from-sky-50 via-white to-emerald-50 p-5">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-wide text-sky-700">Live campaign intelligence</p>
+                    <h2 className="mt-1 text-2xl font-black text-slate-950">Polls & Campaign Pulse</h2>
+                    <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">
+                      Run quick polls for {electiveScopeLabel}, collect responses from field teams or public links, then turn the findings into actions.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button className="inline-flex h-10 items-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-black text-white hover:bg-slate-900" onClick={() => { setPollPulseTab("Create"); window.setTimeout(() => document.getElementById("poll-create-form")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0); }} type="button">
+                      <Plus size={16} />
+                      Create Poll
+                    </button>
+                    <ReportLink report="weekly-campaign-pulse" label="Weekly Pulse" />
+                  </div>
+                </div>
+              </div>
+              <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-4">
+                {pulseMetricRows.map((metric) => (
+                  <button key={metric.label} className="rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-md" onClick={() => setPollPulseTab(metric.label === "Open Actions" ? "Actions" : "Overview")} type="button">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-black text-slate-800">{metric.label}</p>
+                        <p className="mt-2 text-3xl font-black text-slate-950">{metric.value}</p>
+                        <p className="mt-2 text-xs font-bold text-emerald-700">{metric.helper}</p>
+                      </div>
+                      <span className="grid h-11 w-11 place-items-center rounded-xl bg-sky-50 text-sky-700 ring-1 ring-sky-100"><metric.icon size={18} /></span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {["Overview", "Create", "Responses", "Actions", "Reports"].map((tab) => (
+                <button key={tab} className={`h-9 rounded-full px-4 text-sm font-black transition ${pollPulseTab === tab ? "bg-slate-950 text-white" : "border border-slate-200 bg-white text-slate-700 hover:border-sky-200 hover:text-sky-700"}`} onClick={() => setPollPulseTab(tab)} type="button">
+                  {tab}
+                </button>
+              ))}
+            </div>
+
+            {pollPulseTab === "Overview" ? (
+              <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+                <ChartCard
+                  title={`${electiveScopeLabel} Poll Response Coverage`}
+                  report="poll-responses"
+                  accent="sky"
+                  hasData={pollAreaData.some((row) => row.value > 0)}
+                  insight={`Poll responses are grouped by the candidate's real elective area: ${isNationalRace ? "counties" : isCountyRace ? "constituencies" : isMcaRace ? "polling stations" : "wards"}.`}
+                  stats={[
+                    { label: "Selected poll responses", value: pollResponsesForSelected.length.toLocaleString() },
+                    { label: "Area groups", value: pollAreaData.length.toLocaleString() },
+                    { label: "Response rate", value: `${pollResponseRate}%` },
+                  ]}
+                >
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={pollAreaData}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="name" tickLine={false} axisLine={false} />
+                      <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
+                      <Tooltip />
+                      <Bar dataKey="value" fill="#0284c7" radius={[6, 6, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </ChartCard>
+                <ChartCard
+                  title={selectedPollQuestion ? liveText(selectedPollQuestion, "question_text") : "Top Poll Choices"}
+                  report="polls-overview"
+                  accent="emerald"
+                  hasData={pollOptionData.some((row) => row.value > 0)}
+                  insight={topPollIssue?.value ? `${topPollIssue.name} is leading among current responses and should be reviewed by the field team.` : "Once responses come in, JUKWAA will rank the issues and messages voters mention most."}
+                  stats={[
+                    { label: "Top choice", value: topPollIssue?.name ?? "None yet" },
+                    { label: "Votes", value: topPollIssue?.value ?? 0 },
+                    { label: "Questions", value: selectedPollQuestions.length },
+                  ]}
+                >
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={pollOptionData.length ? pollOptionData : [{ name: "No responses", value: 1 }]} dataKey="value" nameKey="name" innerRadius={58} outerRadius={92}>
+                        {(pollOptionData.length ? pollOptionData : [{ name: "No responses", value: 1 }]).map((entry, index) => <Cell key={entry.name} fill={["#0ea5e9", "#16a34a", "#f59e0b", "#7c3aed", "#ef4444", "#94a3b8"][index % 6]} />)}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </ChartCard>
+              </div>
+            ) : null}
+
+            {pollPulseTab === "Create" ? (
+              <div className="grid gap-4 xl:grid-cols-[1fr_0.85fr]">
+                <form id="poll-create-form" className="j-panel scroll-mt-24 p-4" onSubmit={(event) => { event.preventDefault(); void savePoll(); }}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h2 className="text-lg font-black text-slate-950">Poll Creation Wizard</h2>
+                      <p className="mt-1 text-sm font-semibold text-slate-500">Templates, targeting, response windows, and publication mode for {electiveScopeLabel}.</p>
+                    </div>
+                    <Vote className="text-sky-700" size={22} />
+                  </div>
+                  <div className="mt-4 grid gap-3">
+                    <input className="h-11 rounded-md border border-slate-200 px-3 text-sm font-semibold outline-none focus:border-sky-500" value={pollTitle} onChange={(event) => setPollTitle(event.target.value)} placeholder={`${electiveScopeLabel} issue pulse`} />
+                    <textarea className="min-h-20 rounded-md border border-slate-200 p-3 text-sm outline-none focus:border-sky-500" value={pollDescription} onChange={(event) => setPollDescription(event.target.value)} placeholder="Purpose, target audience, or context" />
+                    <div className="grid gap-3 md:grid-cols-3">
+                      <select className="h-11 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-sky-500" value={pollType} onChange={(event) => setPollType(event.target.value)}>
+                        {["Issue Pulse", "Approval Pulse", "Message Test", "Service Delivery Survey", "Volunteer Feedback", "Internal Tracking Poll"].map((type) => <option key={type}>{type}</option>)}
+                      </select>
+                      <select className="h-11 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-sky-500" value={pollVisibility} onChange={(event) => setPollVisibility(event.target.value)}>
+                        {["Private Draft", "Campaign Team", "Field Agents", "Public Link"].map((mode) => <option key={mode}>{mode}</option>)}
+                      </select>
+                      <select className="h-11 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-sky-500" value={pollStatus} onChange={(event) => setPollStatus(event.target.value)}>
+                        {["Draft", "Scheduled", "Active", "Closed"].map((status) => <option key={status}>{status}</option>)}
+                      </select>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-3">
+                      <input type="date" className="h-11 rounded-md border border-slate-200 px-3 text-sm font-semibold outline-none focus:border-sky-500" value={pollStartDate} onChange={(event) => setPollStartDate(event.target.value)} />
+                      <input type="date" className="h-11 rounded-md border border-slate-200 px-3 text-sm font-semibold outline-none focus:border-sky-500" value={pollEndDate} onChange={(event) => setPollEndDate(event.target.value)} />
+                      <input type="number" min={0} className="h-11 rounded-md border border-slate-200 px-3 text-sm font-semibold outline-none focus:border-sky-500" value={pollTargetResponses} onChange={(event) => setPollTargetResponses(event.target.value)} placeholder="Target responses" />
+                    </div>
+                    <input className="h-11 rounded-md border border-slate-200 px-3 text-sm font-semibold outline-none focus:border-sky-500" value={pollQuestion} onChange={(event) => setPollQuestion(event.target.value)} placeholder="Question" />
+                    <div className="grid gap-3 md:grid-cols-[220px_1fr]">
+                      <select className="h-11 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-sky-500" value={pollQuestionType} onChange={(event) => setPollQuestionType(event.target.value)}>
+                        {["single_choice", "multiple_choice", "text", "rating", "yes_no"].map((type) => <option key={type}>{type}</option>)}
+                      </select>
+                      <textarea className="min-h-24 rounded-md border border-slate-200 p-3 text-sm outline-none focus:border-sky-500" value={pollOptionsText} onChange={(event) => setPollOptionsText(event.target.value)} placeholder="One option per line" />
+                    </div>
+                    <div className="grid gap-2 md:grid-cols-2">
+                      <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm font-bold text-slate-700"><input type="checkbox" checked={pollRequireConsent} onChange={(event) => setPollRequireConsent(event.target.checked)} /> Require consent</label>
+                      <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm font-bold text-slate-700"><input type="checkbox" checked={pollCollectDemographics} onChange={(event) => setPollCollectDemographics(event.target.checked)} /> Collect demographics</label>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button disabled={!pollTitle.trim() || !pollQuestion.trim()} className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-black text-white hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-300" type="submit"><ClipboardCheck size={16} /> Save Poll</button>
+                      <button disabled={!pollTitle.trim() || !pollQuestion.trim()} className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md bg-sky-700 px-4 text-sm font-black text-white hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-slate-300" onClick={() => void savePoll("Active")} type="button"><Radio size={16} /> Save & Publish</button>
+                    </div>
+                  </div>
+                </form>
+                <div className="j-panel p-4">
+                  <h3 className="text-sm font-black text-slate-950">Templates & Published Polls</h3>
+                  <div className="mt-3 grid gap-2">
+                    {(liveBootstrap?.pollTemplates ?? []).slice(0, 3).map((template) => (
+                      <button key={String(template.id)} className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-left hover:border-sky-200 hover:bg-sky-50" onClick={() => { setPollTitle(liveText(template, "template_name")); setPollType(liveText(template, "poll_type", "Issue Pulse")); }} type="button">
+                        <p className="text-sm font-black text-slate-950">{liveText(template, "template_name")}</p>
+                        <p className="mt-1 text-xs font-semibold text-slate-500">{liveText(template, "description")}</p>
+                      </button>
+                    ))}
+                    {livePolls.slice(0, 8).map((poll) => (
+                      <div key={String(poll.id)} className="rounded-lg border border-slate-200 bg-white p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-black text-slate-950">{liveText(poll, "title")}</p>
+                            <p className="text-xs font-semibold text-slate-500">{liveText(poll, "poll_type")} - {liveText(poll, "status")} - {liveText(poll, "visibility")}</p>
+                          </div>
+                          <StatusPill label={liveText(poll, "status")} />
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {liveText(poll, "visibility") === "Public Link" ? <button className="h-8 rounded-md border border-sky-200 bg-sky-50 px-2 text-xs font-black text-sky-700" onClick={() => void copyPollLink(String(poll.id))} type="button">Copy Link</button> : null}
+                          <button className="h-8 rounded-md border border-emerald-200 bg-emerald-50 px-2 text-xs font-black text-emerald-700" onClick={() => void updatePollStatus(String(poll.id), "Active")} type="button">Publish</button>
+                          <button className="h-8 rounded-md border border-amber-200 bg-amber-50 px-2 text-xs font-black text-amber-700" onClick={() => void updatePollStatus(String(poll.id), "Closed")} type="button">Close</button>
+                        </div>
+                      </div>
+                    ))}
+                    {!livePolls.length ? emptyState("No polls have been created yet. Start with an issue pulse or message test.") : null}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {pollPulseTab === "Responses" ? (
+              <div className="grid gap-4 xl:grid-cols-[420px_1fr]">
+                <form className="j-panel p-4" onSubmit={submitPollResponse}>
+                  <h2 className="text-lg font-black text-slate-950">Field Response Capture</h2>
+                  <p className="mt-1 text-sm font-semibold text-slate-500">Use this for phone, door-to-door, volunteer, or polling-agent collection.</p>
+                  <div className="mt-4 grid gap-3">
+                    <select className="h-11 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-sky-500" value={selectedPollId} onChange={(event) => setPollResponsePollId(event.target.value)}>
+                      <option value="">Choose poll</option>
+                      {livePolls.map((poll) => <option key={String(poll.id)} value={String(poll.id)}>{liveText(poll, "title")}</option>)}
+                    </select>
+                    <input className="h-11 rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" value={pollResponseName} onChange={(event) => setPollResponseName(event.target.value)} placeholder="Respondent name (optional)" />
+                    <select className="h-11 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-sky-500" value={pollResponseMethod} onChange={(event) => setPollResponseMethod(event.target.value)}>
+                      {["Field Agent", "Door-to-door", "Phone Call", "Team Entry"].map((method) => <option key={method}>{method}</option>)}
+                    </select>
+                    {selectedPollQuestion ? <p className="rounded-lg bg-slate-50 p-3 text-sm font-black text-slate-900">{liveText(selectedPollQuestion, "question_text")}</p> : null}
+                    {selectedPollOptions.length ? (
+                      <select className="h-11 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-sky-500" value={pollResponseOptionId} onChange={(event) => setPollResponseOptionId(event.target.value)}>
+                        <option value="">Choose answer</option>
+                        {selectedPollOptions.map((option) => <option key={String(option.id)} value={String(option.id)}>{liveText(option, "option_text")}</option>)}
+                      </select>
+                    ) : (
+                      <textarea className="min-h-24 rounded-md border border-slate-200 p-3 text-sm outline-none focus:border-sky-500" value={pollResponseAnswer} onChange={(event) => setPollResponseAnswer(event.target.value)} placeholder="Response answer" />
+                    )}
+                    <button disabled={!selectedPollId || !selectedPollQuestion || (!pollResponseOptionId && !pollResponseAnswer.trim() && selectedPollOptions.length > 0)} className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-black text-white hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-300" type="submit">
+                      <Send size={16} />
+                      Submit Response
+                    </button>
+                  </div>
+                </form>
+                <div className="j-table-shell">
+                  <div className="flex items-center justify-between gap-3 border-b border-slate-200 p-4">
+                    <div>
+                      <h2 className="text-sm font-black text-slate-950">Recent Poll Responses</h2>
+                      <p className="text-sm text-slate-500">Personal contact details stay limited; reports focus on area, method, and answers.</p>
+                    </div>
+                    <ReportLink report="poll-responses" label="Responses" />
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[760px] text-left text-sm">
+                      <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3">Poll</th><th className="px-4 py-3">Area</th><th className="px-4 py-3">Method</th><th className="px-4 py-3">Respondent</th><th className="px-4 py-3">Submitted</th></tr></thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {livePollResponses.slice(0, 40).map((response) => (
+                          <tr key={String(response.id)}>
+                            <td className="px-4 py-3 font-semibold text-slate-950">{liveText(livePolls.find((poll) => String(poll.id) === String(response.poll_id)), "title", "Poll")}</td>
+                            <td className="px-4 py-3 text-slate-600">{liveText(response, pollAreaField, electiveScopeLabel)}</td>
+                            <td className="px-4 py-3 text-slate-600">{liveText(response, "collection_method")}</td>
+                            <td className="px-4 py-3 text-slate-600">{liveText(response, "respondent_name", "Anonymous")}</td>
+                            <td className="px-4 py-3 text-slate-600">{liveDate(response, "submitted_at")}</td>
+                          </tr>
+                        ))}
+                        {!livePollResponses.length ? <tr><td className="px-4 py-6 text-center text-sm font-semibold text-slate-500" colSpan={5}>No poll responses have been captured yet.</td></tr> : null}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {pollPulseTab === "Actions" ? (
+              <div className="grid gap-4 xl:grid-cols-[420px_1fr]">
+                <form className="j-panel p-4" onSubmit={savePollAction}>
+                  <h2 className="text-lg font-black text-slate-950">Insight Action Centre</h2>
+                  <p className="mt-1 text-sm font-semibold text-slate-500">Convert pulse findings into campaign actions for the field team.</p>
+                  <div className="mt-4 grid gap-3">
+                    <input className="h-11 rounded-md border border-slate-200 px-3 text-sm font-semibold outline-none focus:border-sky-500" value={pollActionTitle} onChange={(event) => setPollActionTitle(event.target.value)} placeholder={topPollIssue?.name ? `Follow up on ${topPollIssue.name}` : "Action title"} />
+                    <textarea className="min-h-24 rounded-md border border-slate-200 p-3 text-sm outline-none focus:border-sky-500" value={pollActionDescription} onChange={(event) => setPollActionDescription(event.target.value)} placeholder={`What should the ${electiveScopeLabel} team do next?`} />
+                    <select className="h-11 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-sky-500" value={pollActionPriority} onChange={(event) => setPollActionPriority(event.target.value)}>
+                      {["Low", "Medium", "High", "Critical"].map((priority) => <option key={priority}>{priority}</option>)}
+                    </select>
+                    <button disabled={!pollActionTitle.trim()} className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-black text-white hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-300" type="submit">
+                      <ClipboardCheck size={16} />
+                      Save Action
+                    </button>
+                  </div>
+                </form>
+                <div className="j-panel p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="text-sm font-black text-slate-950">Poll Insight Actions</h2>
+                    <ReportLink report="poll-actions" label="Actions" />
+                  </div>
+                  <div className="mt-4 grid gap-3">
+                    {livePollActionItems.map((action) => (
+                      <div key={String(action.id)} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-black text-slate-950">{liveText(action, "title")}</p>
+                            <p className="mt-1 text-xs font-semibold text-slate-500">{liveText(action, "description", "No description")}</p>
+                          </div>
+                          <StatusPill label={`${liveText(action, "priority")} - ${liveText(action, "status")}`} />
+                        </div>
+                        <p className="mt-2 text-xs font-bold text-slate-500">{liveText(action, pollAreaField, electiveScopeLabel)} - {liveText(action, "assigned_team", "Field team")}</p>
+                      </div>
+                    ))}
+                    {!livePollActionItems.length ? emptyState("No pulse actions yet. Create one from an issue, message, or response pattern.") : null}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {pollPulseTab === "Reports" ? (
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <ReportLink report="polls-overview" label="Polls Overview" />
+                <ReportLink report="poll-responses" label="Poll Responses" />
+                <ReportLink report="poll-actions" label="Poll Action Centre" />
+                <ReportLink report="weekly-campaign-pulse" label="Weekly Campaign Pulse" />
+              </div>
+            ) : null}
           </section>
 
           <section id="supporters" className={sectionClass("supporters", "scroll-mt-24 grid gap-4 2xl:grid-cols-[minmax(0,1.65fr)_420px]")}>

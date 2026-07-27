@@ -125,6 +125,68 @@ const workflowSchemas = {
     issueId: z.string().uuid(),
     status: z.enum(["Open", "Under Review", "Addressed"]),
   }),
+  poll: z.object({
+    title: z.string().trim().min(3),
+    description: z.string().trim().optional().or(z.literal("")),
+    pollType: z.enum(["Issue Pulse", "Approval Pulse", "Message Test", "Service Delivery Survey", "Volunteer Feedback", "Internal Tracking Poll"]).default("Issue Pulse"),
+    visibility: z.enum(["Private Draft", "Campaign Team", "Field Agents", "Public Link"]).default("Campaign Team"),
+    status: z.enum(["Draft", "Scheduled", "Active", "Closed"]).default("Draft"),
+    startDate: z.string().trim().optional().or(z.literal("")),
+    endDate: z.string().trim().optional().or(z.literal("")),
+    targetResponseCount: z.coerce.number().int().min(0).default(100),
+    allowAnonymous: z.boolean().default(true),
+    requireConsent: z.boolean().default(true),
+    collectLocation: z.boolean().default(true),
+    collectDemographics: z.boolean().default(true),
+    methodologyNote: z.string().trim().optional().or(z.literal("")),
+    questions: z.array(z.object({
+      questionText: z.string().trim().min(3),
+      questionType: z.enum(["single_choice", "multiple_choice", "text", "rating", "yes_no"]).default("single_choice"),
+      required: z.boolean().default(true),
+      options: z.array(z.string().trim().min(1)).default([]),
+    })).min(1).max(10),
+  }),
+  pollResponse: z.object({
+    pollId: z.string().uuid(),
+    respondentName: z.string().trim().optional().or(z.literal("")),
+    phoneNumber: z.string().trim().optional().or(z.literal("")),
+    collectionMethod: z.enum(["Public Link", "Field Agent", "Phone Call", "Door-to-door", "Team Entry"]).default("Field Agent"),
+    countyName: z.string().trim().optional().or(z.literal("")),
+    constituencyName: z.string().trim().optional().or(z.literal("")),
+    wardName: z.string().trim().optional().or(z.literal("")),
+    villageName: z.string().trim().optional().or(z.literal("")),
+    pollingStationName: z.string().trim().optional().or(z.literal("")),
+    pollingStationId: z.string().uuid().optional().or(z.literal("")),
+    ageGroup: z.string().trim().optional().or(z.literal("")),
+    gender: z.string().trim().optional().or(z.literal("")),
+    consentToProcess: z.boolean().default(true),
+    answers: z.array(z.object({
+      questionId: z.string().uuid(),
+      optionId: z.string().uuid().optional().or(z.literal("")),
+      textAnswer: z.string().trim().optional().or(z.literal("")),
+      numericAnswer: z.coerce.number().optional(),
+      rankingValue: z.coerce.number().int().optional(),
+    })).min(1),
+  }),
+  pollAction: z.object({
+    pollId: z.string().uuid().optional().or(z.literal("")),
+    title: z.string().trim().min(3),
+    description: z.string().trim().optional().or(z.literal("")),
+    insightCategory: z.enum(["Support", "Issues", "Messaging", "Turnout", "Risk", "Field Ops"]).default("Issues"),
+    priority: z.enum(["Low", "Medium", "High", "Critical"]).default("Medium"),
+    status: z.enum(["Open", "In Progress", "Resolved", "Archived"]).default("Open"),
+    assignedTeam: z.string().trim().optional().or(z.literal("")),
+    dueDate: z.string().trim().optional().or(z.literal("")),
+    countyName: z.string().trim().optional().or(z.literal("")),
+    constituencyName: z.string().trim().optional().or(z.literal("")),
+    wardName: z.string().trim().optional().or(z.literal("")),
+    villageName: z.string().trim().optional().or(z.literal("")),
+    pollingStationName: z.string().trim().optional().or(z.literal("")),
+  }),
+  pollStatus: z.object({
+    pollId: z.string().uuid(),
+    status: z.enum(["Draft", "Scheduled", "Active", "Closed", "Archived"]),
+  }),
 } as const;
 
 type WorkflowName = keyof typeof workflowSchemas;
@@ -146,6 +208,10 @@ const workflowRoles: Record<WorkflowName, string[]> = {
   communicationRoom: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Media Team", "Admin"],
   communicationMessage: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Media Team", "Admin"],
   issueStatus: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Admin"],
+  poll: ["Candidate", "Campaign Manager", "Admin", "Media Team", "Data Clerk"],
+  pollResponse: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Village Coordinator", "Volunteer", "Polling Agent", "Data Clerk", "Admin"],
+  pollAction: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Admin", "Data Clerk"],
+  pollStatus: ["Candidate", "Campaign Manager", "Admin", "Media Team", "Data Clerk"],
 };
 
 async function firstId(table: string, tenantId: string, column = "id") {
@@ -721,6 +787,162 @@ export async function POST(request: Request, context: { params: Promise<{ workfl
       delivery_status: data.status === "Sent" || data.status === "Delivered" ? data.status : "Not Sent",
       sent_at: data.status === "Sent" || data.status === "Delivered" ? new Date().toISOString() : null,
     };
+  }
+
+  if (name === "poll") {
+    const data = parsed.data as z.infer<typeof workflowSchemas.poll>;
+    const { data: poll, error } = await supabase
+      .from("polls")
+      .insert({
+        tenant_id: workspace.tenantId,
+        candidate_id: workspace.candidateId,
+        title: data.title,
+        description: data.description || null,
+        poll_type: data.pollType,
+        status: data.status,
+        visibility: data.visibility,
+        start_date: data.startDate || null,
+        end_date: data.endDate || null,
+        target_response_count: data.targetResponseCount,
+        allow_anonymous: data.allowAnonymous,
+        require_consent: data.requireConsent,
+        collect_location: data.collectLocation,
+        collect_demographics: data.collectDemographics,
+        methodology_note: data.methodologyNote || null,
+        created_by_member_id: auth.session.memberId || null,
+      })
+      .select("id")
+      .single();
+    if (error || !poll?.id) return NextResponse.json({ error: "Could not create poll.", detail: error?.message }, { status: 500 });
+
+    for (const [questionIndex, question] of data.questions.entries()) {
+      const { data: savedQuestion, error: questionError } = await supabase
+        .from("poll_questions")
+        .insert({
+          tenant_id: workspace.tenantId,
+          poll_id: poll.id,
+          question_text: question.questionText,
+          question_type: question.questionType,
+          required: question.required,
+          display_order: questionIndex + 1,
+        })
+        .select("id")
+        .single();
+      if (questionError || !savedQuestion?.id) return NextResponse.json({ error: "Poll was created, but a question could not be saved.", detail: questionError?.message }, { status: 500 });
+
+      const options = question.options
+        .map((option) => option.trim())
+        .filter(Boolean)
+        .map((optionText, optionIndex) => ({
+          tenant_id: workspace.tenantId,
+          question_id: savedQuestion.id,
+          option_text: optionText,
+          sentiment_score: /support|approve|good|yes|strong/i.test(optionText) ? 1 : /oppose|bad|no|reject/i.test(optionText) ? -1 : 0,
+          display_order: optionIndex + 1,
+        }));
+      if (options.length) {
+        const { error: optionsError } = await supabase.from("poll_options").insert(options);
+        if (optionsError) return NextResponse.json({ error: "Poll was created, but options could not be saved.", detail: optionsError.message }, { status: 500 });
+      }
+    }
+
+    await writeAudit({ tenantId: workspace.tenantId, candidateId: workspace.candidateId, action: "Create", module: "poll", recordId: poll.id, newValue: data });
+    return NextResponse.json({ id: poll.id, status: data.status, publicUrl: `/polls/${poll.id}`, reference: shortCode("PULSE") });
+  }
+
+  if (name === "pollResponse") {
+    const data = parsed.data as z.infer<typeof workflowSchemas.pollResponse>;
+    const { data: poll, error: pollError } = await supabase
+      .from("polls")
+      .select("id, require_consent")
+      .eq("id", data.pollId)
+      .eq("tenant_id", workspace.tenantId)
+      .eq("candidate_id", workspace.candidateId)
+      .limit(1)
+      .maybeSingle();
+    if (pollError || !poll?.id) return NextResponse.json({ error: "Poll was not found in this workspace.", detail: pollError?.message }, { status: 404 });
+    if (poll.require_consent && !data.consentToProcess) return NextResponse.json({ error: "Consent is required before saving this response." }, { status: 400 });
+
+    const location = data.pollingStationId && z.string().uuid().safeParse(data.pollingStationId).success
+      ? await stationLocationScope(workspace.tenantId, data.pollingStationId)
+      : await supporterLocationScope(workspace.tenantId, data);
+    const { data: response, error } = await supabase
+      .from("poll_responses")
+      .insert({
+        tenant_id: workspace.tenantId,
+        candidate_id: workspace.candidateId,
+        poll_id: data.pollId,
+        respondent_name: data.respondentName || null,
+        phone_number: data.phoneNumber || null,
+        collection_method: data.collectionMethod,
+        county_id: location.countyId ?? null,
+        constituency_id: location.constituencyId ?? null,
+        ward_id: location.wardId ?? null,
+        village_id: location.villageId ?? null,
+        polling_station_id: location.pollingStationId ?? null,
+        age_group: data.ageGroup || null,
+        gender: data.gender || null,
+        consent_to_process: data.consentToProcess,
+        submitted_by_member_id: auth.session.memberId || null,
+      })
+      .select("id")
+      .single();
+    if (error || !response?.id) return NextResponse.json({ error: "Could not save poll response.", detail: error?.message }, { status: 500 });
+
+    const answers = data.answers.map((answer) => ({
+      tenant_id: workspace.tenantId,
+      response_id: response.id,
+      poll_id: data.pollId,
+      question_id: answer.questionId,
+      option_id: answer.optionId || null,
+      text_answer: answer.textAnswer || null,
+      numeric_answer: answer.numericAnswer ?? null,
+      ranking_value: answer.rankingValue ?? null,
+    }));
+    const { error: answerError } = await supabase.from("poll_answers").insert(answers);
+    if (answerError) return NextResponse.json({ error: "Poll response was saved, but answers could not be saved.", detail: answerError.message }, { status: 500 });
+
+    await writeAudit({ tenantId: workspace.tenantId, candidateId: workspace.candidateId, action: "Create", module: "pollResponse", recordId: response.id, newValue: { pollId: data.pollId, collectionMethod: data.collectionMethod } });
+    return NextResponse.json({ id: response.id, status: "Submitted", reference: shortCode("PULSE") });
+  }
+
+  if (name === "pollAction") {
+    const data = parsed.data as z.infer<typeof workflowSchemas.pollAction>;
+    const location = await ensureWorkspaceLocation(workspace.tenantId, data);
+    table = "poll_action_items";
+    payload = {
+      tenant_id: workspace.tenantId,
+      candidate_id: workspace.candidateId,
+      poll_id: data.pollId || null,
+      title: data.title,
+      description: data.description || null,
+      insight_category: data.insightCategory,
+      priority: data.priority,
+      status: data.status,
+      assigned_team: data.assignedTeam || null,
+      due_date: data.dueDate || null,
+      county_id: location.countyId ?? null,
+      constituency_id: location.constituencyId ?? null,
+      ward_id: location.wardId ?? null,
+      village_id: location.villageId ?? null,
+      polling_station_id: location.pollingStationId ?? null,
+      created_by_member_id: auth.session.memberId || null,
+    };
+  }
+
+  if (name === "pollStatus") {
+    const data = parsed.data as z.infer<typeof workflowSchemas.pollStatus>;
+    const { data: updated, error } = await supabase
+      .from("polls")
+      .update({ status: data.status, updated_at: new Date().toISOString() })
+      .eq("id", data.pollId)
+      .eq("tenant_id", workspace.tenantId)
+      .eq("candidate_id", workspace.candidateId)
+      .select("id")
+      .single();
+    if (error || !updated) return NextResponse.json({ error: "Could not update poll status.", detail: error?.message }, { status: 500 });
+    await writeAudit({ tenantId: workspace.tenantId, candidateId: workspace.candidateId, action: "Update", module: "pollStatus", recordId: updated.id, newValue: data });
+    return NextResponse.json({ id: updated.id, status: data.status });
   }
 
   if (name === "issueStatus") {

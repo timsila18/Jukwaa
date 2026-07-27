@@ -42,6 +42,10 @@ export type LiveSnapshot = {
     unreadNotifications: number;
     messagesOpen: number;
     aiContent: number;
+    polls: number;
+    activePolls: number;
+    pollResponses: number;
+    pollActionsOpen: number;
   };
   livekit: {
     configured: boolean;
@@ -67,6 +71,14 @@ export type LiveSnapshot = {
   invitations: DbRow[];
   pollingResults: DbRow[];
   pollingStations: DbRow[];
+  polls: DbRow[];
+  pollQuestions: DbRow[];
+  pollOptions: DbRow[];
+  pollResponses: DbRow[];
+  pollAnswers: DbRow[];
+  pollActionItems: DbRow[];
+  pollSnapshots: DbRow[];
+  pollTemplates: DbRow[];
 };
 
 type SnapshotSession = {
@@ -217,6 +229,14 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
     invitations,
     pollingResults,
     pollingStations,
+    polls,
+    pollQuestions,
+    pollOptions,
+    pollResponses,
+    pollAnswers,
+    pollActionItems,
+    pollSnapshots,
+    pollTemplates,
     settingsResult,
     candidateResult,
     solcoResult,
@@ -233,6 +253,10 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
     unreadNotificationCount,
     openMessageCount,
     aiContentCount,
+    pollCount,
+    activePollCount,
+    pollResponseCount,
+    openPollActionCount,
   ] = await Promise.all([
     fetchRows("supporters", tenantId, "id, full_name, phone_number, gender, age_group, county_id, constituency_id, ward_id, village_id, polling_station_id, support_level, key_issue, volunteer_interest, created_at", 100),
     fetchRows("volunteers", tenantId, "id, full_name, phone_number, email, county_id, constituency_id, ward_id, village_id, status, recruitment_source, join_date, notes, created_at", 100),
@@ -250,6 +274,14 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
     fetchRows("invitations", tenantId, "id, invited_name, invited_phone, invited_email, role, status, expiry_date, created_at", 100),
     fetchRows("polling_results", tenantId, "id, candidate_name, votes, rejected_votes, total_votes, verification_status, created_at", 100),
     fetchRows("polling_stations", tenantId, "id, name, village_id, registered_voters, station_code, centre_code, centre_name, stream_count, created_at", 30000, "name", true),
+    fetchRows("polls", tenantId, "id, title, description, poll_type, status, visibility, start_date, end_date, target_response_count, allow_anonymous, require_consent, collect_location, collect_demographics, methodology_note, created_at, updated_at", 100),
+    fetchRows("poll_questions", tenantId, "id, poll_id, question_text, question_type, required, display_order, created_at", 500, "display_order", true),
+    fetchRows("poll_options", tenantId, "id, question_id, option_text, sentiment_score, display_order, created_at", 1000, "display_order", true),
+    fetchRows("poll_responses", tenantId, "id, poll_id, respondent_name, collection_method, county_id, constituency_id, ward_id, village_id, polling_station_id, age_group, gender, consent_to_process, response_status, submitted_at, created_at", 2000, "submitted_at", false),
+    fetchRows("poll_answers", tenantId, "id, response_id, poll_id, question_id, option_id, text_answer, numeric_answer, ranking_value, created_at", 5000),
+    fetchRows("poll_action_items", tenantId, "id, poll_id, title, description, insight_category, priority, status, assigned_team, due_date, county_id, constituency_id, ward_id, village_id, polling_station_id, created_at, updated_at", 200),
+    fetchRows("poll_snapshots", tenantId, "id, poll_id, snapshot_label, snapshot_data, methodology_note, created_at", 50),
+    fetchRows("poll_templates", tenantId, "id, template_name, poll_type, description, questions, created_at", 50),
     admin.from("campaign_settings").select("campaign_name, candidate_name, position_targeted, political_party, county, constituency, election_year, slogan, active_status").eq("tenant_id", tenantId).limit(1).maybeSingle(),
     admin.from("candidates").select("full_name, campaign_name, position_contesting, political_party, county, constituency, ward, slogan, active_status").eq("id", candidateId).limit(1).maybeSingle(),
     admin.from("solco_integrations").select("workspace_url, livekit_url_label, token_endpoint, meeting_path, status").eq("tenant_id", tenantId).eq("candidate_id", candidateId).limit(1).maybeSingle(),
@@ -266,6 +298,10 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
     countRows("internal_notifications", tenantId, (row) => row.status === "Unread", "id, status"),
     countRows("communication_messages", tenantId, (row) => row.status === "Draft" || row.status === "Queued", "id, status"),
     countRows("ai_content_assets", tenantId),
+    countRows("polls", tenantId),
+    countRows("polls", tenantId, (row) => ["Active", "Scheduled"].includes(String(row.status ?? "")), "id, status"),
+    countRows("poll_responses", tenantId),
+    countRows("poll_action_items", tenantId, (row) => !["Resolved", "Archived"].includes(String(row.status ?? "")), "id, status"),
   ]);
 
   const livekitConfigured = Boolean(process.env.LIVEKIT_URL && process.env.LIVEKIT_API_KEY && process.env.LIVEKIT_API_SECRET);
@@ -292,8 +328,10 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
   const scopedCampaignMembers = scopedRowsForMember(campaignMembers, member, session.role, session.isPlatformAdmin);
   const scopedFieldVisits = scopedRowsForMember(fieldVisits, member, session.role, session.isPlatformAdmin);
   const scopedIssues = scopedRowsForMember(issues, member, session.role, session.isPlatformAdmin);
+  const scopedPollResponses = scopedRowsForMember(pollResponses, member, session.role, session.isPlatformAdmin);
+  const scopedPollActions = scopedRowsForMember(pollActionItems, member, session.role, session.isPlatformAdmin);
   const scopedPollingStations = scopedRowsForMember(workspacePollingStations, member, session.role, session.isPlatformAdmin);
-  const [namedSupporters, namedVolunteers, namedPollingAgents, namedFieldVisits, namedIssues, namedCampaignMembers, namedMembers] = await Promise.all([
+  const [namedSupporters, namedVolunteers, namedPollingAgents, namedFieldVisits, namedIssues, namedCampaignMembers, namedMembers, namedPollResponses, namedPollActions] = await Promise.all([
     withAreaNames(tenantId, scopedSupporters),
     withAreaNames(tenantId, scopedVolunteers),
     withAreaNames(tenantId, scopedPollingAgents),
@@ -301,6 +339,8 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
     withAreaNames(tenantId, scopedIssues),
     withAreaNames(tenantId, scopedCampaignMembers),
     withAreaNames(tenantId, member ? [member] : []),
+    withAreaNames(tenantId, scopedPollResponses),
+    withAreaNames(tenantId, scopedPollActions),
   ]);
   const namedPollingStations = await withAreaNames(tenantId, scopedPollingStations);
   const scopedSummary = ["Candidate", "Campaign Manager", "Admin", "Media Team", "Data Clerk"].includes(session.role) || session.isPlatformAdmin
@@ -311,6 +351,7 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
         pollingAgents: namedPollingAgents.length,
         tasks: tasks.length,
         issues: namedIssues.length,
+        pollResponses: namedPollResponses.length,
       };
 
   return {
@@ -336,6 +377,10 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
       unreadNotifications: unreadNotificationCount,
       messagesOpen: openMessageCount,
       aiContent: aiContentCount,
+      polls: pollCount,
+      activePolls: activePollCount,
+      pollResponses: scopedSummary?.pollResponses ?? pollResponseCount,
+      pollActionsOpen: openPollActionCount,
     },
     livekit: {
       configured: livekitConfigured,
@@ -361,6 +406,14 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
     invitations,
     pollingResults,
     pollingStations: namedPollingStations,
+    polls,
+    pollQuestions,
+    pollOptions,
+    pollResponses: namedPollResponses,
+    pollAnswers,
+    pollActionItems: namedPollActions,
+    pollSnapshots,
+    pollTemplates,
   };
 }
 
@@ -454,6 +507,47 @@ export function reportRowsFromSnapshot(snapshot: LiveSnapshot, report: string): 
   }
   if (report === "communication-rooms") return snapshot.communicationRooms;
   if (report === "communication-messages") return snapshot.communicationMessages;
+  if (report === "polls-overview") {
+    return snapshot.polls.map((poll) => {
+      const responses = snapshot.pollResponses.filter((response) => String(response.poll_id) === String(poll.id)).length;
+      return {
+        title: poll.title,
+        type: poll.poll_type,
+        status: poll.status,
+        visibility: poll.visibility,
+        targetResponses: poll.target_response_count,
+        responses,
+        responseRate: Number(poll.target_response_count ?? 0) ? `${Math.round((responses / Number(poll.target_response_count)) * 100)}%` : "No target",
+        startDate: poll.start_date ?? "",
+        endDate: poll.end_date ?? "",
+      };
+    });
+  }
+  if (report === "poll-responses") {
+    return snapshot.pollResponses.map((response) => ({
+      poll: snapshot.polls.find((poll) => String(poll.id) === String(response.poll_id))?.title ?? "Poll",
+      respondent: response.respondent_name || "Anonymous",
+      method: response.collection_method,
+      county: response.county_name ?? "",
+      constituency: response.constituency_name ?? "",
+      ward: response.ward_name ?? "",
+      pollingStation: response.polling_station_name ?? "",
+      gender: response.gender ?? "",
+      ageGroup: response.age_group ?? "",
+      submittedAt: response.submitted_at ?? response.created_at,
+    }));
+  }
+  if (report === "poll-actions") return snapshot.pollActionItems;
+  if (report === "weekly-campaign-pulse") {
+    return [
+      { metric: "Polls", value: snapshot.summary.polls },
+      { metric: "Active polls", value: snapshot.summary.activePolls },
+      { metric: "Responses", value: snapshot.summary.pollResponses },
+      { metric: "Open poll actions", value: snapshot.summary.pollActionsOpen },
+      { metric: "Supporters", value: snapshot.summary.supporters },
+      { metric: "Issues", value: snapshot.summary.issues },
+    ];
+  }
   if (report === "ai-recommendations") return snapshot.aiContentAssets;
   if (report === "pvt") return snapshot.pollingResults;
   if (report === "security-events") return snapshot.auditLogs;
