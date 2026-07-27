@@ -2279,6 +2279,12 @@ export default function Home() {
     await refreshWorkspace();
   }
 
+  async function makePollPublicAndCopy(pollId: string) {
+    await persistWorkflow("pollStatus", { pollId, status: "Active", visibility: "Public Link" }, "Poll is public and the link is ready.", "Polls & Pulse");
+    await refreshWorkspace();
+    await copyPollLink(pollId);
+  }
+
   async function submitPollResponse(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const questionId = String(selectedPollQuestion?.id ?? "");
@@ -4719,7 +4725,9 @@ export default function Home() {
                           <StatusPill label={liveText(poll, "status")} />
                         </div>
                         <div className="mt-3 flex flex-wrap gap-2">
-                          {liveText(poll, "visibility") === "Public Link" ? <button className="h-8 rounded-md border border-sky-200 bg-sky-50 px-2 text-xs font-black text-sky-700" onClick={() => void copyPollLink(String(poll.id))} type="button">Copy Link</button> : null}
+                          {liveText(poll, "visibility") === "Public Link"
+                            ? <button className="h-8 rounded-md border border-sky-200 bg-sky-50 px-2 text-xs font-black text-sky-700" onClick={() => void copyPollLink(String(poll.id))} type="button"><Copy size={13} className="mr-1 inline" /> Copy Public Link</button>
+                            : <button className="h-8 rounded-md border border-sky-200 bg-sky-50 px-2 text-xs font-black text-sky-700" onClick={() => void makePollPublicAndCopy(String(poll.id))} type="button"><Copy size={13} className="mr-1 inline" /> Make Public & Copy Link</button>}
                           <button className="h-8 rounded-md border border-emerald-200 bg-emerald-50 px-2 text-xs font-black text-emerald-700" onClick={() => void updatePollStatus(String(poll.id), "Active")} type="button">Publish</button>
                           <button className="h-8 rounded-md border border-amber-200 bg-amber-50 px-2 text-xs font-black text-amber-700" onClick={() => void updatePollStatus(String(poll.id), "Closed")} type="button">Close</button>
                         </div>

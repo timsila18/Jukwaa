@@ -186,6 +186,7 @@ const workflowSchemas = {
   pollStatus: z.object({
     pollId: z.string().uuid(),
     status: z.enum(["Draft", "Scheduled", "Active", "Closed", "Archived"]),
+    visibility: z.enum(["Private Draft", "Campaign Team", "Field Agents", "Public Link"]).optional(),
   }),
 } as const;
 
@@ -932,9 +933,11 @@ export async function POST(request: Request, context: { params: Promise<{ workfl
 
   if (name === "pollStatus") {
     const data = parsed.data as z.infer<typeof workflowSchemas.pollStatus>;
+    const updatePayload: Record<string, unknown> = { status: data.status, updated_at: new Date().toISOString() };
+    if (data.visibility) updatePayload.visibility = data.visibility;
     const { data: updated, error } = await supabase
       .from("polls")
-      .update({ status: data.status, updated_at: new Date().toISOString() })
+      .update(updatePayload)
       .eq("id", data.pollId)
       .eq("tenant_id", workspace.tenantId)
       .eq("candidate_id", workspace.candidateId)
@@ -942,7 +945,7 @@ export async function POST(request: Request, context: { params: Promise<{ workfl
       .single();
     if (error || !updated) return NextResponse.json({ error: "Could not update poll status.", detail: error?.message }, { status: 500 });
     await writeAudit({ tenantId: workspace.tenantId, candidateId: workspace.candidateId, action: "Update", module: "pollStatus", recordId: updated.id, newValue: data });
-    return NextResponse.json({ id: updated.id, status: data.status });
+    return NextResponse.json({ id: updated.id, status: data.status, visibility: data.visibility });
   }
 
   if (name === "issueStatus") {
