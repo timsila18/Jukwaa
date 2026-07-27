@@ -795,6 +795,8 @@ export default function Home() {
       : isMcaRace
         ? `${campaignWard || supporterWard || "Ward"} Ward`
         : `${campaignConstituency || "Constituency"} Constituency`;
+  const defaultPollTitle = `${electiveScopeLabel} Issue Pulse`;
+  const defaultPollDescription = `Quick campaign pulse for ${electiveScopeLabel}: priority issues, message sentiment, and field follow-up signals.`;
   const candidateDescriptor = `${campaignPosition} candidate for ${electiveScopeLabel}`;
   const personalWorkspaceTitle = isOwnerAccount ? (liveBootstrap?.campaign?.campaign_name || `${referenceCandidateName} Campaign`) : `${currentMemberName} Workspace`;
   const personalWorkspaceSubtitle = isOwnerAccount
@@ -1534,6 +1536,15 @@ export default function Home() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!pollTitle.trim()) {
+      setPollTitle(defaultPollTitle);
+    }
+    if (!pollDescription.trim()) {
+      setPollDescription(defaultPollDescription);
+    }
+  }, [defaultPollDescription, defaultPollTitle, pollDescription, pollTitle]);
+
   async function refreshWorkspace() {
     setBootstrapLoading(true);
     const response = await fetch("/api/dashboard/bootstrap", { credentials: "include", cache: "no-store" });
@@ -2256,8 +2267,8 @@ export default function Home() {
       nextStatus === "Active" ? "Poll created and published." : "Poll saved.",
       "Polls & Pulse",
     );
-    setPollTitle("");
-    setPollDescription("");
+    setPollTitle(defaultPollTitle);
+    setPollDescription(defaultPollDescription);
     setPollOptionsText("Water\nRoads\nHealthcare\nJobs\nEducation\nSecurity");
     setPollQuestion("What is the top issue in your area?");
     await refreshWorkspace();
@@ -4647,8 +4658,14 @@ export default function Home() {
                     <Vote className="text-sky-700" size={22} />
                   </div>
                   <div className="mt-4 grid gap-3">
-                    <input className="h-11 rounded-md border border-slate-200 px-3 text-sm font-semibold outline-none focus:border-sky-500" value={pollTitle} onChange={(event) => setPollTitle(event.target.value)} placeholder={`${electiveScopeLabel} issue pulse`} />
-                    <textarea className="min-h-20 rounded-md border border-slate-200 p-3 text-sm outline-none focus:border-sky-500" value={pollDescription} onChange={(event) => setPollDescription(event.target.value)} placeholder="Purpose, target audience, or context" />
+                    <div>
+                      <label className="text-xs font-black uppercase tracking-wide text-slate-500">Poll title</label>
+                      <input className="mt-1 h-11 w-full rounded-md border border-slate-200 px-3 text-sm font-semibold outline-none focus:border-sky-500" value={pollTitle} onChange={(event) => setPollTitle(event.target.value)} placeholder={defaultPollTitle} />
+                    </div>
+                    <div>
+                      <label className="text-xs font-black uppercase tracking-wide text-slate-500">Context</label>
+                      <textarea className="mt-1 min-h-20 w-full rounded-md border border-slate-200 p-3 text-sm outline-none focus:border-sky-500" value={pollDescription} onChange={(event) => setPollDescription(event.target.value)} placeholder={defaultPollDescription} />
+                    </div>
                     <div className="grid gap-3 md:grid-cols-3">
                       <select className="h-11 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-sky-500" value={pollType} onChange={(event) => setPollType(event.target.value)}>
                         {["Issue Pulse", "Approval Pulse", "Message Test", "Service Delivery Survey", "Volunteer Feedback", "Internal Tracking Poll"].map((type) => <option key={type}>{type}</option>)}
@@ -4680,6 +4697,7 @@ export default function Home() {
                       <button disabled={!pollTitle.trim() || !pollQuestion.trim()} className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-black text-white hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-300" type="submit"><ClipboardCheck size={16} /> Save Poll</button>
                       <button disabled={!pollTitle.trim() || !pollQuestion.trim()} className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-md bg-sky-700 px-4 text-sm font-black text-white hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-slate-300" onClick={() => void savePoll("Active")} type="button"><Radio size={16} /> Save & Publish</button>
                     </div>
+                    <p className="rounded-lg bg-sky-50 px-3 py-2 text-xs font-bold text-sky-800">This poll is scoped to {electiveScopeLabel}. Published public-link polls can be shared with residents, while campaign-team polls stay inside the workspace.</p>
                   </div>
                 </form>
                 <div className="j-panel p-4">
