@@ -16,6 +16,7 @@ let adminClient: ReturnType<typeof createClient> | null = null;
 
 export type SupabaseLooseResult = {
   data: Record<string, unknown> | Record<string, unknown>[] | null;
+  count?: number | null;
   error: { message: string } | null;
 };
 
@@ -25,7 +26,7 @@ export type SupabaseLooseSingleResult = {
 };
 
 export type SupabaseLooseQuery = {
-  select: (columns?: string) => SupabaseLooseQuery;
+  select: (columns?: string, options?: { count?: "exact" | "planned" | "estimated"; head?: boolean }) => SupabaseLooseQuery;
   insert: (values: unknown) => SupabaseLooseQuery;
   upsert: (values: unknown, options?: { onConflict?: string; ignoreDuplicates?: boolean }) => SupabaseLooseQuery;
   update: (values: unknown) => SupabaseLooseQuery;
@@ -35,6 +36,7 @@ export type SupabaseLooseQuery = {
   or: (filters: string) => SupabaseLooseQuery;
   order: (column: string, options?: { ascending?: boolean }) => SupabaseLooseQuery;
   limit: (count: number) => SupabaseLooseQuery;
+  range: (from: number, to: number) => SupabaseLooseQuery;
   single: () => Promise<SupabaseLooseSingleResult>;
   maybeSingle: () => Promise<SupabaseLooseSingleResult>;
   then: Promise<SupabaseLooseResult>["then"];

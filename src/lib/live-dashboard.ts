@@ -103,7 +103,36 @@ async function fetchRows(table: string, tenantId: string, select = "*", limit = 
   return Array.isArray(data) ? data as DbRow[] : [];
 }
 
+async function fetchAllRows(table: string, tenantId: string, select = "*", order = "created_at", ascending = false, pageSize = 1000, maxRows = 20000): Promise<DbRow[]> {
+  const admin = getLooseSupabaseAdmin();
+  const rows: DbRow[] = [];
+
+  for (let from = 0; from < maxRows; from += pageSize) {
+    const to = Math.min(from + pageSize - 1, maxRows - 1);
+    const { data } = await admin
+      .from(table)
+      .select(select)
+      .eq("tenant_id", tenantId)
+      .order(order, { ascending })
+      .range(from, to);
+
+    const page = Array.isArray(data) ? data as DbRow[] : [];
+    rows.push(...page);
+    if (page.length < pageSize) break;
+  }
+
+  return rows;
+}
+
 async function countRows(table: string, tenantId: string, predicate?: (row: DbRow) => boolean, select = "id") {
+  if (!predicate) {
+    const admin = getLooseSupabaseAdmin();
+    const { count } = await admin
+      .from(table)
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId);
+    return count ?? 0;
+  }
   const rows = await fetchRows(table, tenantId, select, 2000);
   return predicate ? rows.filter(predicate).length : rows.length;
 }
@@ -259,7 +288,7 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
     pollResponseCount,
     openPollActionCount,
   ] = await Promise.all([
-    fetchRows("supporters", tenantId, "id, full_name, phone_number, gender, age_group, county_id, constituency_id, ward_id, village_id, polling_station_id, support_level, key_issue, volunteer_interest, created_at", 100),
+    fetchAllRows("supporters", tenantId, "id, full_name, phone_number, gender, age_group, county_id, constituency_id, ward_id, village_id, polling_station_id, support_level, key_issue, volunteer_interest, created_at"),
     fetchRows("volunteers", tenantId, "id, full_name, phone_number, email, county_id, constituency_id, ward_id, village_id, status, recruitment_source, join_date, notes, created_at", 100),
     fetchRows("polling_agents", tenantId, "id, full_name, phone_number, assigned_county_id, assigned_constituency_id, assigned_ward_id, assigned_polling_station_id, status, last_seen_at, created_at", 100),
     fetchRows("volunteer_tasks", tenantId, "id, title, description, status, due_date, assigned_to, assigned_member_id, assigned_polling_agent_id, assignee_type, assignee_label, created_at", 100),

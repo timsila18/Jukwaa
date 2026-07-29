@@ -726,6 +726,8 @@ export default function Home() {
   const [pollActionDescription, setPollActionDescription] = useState("");
   const [pollActionPriority, setPollActionPriority] = useState("Medium");
   const [searchQuery, setSearchQuery] = useState("");
+  const [supporterSearchQuery, setSupporterSearchQuery] = useState("");
+  const [supporterPage, setSupporterPage] = useState(1);
   const [liveBootstrap, setLiveBootstrap] = useState<LiveBootstrap | null>(null);
   const [liveSupporters, setLiveSupporters] = useState<LiveSupporter[] | null>(null);
   const [bootstrapError, setBootstrapError] = useState("");
@@ -1135,15 +1137,42 @@ export default function Home() {
     liveMessages.forEach((message) => rows.push({ title: liveText(message, "subject", "Message"), type: "Message", section: "Communications", detail: `${liveText(message, "channel", "")} ${liveText(message, "status", "")}` }));
     return rows.filter((row) => `${row.title} ${row.type} ${row.detail}`.toLowerCase().includes(query)).slice(0, 8);
   }, [liveEvents, liveIssues, liveMessages, livePollingAgents, liveTasks, liveVolunteers, searchQuery, usingLiveData, workspaceSupporters]);
+  const supporterPageSize = 30;
   const visibleSupporters = workspaceSupporters.filter((supporter) => {
-    const query = searchQuery.trim().toLowerCase();
-    return !query || supporter.fullName.toLowerCase().includes(query) || supporter.phoneNumber.includes(query) || supporter.ward.toLowerCase().includes(query);
+    const query = supporterSearchQuery.trim().toLowerCase();
+    if (!query) return true;
+    return [
+      supporter.fullName,
+      supporter.phoneNumber,
+      supporter.county,
+      supporter.constituency,
+      supporter.ward,
+      supporter.pollingStation,
+      supporter.supportLevel,
+      supporter.keyIssue,
+      supporter.volunteerInterest ? "volunteer" : "",
+    ].some((value) => String(value ?? "").toLowerCase().includes(query));
   });
+  const supporterPageCount = Math.max(1, Math.ceil(visibleSupporters.length / supporterPageSize));
+  const boundedSupporterPage = Math.min(supporterPage, supporterPageCount);
+  const paginatedSupporters = visibleSupporters.slice((boundedSupporterPage - 1) * supporterPageSize, boundedSupporterPage * supporterPageSize);
+  const supporterStart = visibleSupporters.length ? (boundedSupporterPage - 1) * supporterPageSize + 1 : 0;
+  const supporterEnd = Math.min(visibleSupporters.length, boundedSupporterPage * supporterPageSize);
   const duplicate = useMemo(() => {
     const normalizedPhone = phone.replace(/\D/g, "");
     if (!name.trim() && !normalizedPhone) return false;
     return workspaceSupporters.some((supporter) => supporter.id !== editingSupporterId && ((normalizedPhone.length >= 7 && supporter.phoneNumber.replace(/\D/g, "") === normalizedPhone) || (name.trim().length >= 2 && supporter.fullName.toLowerCase() === name.toLowerCase().trim())));
   }, [editingSupporterId, name, phone, workspaceSupporters]);
+
+  useEffect(() => {
+    setSupporterPage(1);
+  }, [supporterSearchQuery, workspaceSupporters.length]);
+
+  useEffect(() => {
+    if (supporterPage > supporterPageCount) {
+      setSupporterPage(supporterPageCount);
+    }
+  }, [supporterPage, supporterPageCount]);
 
   function resetSupporterForm() {
     setEditingSupporterId("");
@@ -4944,9 +4973,20 @@ export default function Home() {
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white p-4">
                 <div>
                   <h2 className="text-sm font-bold text-slate-950">Supporter CRM</h2>
-                  <p className="text-sm text-slate-500">Consent-aware supporter records with duplicate detection.</p>
+                  <p className="text-sm text-slate-500">
+                    {visibleSupporters.length.toLocaleString()} of {workspaceSupporters.length.toLocaleString()} supporters shown. Every saved supporter remains searchable.
+                  </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="flex h-10 min-w-[260px] items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-500 focus-within:border-sky-500">
+                    <Search size={15} />
+                    <input
+                      className="w-full bg-transparent font-semibold text-slate-800 outline-none placeholder:text-slate-400"
+                      onChange={(event) => setSupporterSearchQuery(event.target.value)}
+                      placeholder="Search supporters"
+                      value={supporterSearchQuery}
+                    />
+                  </label>
                   <ExportButton type="csv" label="CSV" />
                   <ExportButton type="xlsx" label="Excel" />
                   <ExportButton type="pdf" label="PDF" />
@@ -4967,7 +5007,7 @@ export default function Home() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {visibleSupporters.slice(0, 50).map((supporter) => (
+                    {paginatedSupporters.map((supporter) => (
                       <tr key={supporter.id} className="hover:bg-slate-50">
                         <td className="px-4 py-3 font-semibold text-slate-950">{supporter.fullName}</td>
                         <td className="px-4 py-3 text-slate-600">{supporter.phoneNumber}</td>
@@ -5007,8 +5047,41 @@ export default function Home() {
                         </td>
                       </tr>
                     ))}
+                    {!paginatedSupporters.length ? (
+                      <tr>
+                        <td className="px-4 py-10 text-center text-sm font-semibold text-slate-500" colSpan={8}>
+                          {supporterSearchQuery.trim() ? "No supporters match that search." : "No supporters have been added yet."}
+                        </td>
+                      </tr>
+                    ) : null}
                   </tbody>
                 </table>
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-white p-4 text-sm">
+                <p className="font-semibold text-slate-600">
+                  Showing {supporterStart.toLocaleString()}-{supporterEnd.toLocaleString()} of {visibleSupporters.length.toLocaleString()}
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    className="h-9 rounded-md border border-slate-200 px-3 text-xs font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45"
+                    disabled={boundedSupporterPage <= 1}
+                    onClick={() => setSupporterPage((page) => Math.max(1, page - 1))}
+                    type="button"
+                  >
+                    Previous
+                  </button>
+                  <span className="rounded-md bg-slate-100 px-3 py-2 text-xs font-black text-slate-700">
+                    Page {boundedSupporterPage} of {supporterPageCount}
+                  </span>
+                  <button
+                    className="h-9 rounded-md border border-slate-200 px-3 text-xs font-black text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45"
+                    disabled={boundedSupporterPage >= supporterPageCount}
+                    onClick={() => setSupporterPage((page) => Math.min(supporterPageCount, page + 1))}
+                    type="button"
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
             </div>
 
