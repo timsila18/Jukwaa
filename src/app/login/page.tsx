@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
-import { KeyRound, Smartphone } from "lucide-react";
+import { ArrowRight, KeyRound, ShieldCheck, Smartphone } from "lucide-react";
+import { ElectionCountdown } from "@/components/election-countdown";
 
 export default function LoginPage() {
   const [login, setLogin] = useState("");
@@ -50,9 +52,30 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="j-auth-page grid min-h-screen place-items-center px-4 py-10 text-slate-900">
-      <section className="j-auth-card rounded-lg p-6" style={{ width: "min(28rem, calc(100vw - 2rem))" }}>
-        <Link className="text-sm font-bold text-sky-700" href="/">Back to dashboard</Link>
+    <main className="j-auth-page min-h-screen px-4 py-8 text-slate-900 sm:px-6">
+      <div className="mx-auto grid min-h-[calc(100vh-4rem)] w-full max-w-6xl items-center gap-6 lg:grid-cols-[0.95fr_1fr]">
+        <section className="j-auth-showcase hidden overflow-hidden rounded-lg p-7 text-white lg:block">
+          <Image src="/jukwaa-logo.png" alt="JUKWAA Kenya" width={270} height={86} priority className="h-16 w-auto object-contain" />
+          <div className="mt-12">
+            <p className="text-sm font-black uppercase tracking-[0.22em] text-amber-200">Secure campaign access</p>
+            <h1 className="mt-4 max-w-lg text-5xl font-black leading-tight text-white">One workspace for every serious campaign team.</h1>
+            <p className="mt-5 max-w-md text-base font-semibold leading-7 text-slate-300">Sign in to manage supporters, teams, messages, polls, field work, and election readiness from one place.</p>
+          </div>
+          <div className="mt-10">
+            <ElectionCountdown compact />
+          </div>
+          <div className="mt-8 grid gap-3">
+            {["Role-aware dashboards", "Candidate-scoped data", "Audit-ready actions"].map((item) => (
+              <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/7 p-3 text-sm font-black text-slate-100" key={item}>
+                <ShieldCheck size={17} className="text-emerald-300" />
+                {item}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="j-auth-card rounded-lg p-6 sm:p-7" style={{ width: "min(30rem, calc(100vw - 2rem))" }}>
+        <Link className="inline-flex items-center gap-2 text-sm font-bold text-sky-700" href="/landing">Back to home <ArrowRight size={14} /></Link>
         <div className="mt-6">
           <div className="grid h-11 w-11 place-items-center rounded-lg bg-slate-950 text-white shadow-sm">
             <KeyRound size={20} />
@@ -82,6 +105,7 @@ export default function LoginPage() {
           <Link className="rounded-md border border-slate-200 bg-slate-50 p-3 font-semibold text-slate-700 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-800" href="/forgot-password">Forgot password</Link>
         </div>
       </section>
+      </div>
     </main>
   );
 }

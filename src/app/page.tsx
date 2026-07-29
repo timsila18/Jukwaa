@@ -49,6 +49,7 @@ import { type FormEvent, useEffect, useMemo, useState, useSyncExternalStore } fr
 import Link from "next/link";
 import Image from "next/image";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { ElectionCountdown } from "@/components/election-countdown";
 import { accessibleTextColor, validateWorkspaceBranding } from "@/lib/design-system";
 import { constituenciesForCounty, countyForConstituency, kenyaCounties, wardsForConstituency, wardsForCounty, wardsForKenya } from "@/lib/kenya-geography";
 import {
@@ -2779,6 +2780,9 @@ export default function Home() {
                     </span>
                   </div>
                   <p className="mt-1 text-xs font-semibold text-slate-500">{readinessHelper}</p>
+                  <div className="mt-4">
+                    <ElectionCountdown compact />
+                  </div>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {roleProfile.quickActions.slice(0, 4).map(([label, Icon, section], index) => (

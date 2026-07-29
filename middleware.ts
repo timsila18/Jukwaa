@@ -5,6 +5,7 @@ const refreshCookie = "jukwaa_refresh_token";
 const workspaceSessionCookie = "jukwaa_workspace_session";
 
 const publicPaths = [
+  "/landing",
   "/login",
   "/forgot-password",
   "/reset-password",
@@ -48,8 +49,8 @@ export function middleware(request: NextRequest) {
       return NextResponse.json({ error: "Login required." }, { status: 401 });
     }
     const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("next", path);
+    url.pathname = path === "/" ? "/landing" : "/login";
+    if (path !== "/") url.searchParams.set("next", path);
     return NextResponse.redirect(url);
   }
 
