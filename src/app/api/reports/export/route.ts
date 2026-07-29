@@ -99,8 +99,21 @@ function groupSummary(rows: ReportRow[], field: string, label: string) {
     .sort((a, b) => Number(b["Total Supporters"]) - Number(a["Total Supporters"]) || String(a[label]).localeCompare(String(b[label])));
 }
 
+function genericCountSummary(rows: ReportRow[], field: string, label: string, countLabel = "Total Responses") {
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    const key = text(row[field], "Not assigned");
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([name, total]) => ({ [label]: name, [countLabel]: total }))
+    .sort((a, b) => Number(b[countLabel]) - Number(a[countLabel]) || String(a[label]).localeCompare(String(b[label])));
+}
+
 function buildReport(snapshot: LiveSnapshot, report: string) {
   const isSupporterReport = report.startsWith("supporters");
+  const isPollDetailReport = report === "poll-response-details";
+  const isPollIssueReport = report === "poll-issue-summary";
   const rows = isSupporterReport ? supporterDetailRows(snapshot) : reportRowsFromSnapshot(snapshot, report);
   const summary = isSupporterReport
     ? [
@@ -108,9 +121,21 @@ function buildReport(snapshot: LiveSnapshot, report: string) {
         { title: "Summary by Polling Station", rows: groupSummary(rows, "Polling Station", "Polling Station") },
         { title: "Summary by Support Level", rows: groupSummary(rows, "Support Level", "Support Level") },
       ]
+    : isPollDetailReport
+      ? [
+          { title: "Responses by Constituency", rows: genericCountSummary(rows, "Constituency", "Constituency") },
+          { title: "Responses by Ward", rows: genericCountSummary(rows, "Ward", "Ward") },
+          { title: "Issues by Answer", rows: genericCountSummary(rows, "Answer", "Answer") },
+        ]
+      : isPollIssueReport
+        ? [
+            { title: "Top Issues", rows: genericCountSummary(rows, "Issue", "Issue") },
+            { title: "Issue Spread by Ward", rows: genericCountSummary(rows, "Ward", "Ward") },
+            { title: "Issue Spread by Constituency", rows: genericCountSummary(rows, "Constituency", "Constituency") },
+          ]
     : [{ title: "Report Summary", rows: reportRowsFromSnapshot(snapshot, report) }];
   return {
-    title: isSupporterReport ? "Supporter Register Report" : `${titleCase(report)} Report`,
+    title: isSupporterReport ? "Supporter Register Report" : isPollDetailReport ? "Detailed Poll Response Report" : isPollIssueReport ? "Poll Issue Summary Report" : `${titleCase(report)} Report`,
     rows,
     summary,
   };

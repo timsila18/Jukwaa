@@ -33,10 +33,20 @@ type PublicPollPayload = {
     position_targeted?: string | null;
     county?: string | null;
     constituency?: string | null;
+    ward?: string | null;
     slogan?: string | null;
   } | null;
   questions: Question[];
   options: Option[];
+  locations?: {
+    county?: string;
+    constituency?: string;
+    ward?: string;
+    constituencies: string[];
+    wards: string[];
+    wardEntries?: Array<{ constituency: string; ward: string }>;
+    pollingStations: Array<{ id: string; name: string; registeredVoters: number; county: string; constituency: string; ward: string }>;
+  };
 };
 
 export default function PollResponseClient({ pollId }: { pollId: string }) {
@@ -44,6 +54,7 @@ export default function PollResponseClient({ pollId }: { pollId: string }) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [constituency, setConstituency] = useState("");
   const [ward, setWard] = useState("");
   const [pollingStation, setPollingStation] = useState("");
   const [gender, setGender] = useState("");
@@ -59,6 +70,8 @@ export default function PollResponseClient({ pollId }: { pollId: string }) {
         if (!response.ok) throw new Error(data.error || "Poll could not be opened.");
         if (!cancelled) {
           setPayload(data);
+          setConstituency(data.locations?.constituency || "");
+          setWard(data.locations?.ward || "");
           setStatus("");
         }
       })
@@ -73,6 +86,30 @@ export default function PollResponseClient({ pollId }: { pollId: string }) {
     }
     return map;
   }, [payload?.options]);
+
+  const normalizedPosition = (payload?.campaign?.position_targeted || "").toLowerCase();
+  const isNationalRace = normalizedPosition.includes("president") || normalizedPosition.includes("referendum");
+  const isCountyRace = ["governor", "senator", "women representative", "woman representative", "women rep", "woman rep"].some((term) => normalizedPosition.includes(term));
+  const isMcaRace = normalizedPosition.includes("mca");
+  const scope = payload?.campaign?.county || payload?.campaign?.constituency || payload?.campaign?.ward || "your area";
+  const constituencyOptions = payload?.locations?.constituencies ?? [];
+  const wardOptions = useMemo(() => {
+    const fromOfficialArea = (payload?.locations?.wardEntries ?? [])
+      .filter((entry) => !constituency || entry.constituency === constituency)
+      .map((entry) => entry.ward)
+      .filter(Boolean);
+    const fromStations = (payload?.locations?.pollingStations ?? [])
+      .filter((station) => !constituency || station.constituency === constituency)
+      .map((station) => station.ward)
+      .filter(Boolean);
+    const fallback = constituency ? [] : (payload?.locations?.wards ?? []);
+    return [...new Set([...fromOfficialArea, ...fromStations, ...fallback])].sort((left, right) => left.localeCompare(right));
+  }, [constituency, payload?.locations?.pollingStations, payload?.locations?.wardEntries, payload?.locations?.wards]);
+  const stationOptions = useMemo(() => {
+    return (payload?.locations?.pollingStations ?? [])
+      .filter((station) => (!constituency || station.constituency === constituency) && (!ward || station.ward === ward))
+      .sort((left, right) => left.name.localeCompare(right.name));
+  }, [constituency, payload?.locations?.pollingStations, ward]);
 
   async function submit() {
     if (!payload) return;
@@ -93,6 +130,8 @@ export default function PollResponseClient({ pollId }: { pollId: string }) {
       body: JSON.stringify({
         respondentName: name,
         phoneNumber: phone,
+        countyName: payload.locations?.county || payload.campaign?.county || "",
+        constituencyName: constituency,
         wardName: ward,
         pollingStationName: pollingStation,
         gender,
@@ -124,13 +163,41 @@ export default function PollResponseClient({ pollId }: { pollId: string }) {
           <p className="mt-6 text-xs font-black uppercase tracking-wide text-amber-300">Campaign Pulse</p>
           <h1 className="mt-2 text-3xl font-black">{payload.poll.title}</h1>
           <p className="mt-2 text-sm leading-6 text-slate-300">{payload.poll.description || payload.campaign?.campaign_name || payload.campaign?.candidate_name}</p>
+          <div className="mt-4 flex flex-wrap gap-2 text-xs font-black">
+            {payload.campaign?.position_targeted ? <span className="rounded-full bg-white/10 px-3 py-1 text-amber-200">{payload.campaign.position_targeted}</span> : null}
+            <span className="rounded-full bg-white/10 px-3 py-1 text-sky-100">{scope}</span>
+            {payload.campaign?.slogan ? <span className="rounded-full bg-white/10 px-3 py-1 text-emerald-100">{payload.campaign.slogan}</span> : null}
+          </div>
         </div>
         <div className="grid gap-4 p-6">
           <div className="grid gap-3 sm:grid-cols-2">
             <input className="h-11 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" value={name} onChange={(event) => setName(event.target.value)} placeholder="Name (optional)" />
             <input className="h-11 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="Phone (optional)" />
-            <input className="h-11 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" value={ward} onChange={(event) => setWard(event.target.value)} placeholder="Ward / area" />
-            <input className="h-11 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" value={pollingStation} onChange={(event) => setPollingStation(event.target.value)} placeholder="Polling station (optional)" />
+            {(isNationalRace || isCountyRace) ? (
+              <select className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-sky-500" value={constituency} onChange={(event) => { setConstituency(event.target.value); setWard(""); setPollingStation(""); }}>
+                <option value="">Choose constituency</option>
+                {constituencyOptions.map((item) => <option key={item}>{item}</option>)}
+              </select>
+            ) : null}
+            {!isMcaRace ? (
+              <select className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-sky-500" value={ward} onChange={(event) => { setWard(event.target.value); setPollingStation(""); }}>
+                <option value="">Choose ward</option>
+                {wardOptions.map((item) => <option key={item}>{item}</option>)}
+              </select>
+            ) : null}
+            {stationOptions.length ? (
+              <select className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none focus:border-sky-500" value={pollingStation} onChange={(event) => {
+                const station = stationOptions.find((item) => item.name === event.target.value);
+                setPollingStation(event.target.value);
+                if (station?.constituency) setConstituency(station.constituency);
+                if (station?.ward) setWard(station.ward);
+              }}>
+                <option value="">Choose polling station</option>
+                {stationOptions.map((station) => <option key={station.id} value={station.name}>{station.name} - {station.registeredVoters.toLocaleString()} voters</option>)}
+              </select>
+            ) : (
+              <input className="h-11 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-sky-500" value={pollingStation} onChange={(event) => setPollingStation(event.target.value)} placeholder="Polling station (optional)" />
+            )}
           </div>
           {payload.poll.collectDemographics ? (
             <div className="grid gap-3 sm:grid-cols-2">

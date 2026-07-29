@@ -786,17 +786,20 @@ export default function Home() {
   const isNationalRace = normalizedPosition.includes("president") || normalizedPosition.includes("referendum");
   const isCountyRace = ["governor", "senator", "women representative", "woman representative", "women rep", "woman rep"].some((position) => normalizedPosition.includes(position));
   const isMcaRace = normalizedPosition.includes("mca");
+  const cleanCountyLabel = String(campaignCounty || "").replace(/\s+County$/i, "").trim();
+  const cleanConstituencyLabel = String(campaignConstituency || "").replace(/\s+Constituency$/i, "").trim();
+  const cleanWardLabel = String(campaignWard || supporterWard || "").replace(/\s+Ward$/i, "").trim();
   const scopeLevel: ElectoralFocusArea["level"] = isNationalRace ? "country" : isCountyRace ? "county" : isMcaRace ? "ward" : "constituency";
   const analysisLevel: ElectoralFocusArea["level"] = isNationalRace ? "county" : isCountyRace ? "constituency" : isMcaRace ? "local" : "ward";
   const electiveScopeLabel = isNationalRace
     ? "Kenya"
     : isCountyRace
-      ? `${campaignCounty || "County"} County`
+      ? `${cleanCountyLabel || "County"} County`
       : isMcaRace
-        ? `${campaignWard || supporterWard || "Ward"} Ward`
-        : `${campaignConstituency || "Constituency"} Constituency`;
+        ? `${cleanWardLabel || "Ward"} Ward`
+        : `${cleanConstituencyLabel || "Constituency"} Constituency`;
   const defaultPollTitle = `${electiveScopeLabel} Issue Pulse`;
-  const defaultPollDescription = `Quick campaign pulse for ${electiveScopeLabel}: priority issues, message sentiment, and field follow-up signals.`;
+  const defaultPollDescription = `${referenceCandidateName}'s ${campaignPosition} campaign is collecting voter priorities in ${electiveScopeLabel}. Responses are grouped by ${isNationalRace ? "county, constituency, and ward" : isCountyRace ? "constituency and ward" : isMcaRace ? "polling station and local unit" : "ward and polling station"} for field follow-up.`;
   const candidateDescriptor = `${campaignPosition} candidate for ${electiveScopeLabel}`;
   const personalWorkspaceTitle = isOwnerAccount ? (liveBootstrap?.campaign?.campaign_name || `${referenceCandidateName} Campaign`) : `${currentMemberName} Workspace`;
   const personalWorkspaceSubtitle = isOwnerAccount
@@ -1644,6 +1647,44 @@ export default function Home() {
     return { name: liveText(option, "option_text"), value };
   });
   const topPollIssue = pollOptionData.slice().sort((a, b) => b.value - a.value)[0];
+  const pollById = new Map(livePolls.map((poll) => [String(poll.id), poll]));
+  const pollQuestionById = new Map(livePollQuestions.map((question) => [String(question.id), question]));
+  const pollOptionById = new Map(livePollOptions.map((option) => [String(option.id), option]));
+  const pollResponseById = new Map(livePollResponses.map((response) => [String(response.id), response]));
+  const pollAnswerDetails = livePollAnswers.map((answer) => {
+    const response = pollResponseById.get(String(answer.response_id));
+    const question = pollQuestionById.get(String(answer.question_id));
+    const option = pollOptionById.get(String(answer.option_id));
+    const answerText = liveText(option, "option_text", liveText(answer, "text_answer", liveNumber(answer, "numeric_answer") ? String(liveNumber(answer, "numeric_answer")) : "No answer"));
+    const constituency = liveText(response, "constituency_name", "");
+    const wardName = liveText(response, "ward_name", "");
+    const station = liveText(response, "polling_station_name", "");
+    const area = isCountyRace ? (constituency || wardName || electiveScopeLabel) : isMcaRace ? (station || wardName || electiveScopeLabel) : (wardName || constituency || electiveScopeLabel);
+    return {
+      id: String(answer.id ?? `${answer.response_id}-${answer.question_id}`),
+      pollId: String(answer.poll_id ?? response?.poll_id ?? ""),
+      poll: liveText(pollById.get(String(answer.poll_id ?? response?.poll_id)), "title", "Poll"),
+      question: liveText(question, "question_text", "Question"),
+      answer: answerText,
+      respondent: liveText(response, "respondent_name", "Anonymous"),
+      method: liveText(response, "collection_method", "Public Link"),
+      county: liveText(response, "county_name", ""),
+      constituency,
+      ward: wardName,
+      station,
+      area,
+      submittedAt: liveDate(response, "submitted_at", liveDate(response, "created_at")),
+    };
+  }).filter((row) => !selectedPollId || row.pollId === selectedPollId);
+  const pollIssueSummary = pollAnswerDetails.reduce<Array<{ issue: string; constituency: string; ward: string; station: string; responses: number }>>((rows, answer) => {
+    const existing = rows.find((row) => row.issue === answer.answer && row.constituency === answer.constituency && row.ward === answer.ward && row.station === answer.station);
+    if (existing) {
+      existing.responses += 1;
+    } else {
+      rows.push({ issue: answer.answer, constituency: answer.constituency || "Not assigned", ward: answer.ward || "Not assigned", station: answer.station || "Not assigned", responses: 1 });
+    }
+    return rows;
+  }, []).sort((a, b) => b.responses - a.responses || a.issue.localeCompare(b.issue));
   const pollResponseRate = selectedPoll && Number(selectedPoll.target_response_count ?? 0)
     ? Math.min(100, Math.round((pollResponsesForSelected.length / Number(selectedPoll.target_response_count)) * 100))
     : 0;
@@ -4606,50 +4647,71 @@ export default function Home() {
             </div>
 
             {pollPulseTab === "Overview" ? (
-              <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-                <ChartCard
-                  title={`${electiveScopeLabel} Poll Response Coverage`}
-                  report="poll-responses"
-                  accent="sky"
-                  hasData={pollAreaData.some((row) => row.value > 0)}
-                  insight={`Poll responses are grouped by the candidate's real elective area: ${isNationalRace ? "counties" : isCountyRace ? "constituencies" : isMcaRace ? "polling stations" : "wards"}.`}
-                  stats={[
-                    { label: "Selected poll responses", value: pollResponsesForSelected.length.toLocaleString() },
-                    { label: "Area groups", value: pollAreaData.length.toLocaleString() },
-                    { label: "Response rate", value: `${pollResponseRate}%` },
-                  ]}
-                >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={pollAreaData}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="name" tickLine={false} axisLine={false} />
-                      <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
-                      <Tooltip />
-                      <Bar dataKey="value" fill="#0284c7" radius={[6, 6, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </ChartCard>
-                <ChartCard
-                  title={selectedPollQuestion ? liveText(selectedPollQuestion, "question_text") : "Top Poll Choices"}
-                  report="polls-overview"
-                  accent="emerald"
-                  hasData={pollOptionData.some((row) => row.value > 0)}
-                  insight={topPollIssue?.value ? `${topPollIssue.name} is leading among current responses and should be reviewed by the field team.` : "Once responses come in, JUKWAA will rank the issues and messages voters mention most."}
-                  stats={[
-                    { label: "Top choice", value: topPollIssue?.name ?? "None yet" },
-                    { label: "Votes", value: topPollIssue?.value ?? 0 },
-                    { label: "Questions", value: selectedPollQuestions.length },
-                  ]}
-                >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={pollOptionData.length ? pollOptionData : [{ name: "No responses", value: 1 }]} dataKey="value" nameKey="name" innerRadius={58} outerRadius={92}>
-                        {(pollOptionData.length ? pollOptionData : [{ name: "No responses", value: 1 }]).map((entry, index) => <Cell key={entry.name} fill={["#0ea5e9", "#16a34a", "#f59e0b", "#7c3aed", "#ef4444", "#94a3b8"][index % 6]} />)}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </ChartCard>
+              <div className="space-y-4">
+                <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+                  <ChartCard
+                    title={`${electiveScopeLabel} Poll Response Coverage`}
+                    report="poll-responses"
+                    accent="sky"
+                    hasData={pollAreaData.some((row) => row.value > 0)}
+                    insight={`Poll responses are grouped by the candidate's real elective area: ${isNationalRace ? "counties" : isCountyRace ? "constituencies" : isMcaRace ? "polling stations" : "wards"}.`}
+                    stats={[
+                      { label: "Selected poll responses", value: pollResponsesForSelected.length.toLocaleString() },
+                      { label: "Area groups", value: pollAreaData.length.toLocaleString() },
+                      { label: "Response rate", value: `${pollResponseRate}%` },
+                    ]}
+                  >
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={pollAreaData}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="name" tickLine={false} axisLine={false} />
+                        <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
+                        <Tooltip />
+                        <Bar dataKey="value" fill="#0284c7" radius={[6, 6, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </ChartCard>
+                  <ChartCard
+                    title={selectedPollQuestion ? liveText(selectedPollQuestion, "question_text") : "Top Poll Choices"}
+                    report="polls-overview"
+                    accent="emerald"
+                    hasData={pollOptionData.some((row) => row.value > 0)}
+                    insight={topPollIssue?.value ? `${topPollIssue.name} is leading among current responses and should be reviewed by the field team.` : "Once responses come in, JUKWAA will rank the issues and messages voters mention most."}
+                    stats={[
+                      { label: "Top choice", value: topPollIssue?.name ?? "None yet" },
+                      { label: "Votes", value: topPollIssue?.value ?? 0 },
+                      { label: "Questions", value: selectedPollQuestions.length },
+                    ]}
+                  >
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={pollOptionData.length ? pollOptionData : [{ name: "No responses", value: 1 }]} dataKey="value" nameKey="name" innerRadius={58} outerRadius={92}>
+                          {(pollOptionData.length ? pollOptionData : [{ name: "No responses", value: 1 }]).map((entry, index) => <Cell key={entry.name} fill={["#0ea5e9", "#16a34a", "#f59e0b", "#7c3aed", "#ef4444", "#94a3b8"][index % 6]} />)}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </ChartCard>
+                </div>
+                <div className="j-panel p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h2 className="text-sm font-black text-slate-950">Issues Raised From Poll Responses</h2>
+                      <p className="text-sm text-slate-500">Candidate view of answers grouped by {isCountyRace ? "constituency and ward" : isMcaRace ? "polling station" : "ward"}.</p>
+                    </div>
+                    <ReportLink report="poll-issue-summary" label="Issue Summary" />
+                  </div>
+                  <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    {pollIssueSummary.slice(0, 6).map((row) => (
+                      <div key={`${row.issue}-${row.constituency}-${row.ward}-${row.station}`} className="rounded-xl border border-slate-200 bg-gradient-to-br from-white to-sky-50 p-4">
+                        <p className="text-xs font-black uppercase tracking-wide text-sky-700">{row.responses.toLocaleString()} response(s)</p>
+                        <h3 className="mt-1 text-base font-black text-slate-950">{row.issue}</h3>
+                        <p className="mt-2 text-xs font-bold text-slate-600">{[row.constituency, row.ward, row.station].filter((value) => value && value !== "Not assigned").join(" / ") || electiveScopeLabel}</p>
+                      </div>
+                    ))}
+                    {!pollIssueSummary.length ? emptyState("No poll issues have been raised yet. Share the public link or capture field responses.") : null}
+                  </div>
+                </div>
               </div>
             ) : null}
 
@@ -4777,19 +4839,21 @@ export default function Home() {
                     <ReportLink report="poll-responses" label="Responses" />
                   </div>
                   <div className="overflow-x-auto">
-                    <table className="w-full min-w-[760px] text-left text-sm">
-                      <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3">Poll</th><th className="px-4 py-3">Area</th><th className="px-4 py-3">Method</th><th className="px-4 py-3">Respondent</th><th className="px-4 py-3">Submitted</th></tr></thead>
+                    <table className="w-full min-w-[980px] text-left text-sm">
+                      <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3">Poll</th><th className="px-4 py-3">Question</th><th className="px-4 py-3">Answer</th><th className="px-4 py-3">Area</th><th className="px-4 py-3">Method</th><th className="px-4 py-3">Respondent</th><th className="px-4 py-3">Submitted</th></tr></thead>
                       <tbody className="divide-y divide-slate-100">
-                        {livePollResponses.slice(0, 40).map((response) => (
-                          <tr key={String(response.id)}>
-                            <td className="px-4 py-3 font-semibold text-slate-950">{liveText(livePolls.find((poll) => String(poll.id) === String(response.poll_id)), "title", "Poll")}</td>
-                            <td className="px-4 py-3 text-slate-600">{liveText(response, pollAreaField, electiveScopeLabel)}</td>
-                            <td className="px-4 py-3 text-slate-600">{liveText(response, "collection_method")}</td>
-                            <td className="px-4 py-3 text-slate-600">{liveText(response, "respondent_name", "Anonymous")}</td>
-                            <td className="px-4 py-3 text-slate-600">{liveDate(response, "submitted_at")}</td>
+                        {pollAnswerDetails.slice(0, 60).map((response) => (
+                          <tr key={response.id}>
+                            <td className="px-4 py-3 font-semibold text-slate-950">{response.poll}</td>
+                            <td className="px-4 py-3 text-slate-600">{response.question}</td>
+                            <td className="px-4 py-3 font-black text-slate-900">{response.answer}</td>
+                            <td className="px-4 py-3 text-slate-600">{response.area}</td>
+                            <td className="px-4 py-3 text-slate-600">{response.method}</td>
+                            <td className="px-4 py-3 text-slate-600">{response.respondent}</td>
+                            <td className="px-4 py-3 text-slate-600">{response.submittedAt}</td>
                           </tr>
                         ))}
-                        {!livePollResponses.length ? <tr><td className="px-4 py-6 text-center text-sm font-semibold text-slate-500" colSpan={5}>No poll responses have been captured yet.</td></tr> : null}
+                        {!pollAnswerDetails.length ? <tr><td className="px-4 py-6 text-center text-sm font-semibold text-slate-500" colSpan={7}>No poll responses have been captured yet.</td></tr> : null}
                       </tbody>
                     </table>
                   </div>
@@ -4839,11 +4903,38 @@ export default function Home() {
             ) : null}
 
             {pollPulseTab === "Reports" ? (
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <ReportLink report="polls-overview" label="Polls Overview" />
-                <ReportLink report="poll-responses" label="Poll Responses" />
-                <ReportLink report="poll-actions" label="Poll Action Centre" />
-                <ReportLink report="weekly-campaign-pulse" label="Weekly Campaign Pulse" />
+              <div className="grid gap-4 xl:grid-cols-[1fr_0.85fr]">
+                <div className="j-table-shell">
+                  <div className="border-b border-slate-200 p-4">
+                    <h2 className="text-sm font-black text-slate-950">Poll Report Preview</h2>
+                    <p className="text-sm text-slate-500">The exported report includes every answer, respondent area, demographics, and summary tables.</p>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[780px] text-left text-sm">
+                      <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3">Issue</th><th className="px-4 py-3">Constituency</th><th className="px-4 py-3">Ward</th><th className="px-4 py-3">Polling Station</th><th className="px-4 py-3">Responses</th></tr></thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {pollIssueSummary.slice(0, 40).map((row) => (
+                          <tr key={`${row.issue}-${row.constituency}-${row.ward}-${row.station}`}>
+                            <td className="px-4 py-3 font-black text-slate-950">{row.issue}</td>
+                            <td className="px-4 py-3 text-slate-600">{row.constituency}</td>
+                            <td className="px-4 py-3 text-slate-600">{row.ward}</td>
+                            <td className="px-4 py-3 text-slate-600">{row.station}</td>
+                            <td className="px-4 py-3 text-slate-900">{row.responses.toLocaleString()}</td>
+                          </tr>
+                        ))}
+                        {!pollIssueSummary.length ? <tr><td className="px-4 py-6 text-center text-sm font-semibold text-slate-500" colSpan={5}>No issue summary yet.</td></tr> : null}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                <div className="grid content-start gap-3">
+                  <ReportLink report="poll-response-details" label="Detailed Poll Responses" />
+                  <ReportLink report="poll-issue-summary" label="Issue Summary by Area" />
+                  <ReportLink report="polls-overview" label="Polls Overview" />
+                  <ReportLink report="poll-responses" label="Poll Response Register" />
+                  <ReportLink report="poll-actions" label="Poll Action Centre" />
+                  <ReportLink report="weekly-campaign-pulse" label="Weekly Campaign Pulse" />
+                </div>
               </div>
             ) : null}
           </section>

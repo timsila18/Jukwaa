@@ -153,6 +153,7 @@ async function withAreaNames(tenantId: string, rows: DbRow[]) {
   const stationMap = mapRows(Array.isArray(pollingStations.data) ? pollingStations.data as DbRow[] : []);
 
   return rows.map((row) => {
+    const metadata = row.response_metadata && typeof row.response_metadata === "object" ? row.response_metadata as DbRow : {};
     const stationId = String(row.polling_station_id ?? row.assigned_polling_station_id ?? "");
     const station = stationMap.get(stationId);
     const villageId = String(row.village_id ?? station?.village_id ?? "");
@@ -165,11 +166,11 @@ async function withAreaNames(tenantId: string, rows: DbRow[]) {
     const county = countyMap.get(countyId);
     return {
       ...row,
-      county_name: String(county?.name ?? ""),
-      constituency_name: String(constituency?.name ?? ""),
-      ward_name: String(ward?.name ?? ""),
-      village_name: String(village?.name ?? ""),
-      polling_station_name: String(station?.name ?? ""),
+      county_name: String(county?.name ?? row.county_name ?? metadata.countyName ?? ""),
+      constituency_name: String(constituency?.name ?? row.constituency_name ?? metadata.constituencyName ?? ""),
+      ward_name: String(ward?.name ?? row.ward_name ?? metadata.wardName ?? ""),
+      village_name: String(village?.name ?? row.village_name ?? metadata.villageName ?? ""),
+      polling_station_name: String(station?.name ?? row.polling_station_name ?? metadata.pollingStationName ?? ""),
       registered_voters: station?.registered_voters ?? row.registered_voters ?? 0,
       station_code: station?.station_code ?? row.station_code ?? "",
       centre_code: station?.centre_code ?? row.centre_code ?? "",
@@ -277,7 +278,7 @@ export async function getLiveWorkspaceSnapshot(session: SnapshotSession, access?
     fetchRows("polls", tenantId, "id, title, description, poll_type, status, visibility, start_date, end_date, target_response_count, allow_anonymous, require_consent, collect_location, collect_demographics, methodology_note, created_at, updated_at", 100),
     fetchRows("poll_questions", tenantId, "id, poll_id, question_text, question_type, required, display_order, created_at", 500, "display_order", true),
     fetchRows("poll_options", tenantId, "id, question_id, option_text, sentiment_score, display_order, created_at", 1000, "display_order", true),
-    fetchRows("poll_responses", tenantId, "id, poll_id, respondent_name, collection_method, county_id, constituency_id, ward_id, village_id, polling_station_id, age_group, gender, consent_to_process, response_status, submitted_at, created_at", 2000, "submitted_at", false),
+    fetchRows("poll_responses", tenantId, "id, poll_id, respondent_name, collection_method, county_id, constituency_id, ward_id, village_id, polling_station_id, age_group, gender, consent_to_process, response_status, response_metadata, submitted_at, created_at", 2000, "submitted_at", false),
     fetchRows("poll_answers", tenantId, "id, response_id, poll_id, question_id, option_id, text_answer, numeric_answer, ranking_value, created_at", 5000),
     fetchRows("poll_action_items", tenantId, "id, poll_id, title, description, insight_category, priority, status, assigned_team, due_date, county_id, constituency_id, ward_id, village_id, polling_station_id, created_at, updated_at", 200),
     fetchRows("poll_snapshots", tenantId, "id, poll_id, snapshot_label, snapshot_data, methodology_note, created_at", 50),
@@ -445,6 +446,71 @@ function groupByElectiveArea(snapshot: LiveSnapshot) {
   return [...counts.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value || a.name.localeCompare(b.name));
 }
 
+function answerValue(answer: DbRow, options: Map<string, DbRow>) {
+  const option = options.get(String(answer.option_id ?? ""));
+  const optionText = option?.option_text;
+  if (typeof optionText === "string" && optionText.trim()) return optionText.trim();
+  const textAnswer = answer.text_answer;
+  if (typeof textAnswer === "string" && textAnswer.trim()) return textAnswer.trim();
+  const numericAnswer = answer.numeric_answer;
+  if (typeof numericAnswer === "number" && Number.isFinite(numericAnswer)) return numericAnswer;
+  return "";
+}
+
+function pollAnswerDetailRows(snapshot: LiveSnapshot) {
+  const polls = mapRows(snapshot.polls);
+  const questions = mapRows(snapshot.pollQuestions);
+  const options = mapRows(snapshot.pollOptions);
+  const responses = mapRows(snapshot.pollResponses);
+  return snapshot.pollAnswers.map((answer, index) => {
+    const response = responses.get(String(answer.response_id ?? "")) ?? {};
+    const poll = polls.get(String(answer.poll_id ?? response.poll_id ?? "")) ?? {};
+    const question = questions.get(String(answer.question_id ?? "")) ?? {};
+    return {
+      No: index + 1,
+      Poll: poll.title ?? "Poll",
+      "Poll Status": poll.status ?? "",
+      "Poll Visibility": poll.visibility ?? "",
+      Question: question.question_text ?? "Question",
+      Answer: answerValue(answer, options),
+      Respondent: response.respondent_name || "Anonymous",
+      Method: response.collection_method ?? "",
+      County: response.county_name ?? "",
+      Constituency: response.constituency_name ?? "",
+      Ward: response.ward_name ?? "",
+      "Polling Station": response.polling_station_name ?? "",
+      Gender: response.gender ?? "",
+      "Age Group": response.age_group ?? "",
+      Consent: response.consent_to_process ? "Yes" : "No",
+      "Submitted At": response.submitted_at ?? response.created_at ?? "",
+    };
+  });
+}
+
+function pollIssueSummaryRows(snapshot: LiveSnapshot) {
+  const rows = pollAnswerDetailRows(snapshot);
+  const counts = new Map<string, DbRow & { Responses: number }>();
+  for (const row of rows) {
+    const key = [row.Poll, row.Question, row.Answer, row.County, row.Constituency, row.Ward, row["Polling Station"]].join("|");
+    const existing = counts.get(key);
+    if (existing) {
+      existing.Responses += 1;
+    } else {
+      counts.set(key, {
+        Poll: row.Poll,
+        Question: row.Question,
+        Issue: row.Answer,
+        County: row.County || "Not assigned",
+        Constituency: row.Constituency || "Not assigned",
+        Ward: row.Ward || "Not assigned",
+        "Polling Station": row["Polling Station"] || "Not assigned",
+        Responses: 1,
+      });
+    }
+  }
+  return [...counts.values()].sort((a, b) => b.Responses - a.Responses || String(a.Issue).localeCompare(String(b.Issue)));
+}
+
 export function reportRowsFromSnapshot(snapshot: LiveSnapshot, report: string): DbRow[] {
   if (report === "supporters-by-area") return groupByElectiveArea(snapshot);
   if (report === "supporters-by-ward") return groupCount(snapshot.supporters, "ward_name");
@@ -537,6 +603,8 @@ export function reportRowsFromSnapshot(snapshot: LiveSnapshot, report: string): 
       submittedAt: response.submitted_at ?? response.created_at,
     }));
   }
+  if (report === "poll-response-details") return pollAnswerDetailRows(snapshot);
+  if (report === "poll-issue-summary") return pollIssueSummaryRows(snapshot);
   if (report === "poll-actions") return snapshot.pollActionItems;
   if (report === "weekly-campaign-pulse") {
     return [
