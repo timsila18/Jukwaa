@@ -774,6 +774,31 @@ export default function Home() {
   const allowedNavLabels = roleNavItems[currentRole] ?? roleNavItems.Candidate;
   const visibleNavItems = navItems.filter((item) => allowedNavLabels.includes(item.label));
   const isOwnerAccount = currentRole === "Candidate" || currentRole === "Admin" || liveBootstrap?.workspace.isPlatformAdmin;
+  const allowedSectionIds = new Set(allowedNavLabels.map((label) => sectionTargets[label]).filter(Boolean));
+  if (allowedNavLabels.includes("Polling Agents")) {
+    ["turnout-monitoring", "results-center", "polling-stations"].forEach((sectionId) => allowedSectionIds.add(sectionId));
+  }
+  if (allowedNavLabels.includes("Tasks & Field Ops")) {
+    ["territory-coverage", "ground-intelligence"].forEach((sectionId) => allowedSectionIds.add(sectionId));
+  }
+  if (allowedNavLabels.includes("Team & Roles")) {
+    ["invitations", "users"].forEach((sectionId) => allowedSectionIds.add(sectionId));
+  }
+  if (allowedNavLabels.includes("Payments & Billing")) {
+    allowedSectionIds.add("subscriptions");
+  }
+  if (allowedNavLabels.includes("Settings")) {
+    ["workspace-governance", "locations"].forEach((sectionId) => allowedSectionIds.add(sectionId));
+  }
+  if (isOwnerAccount) {
+    ["candidate-management", "workspace-governance", "locations", "subscriptions"].forEach((sectionId) => allowedSectionIds.add(sectionId));
+  }
+  const allowedSectionLabels = new Set([
+    ...allowedNavLabels,
+    ...Object.entries(sectionTargets)
+      .filter(([, sectionId]) => allowedSectionIds.has(sectionId))
+      .map(([label]) => label),
+  ]);
   const currentMemberName =
     usablePersonName(currentMember?.full_name)
     || usablePersonName(liveBootstrap?.workspace.fullName)
@@ -1609,10 +1634,10 @@ export default function Home() {
   const readinessLabel = currentRole === "Campaign Manager" ? "Manager Execution Readiness" : currentRole === "Polling Agent" ? "Station Readiness" : currentRole === "Volunteer" ? "Field Readiness" : "Campaign Readiness";
   const readinessHelper = currentRole === "Campaign Manager" ? `Your execution cockpit for ${referenceCandidateName}'s ${electiveScopeLabel} campaign.` : currentRole === "Polling Agent" ? `Focus on ${memberAssignmentLabel} station tasks, incidents, turnout, and results.` : currentRole === "Volunteer" ? `Focus on field tasks, supporters, issues, and visits in ${memberAssignmentLabel}.` : !isOwnerAccount ? `Your ${currentRole} tools are scoped to ${memberAssignmentLabel}.` : "You are making great progress.";
   useEffect(() => {
-    if (!allowedNavLabels.includes(activeSection)) {
+    if (!allowedSectionLabels.has(activeSection)) {
       queueMicrotask(() => setActiveSection("Dashboard"));
     }
-  }, [activeSection, allowedNavLabels]);
+  }, [activeSection, allowedSectionLabels]);
   const workspaceSolco = {
     status: liveBootstrap?.livekit?.configured ? "Ready" : (liveBootstrap?.solcoIntegration?.status || solcoIntegration.status),
     tokenEndpoint: liveBootstrap?.solcoIntegration?.token_endpoint || solcoIntegration.tokenEndpoint,
@@ -1920,16 +1945,22 @@ export default function Home() {
       Supporters: "supporter-form",
       "Tasks & Field Ops": "field-operations",
       Events: "events-rallies",
-      "Issues & Manifesto": "field-operations",
+      "Issues & Manifesto": "community-issues",
       "Polls & Pulse": "polls-pulse",
       Communications: "communications",
       "AI Campaign Studio": "ai-assistant",
       "Reports & Analytics": "reports",
+      "Payments & Billing": "subscriptions",
+      Settings: "workspace-governance",
     };
     if (activeSection === "Volunteers") { window.location.assign("/signup/user?role=Volunteer"); return; }
     if (activeSection === "Polling Agents" && ["Candidate", "Campaign Manager", "Admin"].includes(currentRole)) { window.location.assign("/signup/user?role=Polling%20Agent"); return; }
     if (activeSection === "Polling Agents") { scrollToSection("Turnout Monitoring"); return; }
-    if (activeSection === "Team & Roles") { window.location.assign("/signup/user"); return; }
+    if (activeSection === "Team & Roles") {
+      scrollToSection("Team & Roles");
+      window.setTimeout(() => document.getElementById("invitations")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+      return;
+    }
     const target = targets[activeSection];
     if (!target) { runAction(`${activeSection} action is available from its workspace panel.`, activeSection); return; }
     const section = target === "communications" ? "Communications" : target === "ai-assistant" ? "AI Campaign Studio" : activeSection;
@@ -1960,8 +1991,8 @@ export default function Home() {
       return;
     }
     if (label.includes("Volunteer")) {
-      scrollToSection("Volunteers");
-      window.setTimeout(() => document.getElementById("field-operations")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+      scrollToSection("Team & Roles");
+      window.setTimeout(() => document.getElementById("invitations")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
       return;
     }
     if (label.includes("Invite") || section === "Team & Roles") {
@@ -2534,7 +2565,7 @@ export default function Home() {
             <p className="mt-2 text-xs text-slate-300">Expires on 24 Aug 2026</p>
             <div className="mt-3 h-2 rounded-full bg-white/10"><div className="h-2 w-[78%] rounded-full bg-amber-400" /></div>
             <p className="mt-2 text-xs text-slate-300">71 days remaining</p>
-            <button className="mt-3 h-9 w-full rounded-md border border-amber-300/50 text-xs font-bold text-amber-100 hover:bg-amber-300/10" onClick={() => scrollToSection("Subscriptions")} type="button">Manage Subscription</button>
+            <button className="mt-3 h-9 w-full rounded-md border border-amber-300/50 text-xs font-bold text-amber-100 hover:bg-amber-300/10" onClick={() => scrollToSection("Payments & Billing")} type="button">Manage Subscription</button>
           </div>
         ) : (
           <div className="mt-auto rounded-lg border border-sky-400/40 bg-sky-400/5 p-3">
@@ -2967,7 +2998,7 @@ export default function Home() {
                     </div>
                     <div className="mt-4 grid gap-2 sm:grid-cols-2">
                       <Link className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-blue-600 px-3 text-sm font-bold text-white hover:bg-blue-700" href={paymentUrl}><WalletCards size={16} />Make Payment</Link>
-                      <button className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-slate-200 text-sm font-bold text-slate-700 hover:bg-slate-50" onClick={() => scrollToSection("Subscriptions")} type="button"><ReceiptText size={16} />View Billing</button>
+                      <button className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-slate-200 text-sm font-bold text-slate-700 hover:bg-slate-50" onClick={() => scrollToSection("Payments & Billing")} type="button"><ReceiptText size={16} />View Billing</button>
                     </div>
                   </>
                 ) : (
@@ -3049,7 +3080,7 @@ export default function Home() {
               </section>
 
               <section className="j-dashboard-card rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="flex items-center justify-between"><h2 className="text-base font-black text-slate-950">Field Operations Overview</h2><button className="text-xs font-bold text-blue-700" onClick={() => scrollToSection("Field Operations")} type="button">View map</button></div>
+                <div className="flex items-center justify-between"><h2 className="text-base font-black text-slate-950">Field Operations Overview</h2><button className="text-xs font-bold text-blue-700" onClick={() => scrollToSection("Tasks & Field Ops")} type="button">View map</button></div>
                 <div className="mt-4 grid grid-cols-4 gap-2">
                   {[[`${focusAreaSingular}s Covered`, `${coverageRows.filter((row) => row.score > 0).length} / ${Math.max(coverageRows.length, focusAreas.length || focusWards.length || 1)}`], ["Field Visits", workspaceFieldVisitRows.length.toLocaleString()], ["Reports Submitted", liveAuditLogs.length.toLocaleString()], ["Issues Logged", workspaceIssueRows.length.toLocaleString()]].map(([label, value]) => (
                     <div key={label} className="rounded-md border border-slate-200 p-3">
@@ -3064,7 +3095,7 @@ export default function Home() {
                   <div className="h-2 rounded-full bg-slate-100"><div className="h-2 w-[68%] rounded-full bg-emerald-500" /></div>
                   <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
                     <span>Based on agents, materials, and logistics</span>
-                    <button className="font-bold text-blue-700" onClick={() => scrollToSection("Reports")} type="button">View Readiness Report</button>
+                    <button className="font-bold text-blue-700" onClick={() => scrollToSection("Reports & Analytics")} type="button">View Readiness Report</button>
                   </div>
                 </div>
               </section>
@@ -4033,7 +4064,7 @@ export default function Home() {
               <h2 className="text-sm font-bold text-slate-950">User Approval Workflow</h2>
               <div className="mt-4 grid gap-3">
                 {["Approve User", "Suspend User", "Deactivate User", "Reactivate User"].map((action) => (
-                  <button key={action} disabled={!pendingInvitationId} className="flex h-11 items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700 hover:border-sky-200 hover:bg-sky-50 hover:text-sky-800 disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void persistWorkflow("userStatus", { invitationId: pendingInvitationId, status: action.includes("Approve") ? "Accepted" : action.includes("Reactivate") ? "Pending" : "Revoked" }, `${action} workflow saved to the audit trail.`, "Users")} type="button">
+                  <button key={action} disabled={!pendingInvitationId} className="flex h-11 items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700 hover:border-sky-200 hover:bg-sky-50 hover:text-sky-800 disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void persistWorkflow("userStatus", { invitationId: pendingInvitationId, status: action.includes("Approve") ? "Accepted" : action.includes("Reactivate") ? "Pending" : "Revoked" }, `${action} workflow saved to the audit trail.`, "Team & Roles")} type="button">
                     {action}
                     <UserCheck size={16} />
                   </button>
@@ -4257,7 +4288,7 @@ export default function Home() {
                   ["Upload Form", UploadCloud],
                   ["Enter Result", BadgeCheck],
                 ].map(([label, Icon]) => (
-                  <button key={String(label)} className="flex min-h-14 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-left text-sm font-bold text-slate-800 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-800" onClick={() => void persistWorkflow(String(label) === "Enter Result" ? "result" : String(label) === "Submit Turnout" ? "result" : "supportTicket", String(label) === "Enter Result" || String(label) === "Submit Turnout" ? { candidateName: campaign.candidateName, votes: 0, totalVotes: 0, rejectedVotes: 0 } : { title: String(label), description: "Election operation action from mobile agent panel.", priority: String(label).includes("Incident") ? "Critical" : "Medium" }, `${String(label)} workflow saved.`, "Election Operations")} type="button">
+                  <button key={String(label)} className="flex min-h-14 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-left text-sm font-bold text-slate-800 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-800" onClick={() => void persistWorkflow(String(label) === "Enter Result" ? "result" : String(label) === "Submit Turnout" ? "result" : "supportTicket", String(label) === "Enter Result" || String(label) === "Submit Turnout" ? { candidateName: campaign.candidateName, votes: 0, totalVotes: 0, rejectedVotes: 0 } : { title: String(label), description: "Election operation action from mobile agent panel.", priority: String(label).includes("Incident") ? "Critical" : "Medium" }, `${String(label)} workflow saved.`, "Polling Agents")} type="button">
                     <span className="grid h-9 w-9 place-items-center rounded-lg bg-white text-sky-700 shadow-sm">
                       <Icon size={18} />
                     </span>
@@ -5432,7 +5463,7 @@ export default function Home() {
                   ["Complete Task", CheckCircle2],
                   ["Report Intelligence", Radio],
                 ].map(([label, Icon]) => (
-                  <button key={String(label)} className="flex min-h-20 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-left text-sm font-bold text-slate-800 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-800" onClick={() => void persistWorkflow(String(label) === "Register Supporter" ? "supporter" : String(label) === "Submit Issue" ? "issue" : String(label) === "Submit Field Visit" ? "fieldVisit" : String(label) === "Complete Task" ? "task" : String(label) === "Report Intelligence" ? "supportTicket" : "supportTicket", String(label) === "Register Supporter" ? { fullName: "New supporter", phoneNumber: `+2547${Math.floor(10000000 + Math.random() * 89999999)}`, supportLevel: "Unknown", ...selectedLocationPayload, villageName: supporterVillage, pollingStationName: supporterPollingStation, consentToContact: true } : String(label) === "Submit Issue" ? { title: `New ${electiveScopeLabel} community issue`, category: "Other", priority: "Medium", ...selectedLocationPayload, villageName: supporterVillage, pollingStationName: supporterPollingStation } : String(label) === "Submit Field Visit" ? { visitPurpose: `Field activity in ${effectiveFocusArea.label || effectiveSupporterWard || electiveScopeLabel}`, supportersEngaged: 0, ...selectedLocationPayload, villageName: supporterVillage, pollingStationName: supporterPollingStation } : String(label) === "Complete Task" ? { title: `Follow-up task for ${effectiveFocusArea.label || effectiveSupporterWard || electiveScopeLabel}`, dueDate: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10) } : { title: String(label), description: `Submitted from ${electiveScopeLabel} field action panel.`, priority: "Medium" }, `${String(label)} saved for ${effectiveFocusArea.label || effectiveSupporterWard || electiveScopeLabel}.`, "Field Operations")} type="button">
+                  <button key={String(label)} className="flex min-h-20 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-left text-sm font-bold text-slate-800 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-800" onClick={() => void persistWorkflow(String(label) === "Register Supporter" ? "supporter" : String(label) === "Submit Issue" ? "issue" : String(label) === "Submit Field Visit" ? "fieldVisit" : String(label) === "Complete Task" ? "task" : String(label) === "Report Intelligence" ? "supportTicket" : "supportTicket", String(label) === "Register Supporter" ? { fullName: "New supporter", phoneNumber: `+2547${Math.floor(10000000 + Math.random() * 89999999)}`, supportLevel: "Unknown", ...selectedLocationPayload, villageName: supporterVillage, pollingStationName: supporterPollingStation, consentToContact: true } : String(label) === "Submit Issue" ? { title: `New ${electiveScopeLabel} community issue`, category: "Other", priority: "Medium", ...selectedLocationPayload, villageName: supporterVillage, pollingStationName: supporterPollingStation } : String(label) === "Submit Field Visit" ? { visitPurpose: `Field activity in ${effectiveFocusArea.label || effectiveSupporterWard || electiveScopeLabel}`, supportersEngaged: 0, ...selectedLocationPayload, villageName: supporterVillage, pollingStationName: supporterPollingStation } : String(label) === "Complete Task" ? { title: `Follow-up task for ${effectiveFocusArea.label || effectiveSupporterWard || electiveScopeLabel}`, dueDate: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10) } : { title: String(label), description: `Submitted from ${electiveScopeLabel} field action panel.`, priority: "Medium" }, `${String(label)} saved for ${effectiveFocusArea.label || effectiveSupporterWard || electiveScopeLabel}.`, "Tasks & Field Ops")} type="button">
                     <span className="grid h-10 w-10 place-items-center rounded-lg bg-white text-sky-700 shadow-sm">
                       <Icon size={20} />
                     </span>
