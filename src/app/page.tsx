@@ -1286,6 +1286,7 @@ export default function Home() {
   const recommendedSupporterTarget = totalRegisteredVoters ? Math.max(1000, Math.ceil(totalRegisteredVoters * 0.1)) : 0;
   const remainingSupporterTarget = recommendedSupporterTarget ? Math.max(0, recommendedSupporterTarget - totalSupporters) : 0;
   const volunteerRows = liveVolunteers.map((volunteer) => ({
+        id: String(volunteer.id ?? ""),
         name: liveText(volunteer, "full_name", "Volunteer"),
         phoneNumber: liveText(volunteer, "phone_number", ""),
         area: liveText(volunteer, "ward_name", electiveScopeLabel),
@@ -2057,7 +2058,7 @@ export default function Home() {
         });
         resetSupporterForm();
       }
-      if (["communicationRoom", "communicationMessage", "issue", "issueStatus", "fieldVisit", "aiContent", "task", "event", "poll", "pollResponse", "pollAction", "pollStatus"].includes(workflow)) {
+      if (["communicationRoom", "communicationMessage", "issue", "issueStatus", "fieldVisit", "aiContent", "task", "event", "poll", "pollResponse", "pollAction", "pollStatus", "volunteerStatus"].includes(workflow)) {
         await refreshWorkspace();
       }
       runAction(successMessage, sectionLabel);
@@ -5391,11 +5392,12 @@ export default function Home() {
                       <th className="px-4 py-3">Supporters</th>
                       <th className="px-4 py-3">Activities</th>
                       <th className="px-4 py-3">Score</th>
+                      <th className="px-4 py-3">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {volunteerRows.map((row) => (
-                        <tr key={row.name} className="hover:bg-slate-50">
+                        <tr key={row.id || row.name} className="hover:bg-slate-50">
                           <td className="px-4 py-3">
                             <p className="font-semibold text-slate-950">{row.name}</p>
                             <p className="text-xs text-slate-500">{row.phoneNumber}</p>
@@ -5406,10 +5408,35 @@ export default function Home() {
                           <td className="px-4 py-3 text-slate-600">{row.supportersRegistered}</td>
                           <td className="px-4 py-3 text-slate-600">{row.activitiesCompleted}</td>
                           <td className="px-4 py-3 font-bold text-sky-700">{row.score}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-wrap gap-2">
+                              {row.status !== "Active" ? (
+                                <button
+                                  className="inline-flex h-8 items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                  disabled={!row.id}
+                                  onClick={() => void persistWorkflow("volunteerStatus", { volunteerId: row.id, status: "Active" }, `${row.name} approved as an active volunteer.`, "Volunteers")}
+                                  type="button"
+                                >
+                                  <CheckCircle2 size={14} />
+                                  Approve
+                                </button>
+                              ) : (
+                                <button
+                                  className="inline-flex h-8 items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 text-xs font-bold text-amber-700 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                  disabled={!row.id}
+                                  onClick={() => void persistWorkflow("volunteerStatus", { volunteerId: row.id, status: "Suspended" }, `${row.name} suspended.`, "Volunteers")}
+                                  type="button"
+                                >
+                                  <X size={14} />
+                                  Suspend
+                                </button>
+                              )}
+                            </div>
+                          </td>
                         </tr>
                     ))}
                     {volunteerRows.length === 0 ? (
-                      <tr><td className="px-4 py-6 text-center text-sm font-semibold text-slate-500" colSpan={7}>No volunteers have been invited or created yet.</td></tr>
+                      <tr><td className="px-4 py-6 text-center text-sm font-semibold text-slate-500" colSpan={8}>No volunteers have been invited or created yet.</td></tr>
                     ) : null}
                   </tbody>
                 </table>

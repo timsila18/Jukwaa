@@ -27,6 +27,10 @@ const workflowSchemas = {
     email: z.string().trim().email().optional().or(z.literal("")),
     notes: z.string().trim().optional().or(z.literal("")),
   }),
+  volunteerStatus: z.object({
+    volunteerId: z.string().uuid(),
+    status: z.enum(["Active", "Inactive", "Suspended", "Pending Approval"]),
+  }),
   task: z.object({
     title: z.string().trim().min(2),
     description: z.string().trim().optional().or(z.literal("")),
@@ -195,6 +199,7 @@ type WorkflowName = keyof typeof workflowSchemas;
 const workflowRoles: Record<WorkflowName, string[]> = {
   supporter: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Village Coordinator", "Volunteer", "Polling Agent", "Data Clerk", "Admin"],
   volunteer: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Admin"],
+  volunteerStatus: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Admin"],
   task: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Admin"],
   pollingAgent: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Admin"],
   supporterRole: ["Candidate", "Campaign Manager", "Constituency Coordinator", "Ward Coordinator", "Admin"],
@@ -479,6 +484,30 @@ export async function POST(request: Request, context: { params: Promise<{ workfl
       status: "Active",
       notes: data.notes || null,
     };
+  }
+
+  if (name === "volunteerStatus") {
+    const data = parsed.data as z.infer<typeof workflowSchemas.volunteerStatus>;
+    const { data: updated, error } = await supabase
+      .from("volunteers")
+      .update({ status: data.status })
+      .eq("id", data.volunteerId)
+      .eq("tenant_id", workspace.tenantId)
+      .eq("candidate_id", workspace.candidateId)
+      .select("id, full_name, status")
+      .single();
+    if (error || !updated) {
+      return NextResponse.json({ error: "Could not update volunteer status.", detail: error?.message }, { status: 500 });
+    }
+    await writeAudit({
+      tenantId: workspace.tenantId,
+      candidateId: workspace.candidateId,
+      action: "Update",
+      module: "Volunteer Approval",
+      recordId: updated.id,
+      newValue: data,
+    });
+    return NextResponse.json({ id: updated.id, status: data.status });
   }
 
   if (name === "task") {
