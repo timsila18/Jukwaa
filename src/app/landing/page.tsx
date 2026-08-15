@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import type { Metadata } from "next";
 import {
   ArrowRight,
   Brain,
@@ -13,6 +14,14 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { ElectionCountdown } from "@/components/election-countdown";
+
+export const metadata: Metadata = {
+  title: "JUKWAA Kenya Campaign Management Platform",
+  description: "JUKWAA Kenya helps candidates manage supporters, volunteers, polling agents, events, polls, SMS outreach, reports, and campaign strategy from one secure command centre.",
+  alternates: {
+    canonical: "/",
+  },
+};
 
 const features: Array<[string, string, LucideIcon, string]> = [
   ["Coverage Map", "County, constituency, ward, polling station, and local unit awareness for every race.", MapPinned, "cyan"],
@@ -31,8 +40,33 @@ const steps = [
 ];
 
 export default function LandingPage() {
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "JUKWAA Kenya",
+    applicationCategory: "BusinessApplication",
+    operatingSystem: "Web",
+    url: "https://jukwaakenya.co.ke",
+    description: "A secure campaign management platform for Kenyan candidates and campaign teams.",
+    offers: {
+      "@type": "Offer",
+      category: "SaaS",
+      availability: "https://schema.org/InStock",
+    },
+    publisher: {
+      "@type": "Organization",
+      name: "JUKWAA Kenya",
+      url: "https://jukwaakenya.co.ke",
+      logo: "https://jukwaakenya.co.ke/icons/icon-512.png",
+    },
+  };
+
   return (
     <main className="j-landing-page min-h-screen text-white">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
       <header className="mx-auto flex w-full max-w-7xl items-center justify-between px-5 py-5 sm:px-8">
         <Link className="inline-flex items-center gap-3" href="/landing" aria-label="JUKWAA Kenya home">
           <Image src="/jukwaa-logo.png" alt="JUKWAA Kenya" width={220} height={70} priority className="h-12 w-auto object-contain" />

@@ -48,9 +48,14 @@ export function middleware(request: NextRequest) {
     if (path.startsWith("/api/")) {
       return NextResponse.json({ error: "Login required." }, { status: 401 });
     }
+    if (path === "/") {
+      const landingUrl = request.nextUrl.clone();
+      landingUrl.pathname = "/landing";
+      return NextResponse.rewrite(landingUrl);
+    }
     const url = request.nextUrl.clone();
-    url.pathname = path === "/" ? "/landing" : "/login";
-    if (path !== "/") url.searchParams.set("next", path);
+    url.pathname = "/login";
+    url.searchParams.set("next", path);
     return NextResponse.redirect(url);
   }
 

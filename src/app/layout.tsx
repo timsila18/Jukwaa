@@ -14,9 +14,41 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://jukwaakenya.co.ke"),
-  title: "JUKWAA | Where Leadership Meets the People",
-  description: "A multi-tenant political campaign management and intelligence platform.",
+  title: {
+    default: "JUKWAA Kenya | Campaign Management Platform",
+    template: "%s | JUKWAA Kenya",
+  },
+  description: "JUKWAA Kenya is a secure campaign command platform for Kenyan candidates, teams, supporters, polling agents, events, voter pulse, SMS outreach, reports, and AI strategy.",
+  applicationName: "JUKWAA Kenya",
+  authors: [{ name: "JUKWAA Kenya" }],
+  creator: "JUKWAA Kenya",
+  publisher: "JUKWAA Kenya",
+  keywords: [
+    "JUKWAA Kenya",
+    "Jukwaa",
+    "Kenya campaign management platform",
+    "political campaign software Kenya",
+    "campaign command centre",
+    "candidate management Kenya",
+    "polling agent management",
+    "supporter CRM Kenya",
+    "campaign SMS Kenya",
+  ],
+  alternates: {
+    canonical: "/",
+  },
   manifest: "/manifest.webmanifest",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
@@ -31,8 +63,24 @@ export const metadata: Metadata = {
     ],
   },
   openGraph: {
-    title: "JUKWAA",
-    description: "Where Leadership Meets the People",
+    type: "website",
+    url: "https://jukwaakenya.co.ke",
+    siteName: "JUKWAA Kenya",
+    title: "JUKWAA Kenya | Where Leadership Meets the People",
+    description: "Secure campaign management for Kenyan candidates, campaign teams, polling agents, voter pulse, SMS outreach, reports, and AI strategy.",
+    images: [
+      {
+        url: "/jukwaa-logo.png",
+        width: 1600,
+        height: 900,
+        alt: "JUKWAA Kenya",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "JUKWAA Kenya | Campaign Management Platform",
+    description: "Where leadership meets the people. A secure campaign command platform for Kenyan candidates and teams.",
     images: ["/jukwaa-logo.png"],
   },
 };
