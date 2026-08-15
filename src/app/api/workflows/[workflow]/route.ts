@@ -476,7 +476,7 @@ export async function POST(request: Request, context: { params: Promise<{ workfl
       phone_number: data.phoneNumber,
       email: data.email || null,
       recruitment_source: "Dashboard",
-      status: "Pending Approval",
+      status: "Active",
       notes: data.notes || null,
     };
   }
@@ -975,9 +975,30 @@ export async function POST(request: Request, context: { params: Promise<{ workfl
       .eq("id", data.invitationId)
       .eq("tenant_id", workspace.tenantId)
       .eq("candidate_id", workspace.candidateId)
-      .select("id")
+      .select("id, role, invited_phone, invited_email")
       .single();
     if (error || !updated) return NextResponse.json({ error: "Could not update invitation.", detail: error?.message }, { status: 500 });
+    const volunteerStatus = data.status === "Accepted" ? "Active" : data.status === "Pending" ? "Pending Approval" : "Inactive";
+    const agentStatus = data.status === "Accepted" ? "Active" : data.status === "Pending" ? "Assigned" : "Offline";
+    if (updated.role === "Volunteer" && (updated.invited_phone || updated.invited_email)) {
+      let volunteerUpdate = supabase
+        .from("volunteers")
+        .update({ status: volunteerStatus })
+        .eq("tenant_id", workspace.tenantId)
+        .eq("candidate_id", workspace.candidateId);
+      volunteerUpdate = updated.invited_phone
+        ? volunteerUpdate.eq("phone_number", updated.invited_phone)
+        : volunteerUpdate.eq("email", updated.invited_email);
+      await volunteerUpdate;
+    }
+    if (updated.role === "Polling Agent" && updated.invited_phone) {
+      await supabase
+        .from("polling_agents")
+        .update({ status: agentStatus })
+        .eq("tenant_id", workspace.tenantId)
+        .eq("candidate_id", workspace.candidateId)
+        .eq("phone_number", updated.invited_phone);
+    }
     await writeAudit({ tenantId: workspace.tenantId, candidateId: workspace.candidateId, action: "Update", module: "User Approval", recordId: updated.id, newValue: data });
     return NextResponse.json({ id: updated.id, status: data.status });
   }

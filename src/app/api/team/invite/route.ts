@@ -50,8 +50,8 @@ export async function POST(request: Request) {
       phone_number: parsed.data.phoneNumber,
       email: parsed.data.email || null,
       recruitment_source: "Team invitation",
-      status: "Pending Approval",
-    }, { onConflict: "tenant_id,phone_number", ignoreDuplicates: true });
+      status: "Active",
+    }, { onConflict: "tenant_id,phone_number" });
     if (volunteerError) return NextResponse.json({ error: "Invitation was created, but the volunteer profile could not be provisioned.", detail: volunteerError.message }, { status: 500 });
   }
 

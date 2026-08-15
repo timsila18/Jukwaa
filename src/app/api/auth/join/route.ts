@@ -220,6 +220,27 @@ export async function POST(request: Request) {
   }
 
   await admin.from("invitations").update({ status: "Accepted" }).eq("id", invitation.id);
+  if (invitation.role === "Volunteer") {
+    let volunteerUpdate = admin
+      .from("volunteers")
+      .update({ status: "Active" })
+      .eq("tenant_id", invitation.tenant_id)
+      .eq("candidate_id", invitation.candidate_id);
+    if (invitation.invited_phone) {
+      volunteerUpdate = volunteerUpdate.eq("phone_number", invitation.invited_phone);
+    } else if (invitation.invited_email) {
+      volunteerUpdate = volunteerUpdate.eq("email", invitation.invited_email);
+    }
+    await volunteerUpdate;
+  }
+  if (invitation.role === "Polling Agent" && invitation.invited_phone) {
+    await admin
+      .from("polling_agents")
+      .update({ status: "Active" })
+      .eq("tenant_id", invitation.tenant_id)
+      .eq("candidate_id", invitation.candidate_id)
+      .eq("phone_number", invitation.invited_phone);
+  }
   await admin.from("login_history").insert({
     tenant_id: invitation.tenant_id,
     candidate_id: invitation.candidate_id,
